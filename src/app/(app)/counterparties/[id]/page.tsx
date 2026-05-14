@@ -1,0 +1,42 @@
+import { notFound } from 'next/navigation'
+import { CounterpartyForm } from '@/components/counterparties/counterparty-form'
+import { getCounterpartyById } from '@/server/queries/counterparties'
+
+export default async function EditCounterpartyPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  const cp = await getCounterpartyById(id)
+  if (!cp) notFound()
+  return (
+    <div>
+      <div className="border-b px-6 py-4">
+        <h1 className="text-xl font-semibold">거래처 수정</h1>
+        <p className="text-sm text-zinc-500">{cp.name}</p>
+      </div>
+      <CounterpartyForm
+        initial={{
+          id: cp.id,
+          name: cp.name,
+          businessNo: cp.businessNo,
+          ceo: cp.ceo,
+          address: cp.address,
+          businessType: cp.businessType,
+          businessCategory: cp.businessCategory,
+          phone: cp.phone,
+          email: cp.email,
+          contactPerson: cp.contactPerson,
+          bankAccountRaw: cp.bankAccountRaw,
+          accountHolder: cp.accountHolder,
+          officialFeeRate: cp.officialFeeRate,
+          unofficialFeeRate: cp.unofficialFeeRate,
+          paymentTerm: cp.paymentTerm,
+          memo: cp.memo,
+          roleTags: cp.roleTags,
+        }}
+      />
+    </div>
+  )
+}
