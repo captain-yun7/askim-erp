@@ -4,6 +4,8 @@ import { Plus } from 'lucide-react'
 import { db } from '@/lib/db/client'
 import { counterparty } from '@/lib/db/schema'
 import { buttonVariants } from '@/components/ui/button'
+import { CsvExportButton } from '@/components/csv-export-button'
+import { exportCounterpartiesCsv } from '@/server/actions/export'
 import {
   Table,
   TableBody,
@@ -76,9 +78,18 @@ export default async function CounterpartiesPage({
             매체사·광고주·대행사 통합 마스터
           </p>
         </div>
-        <Link href="/counterparties/new" className={cn(buttonVariants(), 'gap-1.5')}>
-          <Plus className="size-4" />새 거래처
-        </Link>
+        <div className="flex items-center gap-2">
+          <CsvExportButton
+            action={exportCounterpartiesCsv}
+            filters={{ q, role, noBiz: Boolean(noBiz) }}
+          />
+          <Link
+            href="/counterparties/new"
+            className={cn(buttonVariants(), 'gap-1.5')}
+          >
+            <Plus className="size-4" />새 거래처
+          </Link>
+        </div>
       </div>
 
       <section className="mt-5 overflow-hidden rounded-xl border bg-card">

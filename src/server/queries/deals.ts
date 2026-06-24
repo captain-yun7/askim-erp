@@ -24,7 +24,7 @@ export type DealListFilters = {
 
 export async function listDeals(f: DealListFilters = {}) {
   const page = Math.max(1, f.page ?? 1)
-  const pageSize = Math.min(200, Math.max(10, f.pageSize ?? 50))
+  const pageSize = Math.min(5000, Math.max(10, f.pageSize ?? 50))
 
   const conds = [isNull(deal.deletedAt)]
   if (f.year) conds.push(eq(deal.accrualYear, f.year))

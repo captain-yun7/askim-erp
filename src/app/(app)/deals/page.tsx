@@ -11,6 +11,8 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
+import { CsvExportButton } from '@/components/csv-export-button'
+import { exportDealsCsv } from '@/server/actions/export'
 import { DealsTable } from '@/components/deals/deals-table'
 import { DealsFilters } from '@/components/deals/deals-filters'
 import { listDeals } from '@/server/queries/deals'
@@ -51,9 +53,12 @@ export default async function DealsPage({
             매출·매입 통합 거래원장
           </p>
         </div>
-        <Link href="/deals/new" className={cn(buttonVariants(), 'gap-1.5')}>
-          <Plus className="size-4" />새 거래
-        </Link>
+        <div className="flex items-center gap-2">
+          <CsvExportButton action={exportDealsCsv} filters={filters} />
+          <Link href="/deals/new" className={cn(buttonVariants(), 'gap-1.5')}>
+            <Plus className="size-4" />새 거래
+          </Link>
+        </div>
       </div>
 
       <section className="mt-5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
