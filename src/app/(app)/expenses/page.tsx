@@ -1,4 +1,4 @@
-import { desc, eq, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, ilike, isNull, or, sql } from 'drizzle-orm'
 import { Receipt, Wallet } from 'lucide-react'
 import { db } from '@/lib/db/client'
 import { expense, expenseCategory } from '@/lib/db/schema'
@@ -10,6 +10,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { ExpensesFilters } from '@/components/expenses/expenses-filters'
+import { getAllLookups } from '@/server/queries/lookups'
 import { cn } from '@/lib/utils'
 import { formatKRW } from '@/lib/format'
 
@@ -19,10 +21,44 @@ const PAYMENT_LABEL: Record<string, string> = {
   cash: '현금',
 }
 
-export default async function ExpensesPage() {
-  const where = isNull(expense.deletedAt)
+type SP = {
+  q?: string
+  year?: string
+  month?: string
+  categoryId?: string
+  method?: string
+}
 
-  const [rows, [{ total }], [aggr]] = await Promise.all([
+export default async function ExpensesPage({
+  searchParams,
+}: {
+  searchParams: Promise<SP>
+}) {
+  const sp = await searchParams
+  const filters = {
+    q: typeof sp.q === 'string' ? sp.q : undefined,
+    year: sp.year ? parseInt(sp.year, 10) : undefined,
+    month: sp.month ? parseInt(sp.month, 10) : undefined,
+    categoryId: sp.categoryId ? parseInt(sp.categoryId, 10) : undefined,
+    method: typeof sp.method === 'string' ? sp.method : undefined,
+  }
+
+  const conds = [isNull(expense.deletedAt)]
+  if (filters.year) conds.push(eq(expense.year, filters.year))
+  if (filters.month) conds.push(eq(expense.month, filters.month))
+  if (filters.categoryId)
+    conds.push(eq(expense.expenseCategoryId, filters.categoryId))
+  if (filters.method)
+    conds.push(eq(expense.paymentMethod, filters.method as 'corporate_card'))
+  if (filters.q) {
+    const like = `%${filters.q}%`
+    conds.push(
+      or(ilike(expense.itemName, like), ilike(expense.counterpartyText, like))!,
+    )
+  }
+  const where = and(...conds)
+
+  const [rows, [{ total }], [aggr], lookups] = await Promise.all([
     db
       .select({
         id: expense.id,
@@ -43,6 +79,7 @@ export default async function ExpensesPage() {
       .select({ s: sql<string>`coalesce(sum(amount),0)::text` })
       .from(expense)
       .where(where),
+    getAllLookups(),
   ])
 
   return (
@@ -72,6 +109,19 @@ export default async function ExpensesPage() {
       </section>
 
       <section className="mt-5 overflow-hidden rounded-xl border bg-card">
+        <div className="border-b p-4">
+          <ExpensesFilters
+            categories={lookups.expenseCategories}
+            initial={{
+              q: filters.q,
+              year: filters.year,
+              month: filters.month,
+              categoryId: filters.categoryId,
+              method: filters.method,
+            }}
+          />
+        </div>
+
         <div className="flex items-center gap-3.5 border-b px-4 py-2.5 text-[12.5px] text-muted-foreground">
           총 <b className="text-foreground">{total.toLocaleString()}</b>건
           <span>·</span>
