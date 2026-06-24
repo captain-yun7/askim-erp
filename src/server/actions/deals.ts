@@ -45,7 +45,11 @@ const numStrSchema = z
   })
 
 const dealSchema = z.object({
-  dealCode: z.string().trim().min(1, '거래코드 필수').optional(),
+  // 빈값/공백이면 undefined → 저장 시 자동 채번
+  dealCode: z
+    .union([z.string(), z.null()])
+    .transform((v) => (typeof v === 'string' && v.trim() !== '' ? v.trim() : undefined))
+    .optional(),
   accrualYear: z.coerce.number().int().min(2000).max(2100),
   accrualMonth: z.coerce.number().int().min(1).max(12),
   ownerUserId: z.string().uuid().nullable().optional(),

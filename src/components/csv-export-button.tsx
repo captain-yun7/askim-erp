@@ -31,7 +31,9 @@ export function CsvExportButton<F>({
           toast.error(res.error)
           return
         }
-        const blob = new Blob([res.csv], { type: 'text/csv;charset=utf-8' })
+        // 직렬화 과정에서 선두 BOM이 유실될 수 있어 다운로드 시점에 보장 (엑셀 한글 호환)
+        const body = res.csv.replace(/^﻿/, '')
+        const blob = new Blob(['﻿', body], { type: 'text/csv;charset=utf-8' })
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
