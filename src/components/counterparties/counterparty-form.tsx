@@ -76,7 +76,7 @@ export function CounterpartyForm({
   }
 
   return (
-    <div className="p-6">
+    <div className="px-8 py-6">
       <Card>
         <CardContent className="grid gap-4 pt-6 md:grid-cols-2">
           <div className="grid gap-1.5 md:col-span-2">

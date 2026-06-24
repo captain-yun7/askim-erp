@@ -1,4 +1,6 @@
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { ChevronLeft } from 'lucide-react'
 import { DealForm } from '@/components/deals/deal-form'
 import { getDealById } from '@/server/queries/deals'
 import { getCounterpartyById } from '@/server/queries/counterparties'
@@ -22,9 +24,18 @@ export default async function EditDealPage({
 
   return (
     <div>
-      <div className="border-b px-6 py-4">
-        <h1 className="text-xl font-semibold">
-          거래 수정 <span className="font-mono text-base text-zinc-500">{d.dealCode}</span>
+      <div className="border-b px-8 pb-4 pt-6">
+        <Link
+          href="/deals"
+          className="mb-2 inline-flex items-center gap-1 text-[12.5px] text-muted-foreground hover:text-foreground"
+        >
+          <ChevronLeft className="size-3.5" />거래 목록
+        </Link>
+        <h1 className="text-[22px] font-bold tracking-tight">
+          거래 수정{' '}
+          <span className="font-mono text-base font-semibold text-primary">
+            {d.dealCode}
+          </span>
         </h1>
       </div>
       <DealForm

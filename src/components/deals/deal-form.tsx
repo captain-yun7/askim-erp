@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
+import { Coins, Package } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -150,7 +151,7 @@ export function DealForm({
   }
 
   return (
-    <div className="p-6">
+    <div className="px-8 py-6">
       {/* 공통 마스터 */}
       <Card className="mb-4">
         <CardContent className="grid gap-4 pt-6 md:grid-cols-3">
@@ -260,7 +261,12 @@ export function DealForm({
         {/* 매출 (좌) */}
         <Card>
           <CardContent className="pt-6">
-            <h3 className="mb-4 text-base font-semibold">💰 매출</h3>
+            <h3 className="mb-4 flex items-center gap-2 text-base font-semibold">
+              <span className="grid size-[26px] place-items-center rounded-md border border-current/40 bg-accent text-primary">
+                <Coins className="size-[15px]" />
+              </span>
+              매출
+            </h3>
             <div className="grid gap-3">
               <div className="grid gap-1.5">
                 <Label>발행처</Label>
@@ -401,7 +407,12 @@ export function DealForm({
         {/* 매입 (우) */}
         <Card>
           <CardContent className="pt-6">
-            <h3 className="mb-4 text-base font-semibold">📦 매입</h3>
+            <h3 className="mb-4 flex items-center gap-2 text-base font-semibold">
+              <span className="grid size-[26px] place-items-center rounded-md border border-current/40 bg-zinc-100 text-zinc-500">
+                <Package className="size-[15px]" />
+              </span>
+              매입
+            </h3>
             <div className="grid gap-3">
               <div className="grid gap-1.5">
                 <Label>매체사</Label>
@@ -524,7 +535,7 @@ export function DealForm({
           <div>
             <span className="text-zinc-500">손익</span>{' '}
             <b
-              className={profit < 0 ? 'text-red-600' : profit > 0 ? 'text-emerald-700' : ''}
+              className={profit < 0 ? 'text-destructive' : profit > 0 ? 'text-emerald-700' : ''}
             >
               {formatKRW(profit)}
             </b>
