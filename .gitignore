@@ -58,3 +58,6 @@ next-env.d.ts
 
 # OneDrive/문서 심볼릭 (로컬 환경마다 다름)
 # _docs는 커밋 (분석/설계 문서)
+
+# Office 임시 잠금파일
+~$*
