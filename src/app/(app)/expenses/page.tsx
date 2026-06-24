@@ -1,7 +1,9 @@
+import Link from 'next/link'
 import { and, desc, eq, ilike, isNull, or, sql } from 'drizzle-orm'
-import { Receipt, Wallet } from 'lucide-react'
+import { Plus, Receipt, Wallet } from 'lucide-react'
 import { db } from '@/lib/db/client'
 import { expense, expenseCategory } from '@/lib/db/schema'
+import { buttonVariants } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -84,11 +86,16 @@ export default async function ExpensesPage({
 
   return (
     <div className="flex flex-col px-8 pb-8 pt-6">
-      <div>
-        <h1 className="text-[22px] font-bold tracking-tight">판관비</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          법인카드·개인카드·현금 지출
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-[22px] font-bold tracking-tight">판관비</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            법인카드·개인카드·현금 지출
+          </p>
+        </div>
+        <Link href="/expenses/new" className={cn(buttonVariants(), 'gap-1.5')}>
+          <Plus className="size-4" />판관비 입력
+        </Link>
       </div>
 
       <section className="mt-5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
