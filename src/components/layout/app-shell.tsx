@@ -8,6 +8,8 @@ import {
   LayoutDashboard,
   Receipt,
   Settings,
+  TrendingUp,
+  Trophy,
   Users,
   Wallet,
 } from 'lucide-react'
@@ -46,14 +48,17 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
   {
     title: '리포트',
     items: [
-      { href: '/reports', label: '매출·손익', icon: FileBarChart, soon: true },
+      { href: '/reports/ledger', label: '매출장표', icon: FileBarChart },
+      { href: '/reports/pnl', label: '월별 손익', icon: TrendingUp },
+      { href: '/reports/top-counterparties', label: 'TOP 거래처', icon: Trophy },
     ],
   },
-  {
-    title: '관리',
-    items: [{ href: '/admin', label: '사용자·설정', icon: Settings, soon: true }],
-  },
 ]
+
+const ADMIN_SECTION: { title: string; items: NavItem[] } = {
+  title: '관리',
+  items: [{ href: '/admin', label: '사용자·설정', icon: Settings }],
+}
 
 export function AppShell({
   user,
@@ -63,6 +68,8 @@ export function AppShell({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  const sections =
+    user.role === 'admin' ? [...NAV_SECTIONS, ADMIN_SECTION] : NAV_SECTIONS
   return (
     <div className="flex min-h-screen">
       <aside className="hidden w-58 shrink-0 flex-col bg-zinc-900 p-3.5 text-zinc-400 md:flex">
@@ -75,7 +82,7 @@ export function AppShell({
           </span>
         </Link>
         <nav className="flex flex-col gap-4">
-          {NAV_SECTIONS.map((section) => (
+          {sections.map((section) => (
             <div key={section.title} className="flex flex-col gap-0.5">
               <span className="px-3 pb-1 text-[10.5px] font-semibold uppercase tracking-wider text-zinc-600">
                 {section.title}
