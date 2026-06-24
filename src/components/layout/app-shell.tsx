@@ -2,7 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BarChart3, Receipt, Users, Wallet } from 'lucide-react'
+import {
+  BarChart3,
+  FileBarChart,
+  LayoutDashboard,
+  Receipt,
+  Settings,
+  Users,
+  Wallet,
+} from 'lucide-react'
 import { logoutAction } from '@/server/actions/auth'
 import { cn } from '@/lib/utils'
 import {
@@ -14,10 +22,37 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
-const NAV = [
-  { href: '/deals', label: '거래', icon: Receipt },
-  { href: '/counterparties', label: '거래처', icon: Users },
-  { href: '/expenses', label: '판관비', icon: Wallet },
+type NavItem = {
+  href: string
+  label: string
+  icon: typeof Receipt
+  exact?: boolean
+  soon?: boolean
+}
+
+const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
+  {
+    title: '메인',
+    items: [{ href: '/', label: '대시보드', icon: LayoutDashboard, exact: true }],
+  },
+  {
+    title: '영업',
+    items: [
+      { href: '/deals', label: '거래', icon: Receipt },
+      { href: '/counterparties', label: '거래처', icon: Users },
+      { href: '/expenses', label: '판관비', icon: Wallet },
+    ],
+  },
+  {
+    title: '리포트',
+    items: [
+      { href: '/reports', label: '매출·손익', icon: FileBarChart, soon: true },
+    ],
+  },
+  {
+    title: '관리',
+    items: [{ href: '/admin', label: '사용자·설정', icon: Settings, soon: true }],
+  },
 ]
 
 export function AppShell({
@@ -39,26 +74,49 @@ export function AppShell({
             에스킴 ERP
           </span>
         </Link>
-        <nav className="flex flex-col gap-0.5">
-          {NAV.map((item) => {
-            const active = pathname.startsWith(item.href)
-            const Icon = item.icon
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                  active
-                    ? 'bg-zinc-800 font-semibold text-white'
-                    : 'hover:bg-zinc-800 hover:text-white',
-                )}
-              >
-                <Icon className="size-[17px]" />
-                {item.label}
-              </Link>
-            )
-          })}
+        <nav className="flex flex-col gap-4">
+          {NAV_SECTIONS.map((section) => (
+            <div key={section.title} className="flex flex-col gap-0.5">
+              <span className="px-3 pb-1 text-[10.5px] font-semibold uppercase tracking-wider text-zinc-600">
+                {section.title}
+              </span>
+              {section.items.map((item) => {
+                const Icon = item.icon
+                if (item.soon) {
+                  return (
+                    <span
+                      key={item.href}
+                      className="flex cursor-default items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-600"
+                    >
+                      <Icon className="size-[17px]" />
+                      {item.label}
+                      <span className="ml-auto rounded bg-zinc-800 px-1.5 py-0.5 text-[9.5px] font-semibold text-zinc-500">
+                        준비중
+                      </span>
+                    </span>
+                  )
+                }
+                const active = item.exact
+                  ? pathname === item.href
+                  : pathname.startsWith(item.href)
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      'flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                      active
+                        ? 'bg-zinc-800 font-semibold text-white'
+                        : 'hover:bg-zinc-800 hover:text-white',
+                    )}
+                  >
+                    <Icon className="size-[17px]" />
+                    {item.label}
+                  </Link>
+                )
+              })}
+            </div>
+          ))}
         </nav>
         <div className="mt-auto border-t border-zinc-700 pt-2">
           <DropdownMenu>
