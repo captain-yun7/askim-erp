@@ -27,8 +27,10 @@ export async function getTopCounterparties(
   const conds = [isNull(deal.deletedAt), isNotNull(deal.issuerCounterpartyId)]
   if (f.year) conds.push(eq(deal.accrualYear, f.year))
 
-  const salesExpr = sql<string>`coalesce(sum(${deal.salesAmountNet}), 0)::text`
-  const profitExpr = sql<string>`coalesce(sum(${deal.profit}), 0)::text`
+  const salesSum = sql`coalesce(sum(${deal.salesAmountNet}), 0)`
+  const profitSum = sql`coalesce(sum(${deal.profit}), 0)`
+  const salesExpr = sql<string>`${salesSum}::text`
+  const profitExpr = sql<string>`${profitSum}::text`
 
   const rows = await db
     .select({
@@ -42,7 +44,8 @@ export async function getTopCounterparties(
     .leftJoin(counterparty, eq(counterparty.id, deal.issuerCounterpartyId))
     .where(and(...conds))
     .groupBy(deal.issuerCounterpartyId, counterparty.name)
-    .orderBy(desc(sort === 'profit' ? profitExpr : salesExpr))
+    // 숫자 합계로 정렬 (text 캐스팅 정렬 시 사전식 오정렬 방지)
+    .orderBy(desc(sort === 'profit' ? profitSum : salesSum))
     .limit(limit)
 
   return rows.map((r) => ({
