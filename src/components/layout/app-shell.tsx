@@ -140,6 +140,8 @@ export function AppShell({
             <DropdownMenuContent align="start" className="w-48">
               <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem render={<Link href="/profile">내 프로필</Link>} />
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => logoutAction()}>
                 로그아웃
               </DropdownMenuItem>

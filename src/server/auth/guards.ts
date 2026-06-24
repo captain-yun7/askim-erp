@@ -14,6 +14,7 @@ export type SessionUser = {
   id: string
   role: Role
   name?: string
+  email?: string
   team?: string
 }
 
@@ -25,6 +26,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     id: session.user.id,
     role: (session.user.role as Role) ?? 'viewer',
     name: session.user.name ?? undefined,
+    email: session.user.email ?? undefined,
     team: session.user.team,
   }
 }
