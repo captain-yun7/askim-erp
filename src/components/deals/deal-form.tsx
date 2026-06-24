@@ -38,9 +38,11 @@ type Initial = Partial<DealInput> & {
 export function DealForm({
   lookups,
   initial,
+  readOnly = false,
 }: {
   lookups: Lookups
   initial?: Initial
+  readOnly?: boolean
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -152,6 +154,12 @@ export function DealForm({
 
   return (
     <div className="px-8 py-6">
+      {readOnly && (
+        <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+          🔒 완료(closed) 거래는 읽기 전용입니다. 수정은 회계 담당자에게 요청하세요.
+        </div>
+      )}
+      <fieldset disabled={readOnly} className="contents">
       {/* 공통 마스터 */}
       <Card className="mb-4">
         <CardContent className="grid gap-4 pt-6 md:grid-cols-3">
@@ -574,6 +582,7 @@ export function DealForm({
           </Button>
         </div>
       </div>
+      </fieldset>
 
       {createState && (
         <CounterpartyQuickCreate

@@ -5,6 +5,7 @@ import { DealForm } from '@/components/deals/deal-form'
 import { getDealById } from '@/server/queries/deals'
 import { getCounterpartyById } from '@/server/queries/counterparties'
 import { getAllLookups } from '@/server/queries/lookups'
+import { canEditDeal, getSessionUser } from '@/server/auth/guards'
 
 export default async function EditDealPage({
   params,
@@ -15,12 +16,15 @@ export default async function EditDealPage({
   const d = await getDealById(id)
   if (!d) notFound()
 
-  const [lookups, issuer, advertiser, supplier] = await Promise.all([
+  const [lookups, issuer, advertiser, supplier, user] = await Promise.all([
     getAllLookups(),
     d.issuerCounterpartyId ? getCounterpartyById(d.issuerCounterpartyId) : null,
     d.advertiserCounterpartyId ? getCounterpartyById(d.advertiserCounterpartyId) : null,
     d.supplierCounterpartyId ? getCounterpartyById(d.supplierCounterpartyId) : null,
+    getSessionUser(),
   ])
+
+  const readOnly = !user || !canEditDeal(user, d)
 
   return (
     <div>
@@ -40,6 +44,7 @@ export default async function EditDealPage({
       </div>
       <DealForm
         lookups={lookups}
+        readOnly={readOnly}
         initial={
           {
             ...d,
