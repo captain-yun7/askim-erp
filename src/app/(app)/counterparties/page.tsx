@@ -1,6 +1,6 @@
 import Link from 'next/link'
-import { and, asc, eq, ilike, isNull, sql } from 'drizzle-orm'
-import { Plus, Search } from 'lucide-react'
+import { and, asc, eq, ilike, isNull, or, sql } from 'drizzle-orm'
+import { Plus } from 'lucide-react'
 import { db } from '@/lib/db/client'
 import { counterparty } from '@/lib/db/schema'
 import { buttonVariants } from '@/components/ui/button'
@@ -12,17 +12,39 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Input } from '@/components/ui/input'
+import { CounterpartiesFilters } from '@/components/counterparties/counterparties-filters'
 import { cn } from '@/lib/utils'
+
+const ROLE_LABEL: Record<string, string> = {
+  media: '매체사',
+  advertiser: '광고주',
+  agency: '대행사',
+  expense_vendor: '지출처',
+}
 
 export default async function CounterpartiesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>
+  searchParams: Promise<{ q?: string; role?: string; noBiz?: string }>
 }) {
-  const { q } = await searchParams
+  const { q, role, noBiz } = await searchParams
   const conds = [isNull(counterparty.deletedAt), eq(counterparty.isActive, true)]
-  if (q) conds.push(ilike(counterparty.name, `%${q}%`))
+  if (q)
+    conds.push(
+      or(
+        ilike(counterparty.name, `%${q}%`),
+        ilike(counterparty.businessNo, `%${q}%`),
+      )!,
+    )
+  if (role)
+    conds.push(sql`${counterparty.roleTags} @> ARRAY[${role}]::text[]`)
+  if (noBiz)
+    conds.push(
+      or(
+        isNull(counterparty.businessNo),
+        eq(counterparty.businessNo, ''),
+      )!,
+    )
 
   const [rows, [{ total }]] = await Promise.all([
     db
@@ -30,7 +52,7 @@ export default async function CounterpartiesPage({
         id: counterparty.id,
         name: counterparty.name,
         businessNo: counterparty.businessNo,
-        businessCategory: counterparty.businessCategory,
+        roleTags: counterparty.roleTags,
         paymentTerm: counterparty.paymentTerm,
         officialFeeRate: counterparty.officialFeeRate,
         memo: counterparty.memo,
@@ -60,17 +82,9 @@ export default async function CounterpartiesPage({
       </div>
 
       <section className="mt-5 overflow-hidden rounded-xl border bg-card">
-        <form className="border-b p-4">
-          <div className="relative min-w-56 max-w-sm">
-            <Search className="absolute left-3 top-1/2 size-[15px] -translate-y-1/2 text-muted-foreground" />
-            <Input
-              name="q"
-              defaultValue={q ?? ''}
-              placeholder="상호명, 사업자번호 검색..."
-              className="h-9 rounded-lg pl-9"
-            />
-          </div>
-        </form>
+        <div className="border-b p-4">
+          <CounterpartiesFilters initial={{ q, role, noBiz: Boolean(noBiz) }} />
+        </div>
 
         <div className="flex items-center gap-3.5 border-b px-4 py-2.5 text-[12.5px] text-muted-foreground">
           총 <b className="text-foreground">{total.toLocaleString()}</b>건
@@ -83,7 +97,7 @@ export default async function CounterpartiesPage({
               <TableRow className="hover:bg-transparent">
                 <TableHead>상호명</TableHead>
                 <TableHead>사업자번호</TableHead>
-                <TableHead>종목</TableHead>
+                <TableHead>역할</TableHead>
                 <TableHead className="text-right">수수료</TableHead>
                 <TableHead>결제일</TableHead>
                 <TableHead>비고</TableHead>
@@ -104,9 +118,16 @@ export default async function CounterpartiesPage({
                     {r.businessNo ?? '-'}
                   </TableCell>
                   <TableCell>
-                    {r.businessCategory ? (
-                      <span className="inline-flex rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold text-primary">
-                        {r.businessCategory}
+                    {r.roleTags.length > 0 ? (
+                      <span className="flex flex-wrap gap-1">
+                        {r.roleTags.map((t) => (
+                          <span
+                            key={t}
+                            className="inline-flex rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold text-primary"
+                          >
+                            {ROLE_LABEL[t] ?? t}
+                          </span>
+                        ))}
                       </span>
                     ) : (
                       <span className="text-xs text-muted-foreground">-</span>
