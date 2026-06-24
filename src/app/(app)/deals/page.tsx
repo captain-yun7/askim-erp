@@ -1,10 +1,22 @@
 import Link from 'next/link'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Database,
+  Minus,
+  Plus,
+  ShoppingCart,
+  TrendingDown,
+  TrendingUp,
+} from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { DealsTable } from '@/components/deals/deals-table'
 import { DealsFilters } from '@/components/deals/deals-filters'
 import { listDeals } from '@/server/queries/deals'
 import { getAllLookups } from '@/server/queries/lookups'
-import { formatKRWShort } from '@/lib/format'
+import { cn } from '@/lib/utils'
+import { formatKRW, formatKRWShort } from '@/lib/format'
 
 type SP = { [k: string]: string | string[] | undefined }
 
@@ -24,92 +36,248 @@ export default async function DealsPage({
     page: sp.page ? parseInt(String(sp.page), 10) : 1,
   }
 
-  const [{ rows, total, page, pageSize, aggregate }, lookups] = await Promise.all([
-    listDeals(filters),
-    getAllLookups(),
-  ])
+  const [{ rows, total, page, pageSize, aggregate, prevAggregate }, lookups] =
+    await Promise.all([listDeals(filters), getAllLookups()])
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const margin = aggregate.sales > 0 ? (aggregate.profit / aggregate.sales) * 100 : 0
 
   return (
-    <div className="flex flex-col">
-      <div className="flex items-center justify-between border-b px-6 py-4">
+    <div className="flex flex-col px-8 pb-8 pt-6">
+      <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-semibold">거래</h1>
-          <p className="text-sm text-zinc-500">매출·매입 통합 거래원장</p>
+          <h1 className="text-[22px] font-bold tracking-tight">거래</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            매출·매입 통합 거래원장
+          </p>
         </div>
-        <Link href="/deals/new" className={buttonVariants()}>
-          + 새 거래
+        <Link href="/deals/new" className={cn(buttonVariants(), 'gap-1.5')}>
+          <Plus className="size-4" />새 거래
         </Link>
       </div>
 
-      <div className="border-b px-6 py-3">
-        <DealsFilters
-          categories={lookups.categories}
-          users={lookups.users}
-          initial={{
-            q: filters.q,
-            year: filters.year,
-            month: filters.month,
-            categoryId: filters.categoryId,
-            ownerUserId: filters.ownerUserId,
-            paid: filters.paidStatus,
-          }}
+      <section className="mt-5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <SummaryCard
+          icon={<Database className="size-[15px]" />}
+          tone="primary"
+          label="매출 합계"
+          value={`₩ ${formatKRW(aggregate.sales)}`}
+          sub={
+            prevAggregate ? (
+              <Delta current={aggregate.sales} prev={prevAggregate.sales} />
+            ) : (
+              <>매출 기준 총액</>
+            )
+          }
         />
-      </div>
+        <SummaryCard
+          icon={<ShoppingCart className="size-[15px]" />}
+          tone="muted"
+          label="매입 합계"
+          value={`₩ ${formatKRW(aggregate.purchase)}`}
+          sub={
+            prevAggregate ? (
+              <Delta current={aggregate.purchase} prev={prevAggregate.purchase} />
+            ) : (
+              <>원가 기준 총액</>
+            )
+          }
+        />
+        <SummaryCard
+          icon={<TrendingUp className="size-[15px]" />}
+          tone="ok"
+          label="손익"
+          value={`₩ ${formatKRW(aggregate.profit)}`}
+          valueClass={aggregate.profit < 0 ? 'text-destructive' : 'text-emerald-700'}
+          sub={
+            <>
+              마진율 <b className="font-semibold text-foreground">{margin.toFixed(1)}%</b>
+            </>
+          }
+        />
+        <SummaryCard
+          icon={<Clock className="size-[15px]" />}
+          tone="warn"
+          label="미입금"
+          value={`${aggregate.unpaidCount.toLocaleString()}건`}
+          sub={
+            <>
+              <span className="font-semibold text-destructive">
+                ₩ {formatKRW(aggregate.unpaidAmount)}
+              </span>{' '}
+              회수 대기
+            </>
+          }
+        />
+      </section>
 
-      <div className="flex items-center justify-between border-b bg-zinc-50 px-6 py-2 text-sm">
-        <div className="text-zinc-600">
-          총 <b className="text-zinc-900">{total.toLocaleString()}</b>건
+      <section className="mt-5 overflow-hidden rounded-xl border bg-card">
+        <div className="border-b p-4">
+          <DealsFilters
+            categories={lookups.categories}
+            users={lookups.users}
+            initial={{
+              q: filters.q,
+              year: filters.year,
+              month: filters.month,
+              categoryId: filters.categoryId,
+              ownerUserId: filters.ownerUserId,
+              paid: filters.paidStatus,
+            }}
+          />
         </div>
-        <div className="flex gap-4 text-zinc-700">
-          <span>
-            매출 <b>{formatKRWShort(aggregate.sales)}</b>
-          </span>
-          <span>
-            매입 <b>{formatKRWShort(aggregate.purchase)}</b>
-          </span>
-          <span>
-            손익{' '}
-            <b className={aggregate.profit < 0 ? 'text-red-600' : 'text-emerald-700'}>
-              {formatKRWShort(aggregate.profit)}
-            </b>
-          </span>
-        </div>
-      </div>
 
-      <DealsTable rows={rows} />
+        <div className="flex items-center gap-3.5 border-b px-4 py-2.5 text-[12.5px] text-muted-foreground">
+          총 <b className="text-foreground">{total.toLocaleString()}</b>건
+          <span>·</span>
+          매출 <b className="text-foreground">₩{formatKRWShort(aggregate.sales)}</b>
+          <span>·</span>
+          매입 <b className="text-foreground">₩{formatKRWShort(aggregate.purchase)}</b>
+          <span>·</span>
+          손익{' '}
+          <b className={aggregate.profit < 0 ? 'text-destructive' : 'text-emerald-700'}>
+            ₩{formatKRWShort(aggregate.profit)}
+          </b>
+        </div>
 
-      <div className="flex items-center justify-between border-t px-6 py-3 text-sm">
-        <div className="text-zinc-500">
-          {page} / {totalPages} 페이지
+        <DealsTable rows={rows} />
+
+        <div className="flex items-center justify-between px-4 py-3 text-xs text-muted-foreground">
+          <span>
+            {total.toLocaleString()}건 중 {(page - 1) * pageSize + 1}–
+            {Math.min(page * pageSize, total)} 표시
+          </span>
+          <div className="flex gap-1">
+            <PageBtn page={page - 1} filters={sp} disabled={page <= 1}>
+              <ChevronLeft className="size-3.5" />
+            </PageBtn>
+            {pageItems(page, totalPages).map((p, i) =>
+              p === 'gap' ? (
+                <span key={`gap-${i}`} className="grid size-7 place-items-center">
+                  …
+                </span>
+              ) : (
+                <PageBtn key={p} page={p} filters={sp} active={p === page}>
+                  {p}
+                </PageBtn>
+              ),
+            )}
+            <PageBtn page={page + 1} filters={sp} disabled={page >= totalPages}>
+              <ChevronRight className="size-3.5" />
+            </PageBtn>
+          </div>
         </div>
-        <div className="flex gap-2">
-          {page > 1 && (
-            <PaginationLink page={page - 1} filters={sp}>
-              이전
-            </PaginationLink>
-          )}
-          {page < totalPages && (
-            <PaginationLink page={page + 1} filters={sp}>
-              다음
-            </PaginationLink>
-          )}
-        </div>
-      </div>
+      </section>
     </div>
   )
 }
 
-function PaginationLink({
+const TONE = {
+  primary: 'bg-accent text-primary',
+  muted: 'bg-zinc-100 text-zinc-500',
+  ok: 'bg-emerald-50 text-emerald-700',
+  warn: 'bg-amber-50 text-amber-700',
+} as const
+
+function SummaryCard({
+  icon,
+  tone,
+  label,
+  value,
+  valueClass,
+  sub,
+}: {
+  icon: React.ReactNode
+  tone: keyof typeof TONE
+  label: string
+  value: string
+  valueClass?: string
+  sub: React.ReactNode
+}) {
+  return (
+    <div className="rounded-xl border bg-card p-4">
+      <div className="flex items-center gap-2.5 text-xs font-medium text-muted-foreground">
+        <span
+          className={cn(
+            'grid size-[26px] place-items-center rounded-md border border-current/40',
+            TONE[tone],
+          )}
+        >
+          {icon}
+        </span>
+        {label}
+      </div>
+      <div className={cn('mt-3 text-[23px] font-bold tracking-tight tabular-nums', valueClass)}>
+        {value}
+      </div>
+      <div className="mt-1.5 text-[11.5px] text-muted-foreground">{sub}</div>
+    </div>
+  )
+}
+
+function Delta({ current, prev }: { current: number; prev: number }) {
+  if (prev <= 0) {
+    return (
+      <>
+        전월 대비{' '}
+        <span className="font-semibold text-foreground">
+          {current > 0 ? '신규' : '—'}
+        </span>
+      </>
+    )
+  }
+  const pct = ((current - prev) / prev) * 100
+  const flat = Math.abs(pct) < 0.05
+  const up = pct > 0
+  const Icon = flat ? Minus : up ? TrendingUp : TrendingDown
+  const color = flat
+    ? 'text-muted-foreground'
+    : up
+      ? 'text-emerald-700'
+      : 'text-destructive'
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className={cn('inline-flex items-center gap-0.5 font-semibold', color)}>
+        <Icon className="size-3" />
+        {Math.abs(pct).toFixed(1)}%
+      </span>
+      <span className="text-muted-foreground">전월 대비</span>
+    </span>
+  )
+}
+
+function pageItems(page: number, total: number): (number | 'gap')[] {
+  const set = new Set([1, total, page, page - 1, page + 1])
+  const nums = [...set].filter((n) => n >= 1 && n <= total).sort((a, b) => a - b)
+  const out: (number | 'gap')[] = []
+  let prev = 0
+  for (const n of nums) {
+    if (n - prev > 1) out.push('gap')
+    out.push(n)
+    prev = n
+  }
+  return out
+}
+
+function PageBtn({
   page,
   filters,
   children,
+  active,
+  disabled,
 }: {
   page: number
   filters: SP
   children: React.ReactNode
+  active?: boolean
+  disabled?: boolean
 }) {
+  const base = 'grid size-7 place-items-center rounded-md border bg-card text-xs'
+  if (disabled) {
+    return (
+      <span className={cn(base, 'text-muted-foreground/40')}>{children}</span>
+    )
+  }
   const qs = new URLSearchParams()
   for (const [k, v] of Object.entries(filters)) {
     if (k === 'page') continue
@@ -119,7 +287,11 @@ function PaginationLink({
   return (
     <Link
       href={`/deals?${qs.toString()}`}
-      className="rounded-md border px-3 py-1 hover:bg-zinc-50"
+      className={cn(
+        base,
+        'transition-colors hover:bg-accent',
+        active && 'border-primary bg-primary text-primary-foreground hover:bg-primary',
+      )}
     >
       {children}
     </Link>

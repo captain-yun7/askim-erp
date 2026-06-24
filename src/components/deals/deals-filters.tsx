@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
+import { Download, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -9,9 +10,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 
 type Cat = { id: number; nameKo: string }
 type User = { id: string; name: string }
+
+const chip =
+  'h-9 gap-1.5 rounded-lg border bg-background px-3 text-[12.5px] font-medium data-[active=true]:border-primary data-[active=true]:bg-accent data-[active=true]:text-primary'
 
 export function DealsFilters({
   categories,
@@ -43,12 +48,13 @@ export function DealsFilters({
   }
 
   return (
-    <div className="flex flex-wrap items-end gap-3">
-      <div className="grow basis-64">
-        <label className="mb-1 block text-xs text-zinc-500">검색</label>
+    <div className="flex flex-wrap items-center gap-2.5">
+      <div className="relative min-w-56 flex-1">
+        <Search className="absolute left-3 top-1/2 size-[15px] -translate-y-1/2 text-muted-foreground" />
         <Input
           defaultValue={initial.q ?? ''}
-          placeholder="거래코드, 거래처, 품목..."
+          placeholder="거래코드, 거래처, 품목 검색..."
+          className="h-9 rounded-lg pl-9"
           onKeyDown={(e) => {
             if (e.key === 'Enter')
               update({ q: (e.target as HTMLInputElement).value })
@@ -56,102 +62,103 @@ export function DealsFilters({
         />
       </div>
 
-      <div>
-        <label className="mb-1 block text-xs text-zinc-500">귀속연도</label>
-        <Select
-          defaultValue={initial.year ? String(initial.year) : 'all'}
-          onValueChange={(v) => update({ year: v ?? undefined })}
-        >
-          <SelectTrigger className="w-28">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">전체</SelectItem>
-            {[2023, 2024, 2025, 2026, 2027].map((y) => (
-              <SelectItem key={y} value={String(y)}>
-                {y}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <Select
+        defaultValue={initial.year ? String(initial.year) : 'all'}
+        onValueChange={(v) => update({ year: v ?? undefined })}
+      >
+        <SelectTrigger className={chip} data-active={Boolean(initial.year)}>
+          <SelectValue />
+          <span className="text-muted-foreground">귀속연도</span>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">전체</SelectItem>
+          {[2023, 2024, 2025, 2026, 2027].map((y) => (
+            <SelectItem key={y} value={String(y)}>
+              {y}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-      <div>
-        <label className="mb-1 block text-xs text-zinc-500">월</label>
-        <Select
-          defaultValue={initial.month ? String(initial.month) : 'all'}
-          onValueChange={(v) => update({ month: v ?? undefined })}
-        >
-          <SelectTrigger className="w-24">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">전체</SelectItem>
-            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-              <SelectItem key={m} value={String(m)}>
-                {m}월
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <Select
+        defaultValue={initial.month ? String(initial.month) : 'all'}
+        onValueChange={(v) => update({ month: v ?? undefined })}
+      >
+        <SelectTrigger className={chip} data-active={Boolean(initial.month)}>
+          <SelectValue />
+          <span className="text-muted-foreground">월</span>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">전체</SelectItem>
+          {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+            <SelectItem key={m} value={String(m)}>
+              {m}월
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-      <div>
-        <label className="mb-1 block text-xs text-zinc-500">상품구분</label>
-        <Select
-          defaultValue={initial.categoryId ? String(initial.categoryId) : 'all'}
-          onValueChange={(v) => update({ categoryId: v ?? undefined })}
-        >
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">전체</SelectItem>
-            {categories.map((c) => (
-              <SelectItem key={c.id} value={String(c.id)}>
-                {c.nameKo}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <Select
+        defaultValue={initial.categoryId ? String(initial.categoryId) : 'all'}
+        onValueChange={(v) => update({ categoryId: v ?? undefined })}
+      >
+        <SelectTrigger className={chip} data-active={Boolean(initial.categoryId)}>
+          <SelectValue />
+          <span className="text-muted-foreground">상품구분</span>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">전체</SelectItem>
+          {categories.map((c) => (
+            <SelectItem key={c.id} value={String(c.id)}>
+              {c.nameKo}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-      <div>
-        <label className="mb-1 block text-xs text-zinc-500">담당자</label>
-        <Select
-          defaultValue={initial.ownerUserId ?? 'all'}
-          onValueChange={(v) => update({ owner: v ?? undefined })}
-        >
-          <SelectTrigger className="w-32">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">전체</SelectItem>
-            {users.map((u) => (
-              <SelectItem key={u.id} value={u.id}>
-                {u.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <Select
+        defaultValue={initial.ownerUserId ?? 'all'}
+        onValueChange={(v) => update({ owner: v ?? undefined })}
+      >
+        <SelectTrigger className={chip} data-active={Boolean(initial.ownerUserId)}>
+          <SelectValue />
+          <span className="text-muted-foreground">담당자</span>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">전체</SelectItem>
+          {users.map((u) => (
+            <SelectItem key={u.id} value={u.id}>
+              {u.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-      <div>
-        <label className="mb-1 block text-xs text-zinc-500">상태</label>
-        <Select
-          defaultValue={initial.paid ?? 'all'}
-          onValueChange={(v) => update({ paid: v ?? undefined })}
+      <Select
+        defaultValue={initial.paid ?? 'all'}
+        onValueChange={(v) => update({ paid: v ?? undefined })}
+      >
+        <SelectTrigger
+          className={cn(chip)}
+          data-active={Boolean(initial.paid && initial.paid !== 'all')}
         >
-          <SelectTrigger className="w-32">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">전체</SelectItem>
-            <SelectItem value="unpaid">미입금만</SelectItem>
-            <SelectItem value="unsettled">미결산만</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+          <SelectValue />
+          <span className="text-muted-foreground">상태</span>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">전체</SelectItem>
+          <SelectItem value="unpaid">미입금만</SelectItem>
+          <SelectItem value="unsettled">미결산만</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <button
+        type="button"
+        title="내보내기"
+        className="ml-auto grid size-9 shrink-0 place-items-center rounded-lg border bg-background text-muted-foreground transition-colors hover:bg-accent"
+      >
+        <Download className="size-4" />
+      </button>
     </div>
   )
 }
