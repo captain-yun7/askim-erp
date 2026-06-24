@@ -22,6 +22,8 @@ const USERS = [
   // 팀 그룹 계정 (거래 import 시 매칭용 — 사람이 아닌 라벨)
   { name: '해외영업팀', email: 'overseas.team@askim.local', role: 'sales', dealCodePrefix: 'AD', team: '해외영업' },
   { name: '중국사업부', email: 'china.team@askim.local',    role: 'sales', dealCodePrefix: 'CN', team: '중국사업부' },
+  // 회계
+  { name: '회계담당', email: 'accountant@askim.local', role: 'accountant', dealCodePrefix: null, team: '경영지원' },
   // 시스템
   { name: '관리자', email: 'admin@askim.local', role: 'admin', dealCodePrefix: null, team: '본부' },
 ] as const

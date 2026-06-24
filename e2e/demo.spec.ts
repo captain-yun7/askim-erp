@@ -3,6 +3,7 @@ import { execSync } from 'node:child_process'
 
 const ADMIN = { email: 'admin@askim.local', password: 'askim2026!' }
 const SALES = { email: 'kim.hj@askim.local', password: 'askim2026!' }
+const ACCT = { email: 'accountant@askim.local', password: 'askim2026!' }
 
 const STAMP = Date.now()
 const DEAL_ITEM = `E2E거래${STAMP}`
@@ -94,6 +95,49 @@ test.describe.serial('관리자 핵심 쓰기 플로우', () => {
     await row2.locator('input').nth(3).fill(original)
     await row2.getByRole('button', { name: '저장' }).click()
     await expect(page.getByText('저장되었습니다')).toBeVisible()
+  })
+})
+
+test.describe.serial('회계 vs 영업 — 민감필드 권한', () => {
+  let cpId = ''
+  const bizInput = 'input[placeholder="000-00-00000"]'
+
+  test.beforeAll(() => {
+    const out = execSync('npx tsx scripts/e2e-fixture.ts').toString()
+    cpId = out.match(/FIXTURE_ID=([0-9a-f-]+)/)?.[1] ?? ''
+    expect(cpId).not.toBe('')
+  })
+
+  test('⑦ 영업: 본인 거래처라도 사업자번호(민감) 변경은 차단', async ({ page }) => {
+    await login(page, SALES)
+    await page.goto(`/counterparties/${cpId}`)
+    await page.locator(bizInput).fill('222-22-22222')
+    await page.getByRole('button', { name: '저장' }).click()
+    await expect(page.getByText(/회계 담당자만/)).toBeVisible()
+    await expect(page).toHaveURL(new RegExp(`/counterparties/${cpId}`)) // 이동 안 함
+  })
+
+  test('⑧ 영업: 일반필드(메모)는 본인 거래처 수정 가능', async ({ page }) => {
+    await login(page, SALES)
+    await page.goto(`/counterparties/${cpId}`)
+    await page.locator('textarea').fill('E2E 메모 by sales')
+    await page.getByRole('button', { name: '저장' }).click()
+    await page.waitForURL((u) => u.pathname === '/counterparties')
+  })
+
+  test('⑨ 회계: 사업자번호(민감) 변경 가능', async ({ page }) => {
+    await login(page, ACCT)
+    await page.goto(`/counterparties/${cpId}`)
+    await page.locator(bizInput).fill('333-33-33333')
+    await page.getByRole('button', { name: '저장' }).click()
+    await page.waitForURL((u) => u.pathname === '/counterparties')
+  })
+
+  test('⑩ 회계는 admin 메뉴/페이지 접근 불가', async ({ page }) => {
+    await login(page, ACCT)
+    await page.goto('/admin/users')
+    await page.waitForURL('http://localhost:3300/')
+    await expect(page.getByText('사용자·설정')).toHaveCount(0)
   })
 })
 
