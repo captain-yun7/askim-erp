@@ -48,6 +48,31 @@ export async function listDeals(f: DealListFilters = {}) {
 
   const where = and(...conds)
 
+  // 전월 대비: 귀속연월(year+month)이 모두 지정됐을 때만 직전 달과 비교
+  let prev: { sales: number; purchase: number } | null = null
+  if (f.year && f.month) {
+    const prevYear = f.month === 1 ? f.year - 1 : f.year
+    const prevMonth = f.month === 1 ? 12 : f.month - 1
+    const prevConds = [
+      isNull(deal.deletedAt),
+      eq(deal.accrualYear, prevYear),
+      eq(deal.accrualMonth, prevMonth),
+    ]
+    if (f.categoryId) prevConds.push(eq(deal.categoryId, f.categoryId))
+    if (f.ownerUserId) prevConds.push(eq(deal.ownerUserId, f.ownerUserId))
+    const [prevAggr] = await db
+      .select({
+        sales: sql<string>`coalesce(sum(${deal.salesAmountNet}), 0)::text`,
+        purchase: sql<string>`coalesce(sum(${deal.purchaseAmountNet}), 0)::text`,
+      })
+      .from(deal)
+      .where(and(...prevConds))
+    prev = {
+      sales: parseFloat(prevAggr.sales),
+      purchase: parseFloat(prevAggr.purchase),
+    }
+  }
+
   // 카운트
   const [{ total }] = await db
     .select({ total: sql<number>`count(*)::int` })
@@ -60,6 +85,8 @@ export async function listDeals(f: DealListFilters = {}) {
       sales: sql<string>`coalesce(sum(${deal.salesAmountNet}), 0)::text`,
       purchase: sql<string>`coalesce(sum(${deal.purchaseAmountNet}), 0)::text`,
       profit: sql<string>`coalesce(sum(${deal.profit}), 0)::text`,
+      unpaidCount: sql<number>`(count(*) filter (where ${deal.salesPaidStatus} = 'pending'))::int`,
+      unpaidAmount: sql<string>`coalesce(sum(${deal.salesAmountNet}) filter (where ${deal.salesPaidStatus} = 'pending'), 0)::text`,
     })
     .from(deal)
     .where(where)
@@ -104,7 +131,10 @@ export async function listDeals(f: DealListFilters = {}) {
       sales: parseFloat(aggr.sales),
       purchase: parseFloat(aggr.purchase),
       profit: parseFloat(aggr.profit),
+      unpaidCount: aggr.unpaidCount,
+      unpaidAmount: parseFloat(aggr.unpaidAmount),
     },
+    prevAggregate: prev,
   }
 }
 

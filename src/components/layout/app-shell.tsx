@@ -2,9 +2,17 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import {
+  BarChart3,
+  FileBarChart,
+  LayoutDashboard,
+  Receipt,
+  Settings,
+  Users,
+  Wallet,
+} from 'lucide-react'
 import { logoutAction } from '@/server/actions/auth'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,10 +22,37 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
-const NAV = [
-  { href: '/deals', label: '거래' },
-  { href: '/counterparties', label: '거래처' },
-  { href: '/expenses', label: '판관비' },
+type NavItem = {
+  href: string
+  label: string
+  icon: typeof Receipt
+  exact?: boolean
+  soon?: boolean
+}
+
+const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
+  {
+    title: '메인',
+    items: [{ href: '/', label: '대시보드', icon: LayoutDashboard, exact: true }],
+  },
+  {
+    title: '영업',
+    items: [
+      { href: '/deals', label: '거래', icon: Receipt },
+      { href: '/counterparties', label: '거래처', icon: Users },
+      { href: '/expenses', label: '판관비', icon: Wallet },
+    ],
+  },
+  {
+    title: '리포트',
+    items: [
+      { href: '/reports', label: '매출·손익', icon: FileBarChart, soon: true },
+    ],
+  },
+  {
+    title: '관리',
+    items: [{ href: '/admin', label: '사용자·설정', icon: Settings, soon: true }],
+  },
 ]
 
 export function AppShell({
@@ -30,46 +65,76 @@ export function AppShell({
   const pathname = usePathname()
   return (
     <div className="flex min-h-screen">
-      <aside className="hidden w-56 shrink-0 border-r bg-zinc-50 md:flex md:flex-col">
-        <div className="border-b px-5 py-4">
-          <Link href="/" className="text-lg font-semibold tracking-tight">
+      <aside className="hidden w-58 shrink-0 flex-col bg-zinc-900 p-3.5 text-zinc-400 md:flex">
+        <Link href="/" className="flex items-center gap-2.5 px-2 pb-4 pt-1.5">
+          <span className="grid size-7 place-items-center rounded-lg bg-primary text-primary-foreground">
+            <BarChart3 className="size-4" />
+          </span>
+          <span className="text-[15px] font-bold tracking-tight text-white">
             에스킴 ERP
-          </Link>
-        </div>
-        <nav className="flex-1 px-3 py-4">
-          <ul className="flex flex-col gap-1">
-            {NAV.map((item) => {
-              const active = pathname.startsWith(item.href)
-              return (
-                <li key={item.href}>
+          </span>
+        </Link>
+        <nav className="flex flex-col gap-4">
+          {NAV_SECTIONS.map((section) => (
+            <div key={section.title} className="flex flex-col gap-0.5">
+              <span className="px-3 pb-1 text-[10.5px] font-semibold uppercase tracking-wider text-zinc-600">
+                {section.title}
+              </span>
+              {section.items.map((item) => {
+                const Icon = item.icon
+                if (item.soon) {
+                  return (
+                    <span
+                      key={item.href}
+                      className="flex cursor-default items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-600"
+                    >
+                      <Icon className="size-[17px]" />
+                      {item.label}
+                      <span className="ml-auto rounded bg-zinc-800 px-1.5 py-0.5 text-[9.5px] font-semibold text-zinc-500">
+                        준비중
+                      </span>
+                    </span>
+                  )
+                }
+                const active = item.exact
+                  ? pathname === item.href
+                  : pathname.startsWith(item.href)
+                return (
                   <Link
+                    key={item.href}
                     href={item.href}
                     className={cn(
-                      'block rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                      'flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                       active
-                        ? 'bg-zinc-900 text-white'
-                        : 'text-zinc-700 hover:bg-zinc-200',
+                        ? 'bg-zinc-800 font-semibold text-white'
+                        : 'hover:bg-zinc-800 hover:text-white',
                     )}
                   >
+                    <Icon className="size-[17px]" />
                     {item.label}
                   </Link>
-                </li>
-              )
-            })}
-          </ul>
+                )
+              })}
+            </div>
+          ))}
         </nav>
-        <div className="border-t p-3">
+        <div className="mt-auto border-t border-zinc-700 pt-2">
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
-                <Button variant="ghost" className="w-full justify-start text-left">
-                  <div className="flex flex-col items-start">
-                    <span className="text-sm font-medium">{user.name}</span>
-                    <span className="text-xs text-zinc-500">
+                <button className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors hover:bg-zinc-800">
+                  <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                    {user.name.slice(0, 1)}
+                  </span>
+                  <span className="flex flex-col leading-tight">
+                    <span className="text-[13px] font-semibold text-white">
+                      {user.name}
+                    </span>
+                    <span className="text-[11px] text-zinc-500">
                       {user.team ?? user.role}
                     </span>
-                  </div>
-                </Button>
+                  </span>
+                </button>
               }
             />
             <DropdownMenuContent align="start" className="w-48">
@@ -82,7 +147,7 @@ export function AppShell({
           </DropdownMenu>
         </div>
       </aside>
-      <main className="flex-1 overflow-x-auto">{children}</main>
+      <main className="flex-1 overflow-x-auto bg-background">{children}</main>
     </div>
   )
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Download, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -10,28 +10,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { cn } from '@/lib/utils'
 
 type Cat = { id: number; nameKo: string }
-type User = { id: string; name: string }
 
 const chip =
   'h-9 gap-1.5 rounded-lg border bg-background px-3 text-[12.5px] font-medium data-[active=true]:border-primary data-[active=true]:bg-accent data-[active=true]:text-primary'
 
-export function DealsFilters({
+const PAYMENT_METHODS = [
+  { value: 'corporate_card', label: '법인카드' },
+  { value: 'personal_card', label: '개인카드' },
+  { value: 'cash', label: '현금' },
+  { value: 'bank_transfer', label: '이체' },
+]
+
+export function ExpensesFilters({
   categories,
-  users,
   initial,
 }: {
   categories: Cat[]
-  users: User[]
   initial: {
     q?: string
     year?: number
     month?: number
     categoryId?: number
-    ownerUserId?: string
-    paid?: string
+    method?: string
   }
 }) {
   const router = useRouter()
@@ -43,8 +45,7 @@ export function DealsFilters({
       if (v === undefined || v === '' || v === 'all') next.delete(k)
       else next.set(k, v)
     }
-    next.delete('page')
-    router.push(`/deals?${next.toString()}`)
+    router.push(`/expenses?${next.toString()}`)
   }
 
   return (
@@ -53,7 +54,7 @@ export function DealsFilters({
         <Search className="absolute left-3 top-1/2 size-[15px] -translate-y-1/2 text-muted-foreground" />
         <Input
           defaultValue={initial.q ?? ''}
-          placeholder="거래코드, 거래처, 품목 검색..."
+          placeholder="품목, 거래처 검색..."
           className="h-9 rounded-lg pl-9"
           onKeyDown={(e) => {
             if (e.key === 'Enter')
@@ -68,7 +69,7 @@ export function DealsFilters({
       >
         <SelectTrigger className={chip} data-active={Boolean(initial.year)}>
           <SelectValue />
-          <span className="text-muted-foreground">귀속연도</span>
+          <span className="text-muted-foreground">연도</span>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">전체</SelectItem>
@@ -104,7 +105,7 @@ export function DealsFilters({
       >
         <SelectTrigger className={chip} data-active={Boolean(initial.categoryId)}>
           <SelectValue />
-          <span className="text-muted-foreground">상품구분</span>
+          <span className="text-muted-foreground">항목</span>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">전체</SelectItem>
@@ -117,48 +118,22 @@ export function DealsFilters({
       </Select>
 
       <Select
-        defaultValue={initial.ownerUserId ?? 'all'}
-        onValueChange={(v) => update({ owner: v ?? undefined })}
+        defaultValue={initial.method ?? 'all'}
+        onValueChange={(v) => update({ method: v ?? undefined })}
       >
-        <SelectTrigger className={chip} data-active={Boolean(initial.ownerUserId)}>
+        <SelectTrigger className={chip} data-active={Boolean(initial.method)}>
           <SelectValue />
-          <span className="text-muted-foreground">담당자</span>
+          <span className="text-muted-foreground">결제수단</span>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">전체</SelectItem>
-          {users.map((u) => (
-            <SelectItem key={u.id} value={u.id}>
-              {u.name}
+          {PAYMENT_METHODS.map((m) => (
+            <SelectItem key={m.value} value={m.value}>
+              {m.label}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
-
-      <Select
-        defaultValue={initial.paid ?? 'all'}
-        onValueChange={(v) => update({ paid: v ?? undefined })}
-      >
-        <SelectTrigger
-          className={cn(chip)}
-          data-active={Boolean(initial.paid && initial.paid !== 'all')}
-        >
-          <SelectValue />
-          <span className="text-muted-foreground">상태</span>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">전체</SelectItem>
-          <SelectItem value="unpaid">미입금만</SelectItem>
-          <SelectItem value="unsettled">미결산만</SelectItem>
-        </SelectContent>
-      </Select>
-
-      <button
-        type="button"
-        title="내보내기"
-        className="ml-auto grid size-9 shrink-0 place-items-center rounded-lg border bg-background text-muted-foreground transition-colors hover:bg-accent"
-      >
-        <Download className="size-4" />
-      </button>
     </div>
   )
 }
