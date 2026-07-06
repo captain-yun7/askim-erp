@@ -56,8 +56,8 @@ next-env.d.ts
 /blob-report/
 /.playwright/
 
-# OneDrive/문서 심볼릭 (로컬 환경마다 다름)
-# _docs는 커밋 (분석/설계 문서)
+# 문서 (OneDrive에서 관리 — 민감 문서 포함, git 미포함)
+/_docs/
 
 # Office 임시 잠금파일
 ~$*
