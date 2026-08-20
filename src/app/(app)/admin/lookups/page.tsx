@@ -72,6 +72,7 @@ export default async function AdminLookupsPage() {
             commissionRate: c.commissionRate,
             displayOrder: c.displayOrder,
             memo: c.memo,
+            planGroup: c.planGroup,
           }))}
           action={updateDealCategory}
         />

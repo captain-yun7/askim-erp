@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { COST_GROUPS, COST_GROUP_LABEL, type CostGroup } from '@/lib/cost-groups'
+import { PLAN_GROUPS } from '@/lib/plan-groups'
 import { Input } from '@/components/ui/input'
 import {
   Table,
@@ -49,6 +50,7 @@ export type DealCategoryRow = {
   commissionRate: string | null
   displayOrder: number
   memo: string | null
+  planGroup: string | null
 }
 
 export function DealCategoryEditor({
@@ -63,6 +65,7 @@ export function DealCategoryEditor({
       commissionRate: string
       displayOrder: number
       memo: string
+      planGroup: string
     },
   ) => Promise<ActionResult>
 }) {
@@ -76,6 +79,7 @@ export function DealCategoryEditor({
           commissionRate: r.commissionRate ?? '',
           displayOrder: String(r.displayOrder),
           memo: r.memo ?? '',
+          planGroup: r.planGroup ?? '',
         },
       ]),
     ),
@@ -94,6 +98,7 @@ export function DealCategoryEditor({
             <TableHead>명칭</TableHead>
             <TableHead className="w-32">요율</TableHead>
             <TableHead className="w-20">순서</TableHead>
+            <TableHead className="w-44">매출목표군</TableHead>
             <TableHead>메모</TableHead>
             <TableHead className="w-20 text-right" />
           </TableRow>
@@ -129,6 +134,20 @@ export function DealCategoryEditor({
                   />
                 </TableCell>
                 <TableCell>
+                  <select
+                    className="h-8 w-full rounded-md border bg-background px-2 text-xs"
+                    value={s.planGroup}
+                    onChange={(e) => set(r.id, 'planGroup', e.target.value)}
+                  >
+                    <option value="">- 미지정 -</option>
+                    {PLAN_GROUPS.map((g) => (
+                      <option key={g.code} value={g.code}>
+                        {g.label}
+                      </option>
+                    ))}
+                  </select>
+                </TableCell>
+                <TableCell>
                   <Input
                     className="h-8"
                     value={s.memo}
@@ -148,6 +167,7 @@ export function DealCategoryEditor({
                           commissionRate: s.commissionRate,
                           displayOrder: Number(s.displayOrder) || 0,
                           memo: s.memo,
+                          planGroup: s.planGroup,
                         }),
                       )
                     }

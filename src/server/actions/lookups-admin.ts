@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { COST_GROUPS } from '@/lib/cost-groups'
+import { PLAN_GROUP_CODES } from '@/lib/plan-groups'
 import { db } from '@/lib/db/client'
 import {
   account,
@@ -41,6 +42,7 @@ const dealCategorySchema = z.object({
   commissionRate: rateSchema,
   displayOrder: z.coerce.number().int().default(0),
   memo: z.string().trim().optional().nullable(),
+  planGroup: z.enum(PLAN_GROUP_CODES).or(z.literal('')).optional().nullable(),
 })
 
 export async function updateDealCategory(id: number, raw: unknown) {
@@ -49,7 +51,7 @@ export async function updateDealCategory(id: number, raw: unknown) {
   const parsed = dealCategorySchema.safeParse(raw)
   if (!parsed.success)
     return { error: parsed.error.issues[0]?.message ?? '검증 실패' }
-  const { nameKo, commissionRate, displayOrder, memo } = parsed.data
+  const { nameKo, commissionRate, displayOrder, memo, planGroup } = parsed.data
   await db
     .update(dealCategory)
     .set({
@@ -57,6 +59,7 @@ export async function updateDealCategory(id: number, raw: unknown) {
       commissionRate: commissionRate || null,
       displayOrder,
       memo: memo || null,
+      planGroup: planGroup || null,
     })
     .where(eq(dealCategory.id, id))
   return done()
