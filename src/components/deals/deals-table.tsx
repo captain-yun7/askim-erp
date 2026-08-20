@@ -26,7 +26,11 @@ type Row = {
   salesPaidStatus: string
   purchasePaidStatus: string
   salesDueDate: string | null
+  salesPaidDate: string | null
+  salesInvoiceDate: string | null
   purchaseDueDate: string | null
+  purchasePaidDate: string | null
+  purchaseInvoiceDate: string | null
   categoryName: string | null
   ownerName: string | null
   issuerName: string | null
@@ -46,6 +50,17 @@ function avatarColor(name: string) {
   let h = 0
   for (let i = 0; i < name.length; i++) h = (h + name.charCodeAt(i)) % AVATAR_COLORS.length
   return AVATAR_COLORS[h]
+}
+
+function DatePair({ planned, actual }: { planned: string | null; actual: string | null }) {
+  return (
+    <div className="font-mono text-[11px] leading-tight tabular-nums">
+      <div className="text-muted-foreground">{formatDate(planned)}</div>
+      <div className={cn(actual ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
+        {formatDate(actual)}
+      </div>
+    </div>
+  )
 }
 
 function StatusPill({ done, doneLabel, todoLabel }: { done: boolean; doneLabel: string; todoLabel: string; }) {
@@ -87,6 +102,10 @@ export function DealsTable({ rows }: { rows: Row[] }) {
             <TableHead className="text-right">매입</TableHead>
             <TableHead className="text-right">손익</TableHead>
             <TableHead className="text-center">입금 / 결산</TableHead>
+            <TableHead>매출계산서<br />발행일</TableHead>
+            <TableHead>매입계산서<br />발행일</TableHead>
+            <TableHead>입금예정일<br />입금일</TableHead>
+            <TableHead>결산예정일<br />결산일</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -169,6 +188,18 @@ export function DealsTable({ rows }: { rows: Row[] }) {
                       />
                     </span>
                   </div>
+                </TableCell>
+                <TableCell className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                  {formatDate(r.salesInvoiceDate)}
+                </TableCell>
+                <TableCell className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                  {formatDate(r.purchaseInvoiceDate)}
+                </TableCell>
+                <TableCell>
+                  <DatePair planned={r.salesDueDate} actual={r.salesPaidDate} />
+                </TableCell>
+                <TableCell>
+                  <DatePair planned={r.purchaseDueDate} actual={r.purchasePaidDate} />
                 </TableCell>
               </TableRow>
             )
