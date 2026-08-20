@@ -2,7 +2,7 @@ import './_env'
 import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
 import { deal, expense, users, dealCategory } from '@/lib/db/schema'
-import { getSalesLedger } from '@/server/queries/reports-ledger'
+import { buildLedgerLines, getSalesLedger } from '@/server/queries/reports-ledger'
 import { getMonthlyPnl } from '@/server/queries/reports-pnl'
 import { getTopCounterparties } from '@/server/queries/reports-top'
 import { getDashboard } from '@/server/queries/dashboard'
@@ -33,12 +33,15 @@ function check(name: string, cond: boolean, detail = '') {
 async function main() {
   const YEAR = 2026
 
-  console.log('\n[1] 리포트 — 매출장표 (귀속월/통장)')
-  const ledgerA = await getSalesLedger({ year: YEAR, basis: 'accrual' })
-  check('귀속월 12개월 반환', ledgerA.rows.length === 12)
-  check('귀속월 매출 합계 > 0', Number(ledgerA.total.sales) > 0, `sales=${ledgerA.total.sales}`)
-  const ledgerC = await getSalesLedger({ year: YEAR, basis: 'cash' })
-  check('통장 기준 실행 + 12개월', ledgerC.rows.length === 12, `cash sales=${ledgerC.total.sales}`)
+  console.log('\n[1] 리포트 — 매출장표 (통장/귀속월 피벗)')
+  const ledger = await getSalesLedger({ year: YEAR })
+  const lines = buildLedgerLines(ledger)
+  const sumLine = (key: string) => lines.find((l) => l.key === key)!.values.reduce((a, b) => a + b, 0)
+  check('12개월 반환', ledger.months.length === 12)
+  check('귀속월 매출 합계 > 0', sumLine('sales_accrual') > 0, `sales=${sumLine('sales_accrual')}`)
+  check('통장 매출 합계 > 0', sumLine('sales_cash') > 0, `cash sales=${sumLine('sales_cash')}`)
+  check('판관비 = 고정비 + 변동비', Math.abs(sumLine('sgna') - sumLine('fixed') - sumLine('variable')) < 1)
+  check('과목 행에 세금 포함', lines.some((l) => l.label === '(세금)'))
 
   console.log('\n[2] 리포트 — 월별손익 + 십일조')
   const pnl = await getMonthlyPnl({ year: YEAR })

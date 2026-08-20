@@ -16,13 +16,9 @@ const chip =
 const toggle =
   'h-9 px-3.5 text-[12.5px] font-medium transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground'
 
-export function LedgerControls({
-  year,
-  basis,
-}: {
-  year: number
-  basis: 'accrual' | 'cash'
-}) {
+export type LedgerHalf = 'h1' | 'h2' | 'all'
+
+export function LedgerControls({ year, half }: { year: number; half: LedgerHalf }) {
   const router = useRouter()
   const sp = useSearchParams()
 
@@ -55,29 +51,29 @@ export function LedgerControls({
       </Select>
 
       <div className="inline-flex overflow-hidden rounded-lg border bg-background">
-        <button
-          type="button"
-          className={cn(toggle)}
-          data-active={basis === 'accrual'}
-          onClick={() => update({ basis: 'accrual' })}
-        >
-          귀속월 기준
-        </button>
-        <span className="w-px self-stretch bg-border" />
-        <button
-          type="button"
-          className={cn(toggle)}
-          data-active={basis === 'cash'}
-          onClick={() => update({ basis: 'cash' })}
-        >
-          통장 기준
-        </button>
+        {(
+          [
+            ['h1', '상반기'],
+            ['h2', '하반기'],
+            ['all', '연간'],
+          ] as const
+        ).map(([k, label], i) => (
+          <span key={k} className="contents">
+            {i > 0 && <span className="w-px self-stretch bg-border" />}
+            <button
+              type="button"
+              className={cn(toggle)}
+              data-active={half === k}
+              onClick={() => update({ half: k })}
+            >
+              {label}
+            </button>
+          </span>
+        ))}
       </div>
 
       <span className="text-[11.5px] text-muted-foreground">
-        {basis === 'accrual'
-          ? '발생주의 · 귀속연월 집계'
-          : '현금주의 · 입금/지급일 집계'}
+        통장 = 입금·지급일 기준 · 귀속월 = 발생주의 · (%) = 해당 기준 총매출 대비
       </span>
     </div>
   )
