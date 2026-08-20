@@ -15,6 +15,20 @@
       "when": 1787227829290,
       "tag": "0001_counterparty_bank_split",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787228028258,
+      "tag": "0002_expense_cost_group",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787228028941,
+      "tag": "0003_drop_is_fixed_cost",
+      "breakpoints": true
     }
   ]
 }

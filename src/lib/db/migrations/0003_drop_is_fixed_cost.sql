@@ -1,0 +1,1 @@
+ALTER TABLE "expense_category" DROP COLUMN "is_fixed_cost";

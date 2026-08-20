@@ -107,7 +107,7 @@ export default async function AdminLookupsPage() {
             id: e.id,
             code: e.code,
             nameKo: e.nameKo,
-            isFixedCost: e.isFixedCost,
+            costGroup: e.costGroup,
             displayOrder: e.displayOrder,
           }))}
           action={updateExpenseCategory}

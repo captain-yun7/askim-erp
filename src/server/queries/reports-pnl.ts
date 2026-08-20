@@ -1,6 +1,6 @@
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
-import { deal, expense } from '@/lib/db/schema'
+import { deal, expense, expenseCategory } from '@/lib/db/schema'
 
 export type MonthlyPnlRow = {
   month: number
@@ -42,7 +42,14 @@ export async function getMonthlyPnl({ year }: { year: number }): Promise<Monthly
         expense: sql<string>`coalesce(sum(${expense.amount}), 0)::text`,
       })
       .from(expense)
-      .where(and(isNull(expense.deletedAt), eq(expense.year, year)))
+      .innerJoin(expenseCategory, eq(expenseCategory.id, expense.expenseCategoryId))
+      .where(
+        and(
+          isNull(expense.deletedAt),
+          eq(expense.year, year),
+          sql`${expenseCategory.costGroup} in ('fixed', 'variable')`,
+        ),
+      )
       .groupBy(expense.month),
   ])
 

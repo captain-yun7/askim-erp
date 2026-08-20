@@ -5,6 +5,7 @@ import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { COST_GROUPS, COST_GROUP_LABEL, type CostGroup } from '@/lib/cost-groups'
 import { Input } from '@/components/ui/input'
 import {
   Table,
@@ -255,12 +256,12 @@ export function SimpleLookupEditor({
   )
 }
 
-// ── 거래항목 (isFixedCost 포함) ─────────────────────────
+// ── 거래항목 (costGroup 포함) ─────────────────────────
 export type ExpenseCategoryRow = {
   id: number
   code: string
   nameKo: string
-  isFixedCost: boolean
+  costGroup: CostGroup
   displayOrder: number
 }
 
@@ -271,7 +272,7 @@ export function ExpenseCategoryEditor({
   rows: ExpenseCategoryRow[]
   action: (
     id: number,
-    raw: { nameKo: string; isFixedCost: boolean; displayOrder: number },
+    raw: { nameKo: string; costGroup: CostGroup; displayOrder: number },
   ) => Promise<ActionResult>
 }) {
   const { pending, savingId, save } = useSaver()
@@ -281,7 +282,7 @@ export function ExpenseCategoryEditor({
         r.id,
         {
           nameKo: r.nameKo,
-          isFixedCost: r.isFixedCost,
+          costGroup: r.costGroup,
           displayOrder: String(r.displayOrder),
         },
       ]),
@@ -299,7 +300,7 @@ export function ExpenseCategoryEditor({
           <TableRow className="hover:bg-transparent">
             <TableHead className="w-32">코드</TableHead>
             <TableHead>명칭</TableHead>
-            <TableHead className="w-24">고정비</TableHead>
+            <TableHead className="w-40">구분</TableHead>
             <TableHead className="w-20">순서</TableHead>
             <TableHead className="w-20 text-right" />
           </TableRow>
@@ -320,12 +321,17 @@ export function ExpenseCategoryEditor({
                   />
                 </TableCell>
                 <TableCell>
-                  <Checkbox
-                    checked={s.isFixedCost}
-                    onCheckedChange={(v) =>
-                      set(r.id, { isFixedCost: v === true })
-                    }
-                  />
+                  <select
+                    className="h-8 w-full rounded-md border bg-background px-2 text-xs"
+                    value={s.costGroup}
+                    onChange={(e) => set(r.id, { costGroup: e.target.value as CostGroup })}
+                  >
+                    {COST_GROUPS.map((g) => (
+                      <option key={g} value={g}>
+                        {COST_GROUP_LABEL[g]}
+                      </option>
+                    ))}
+                  </select>
                 </TableCell>
                 <TableCell>
                   <Input
@@ -344,7 +350,7 @@ export function ExpenseCategoryEditor({
                       save(r.id, () =>
                         action(r.id, {
                           nameKo: s.nameKo,
-                          isFixedCost: s.isFixedCost,
+                          costGroup: s.costGroup,
                           displayOrder: Number(s.displayOrder) || 0,
                         }),
                       )

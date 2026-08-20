@@ -44,30 +44,37 @@ const SALES_METHODS = [
 ] as const
 
 const EXPENSE_CATEGORIES = [
+  // 고정비 (엑셀 매출장표 순서)
+  { code: 'labor',            nameKo: '인건비',       costGroup: 'fixed', displayOrder: 1 },
+  { code: 'general_supplies', nameKo: '일반소모품비', costGroup: 'fixed', displayOrder: 2 },
+  { code: 'meals',            nameKo: '식대비',       costGroup: 'fixed', displayOrder: 3 },
+  { code: 'office_supplies',  nameKo: '사무용품비',   costGroup: 'fixed', displayOrder: 4 },
+  { code: 'utility',          nameKo: '건물관리비',   costGroup: 'fixed', displayOrder: 5 },
+  { code: 'transport',        nameKo: '교통비',       costGroup: 'fixed', displayOrder: 6 },
+  { code: 'postage',          nameKo: '우편요금',     costGroup: 'fixed', displayOrder: 7 },
+  { code: 'cargo',            nameKo: '운반비',       costGroup: 'fixed', displayOrder: 8 },
+  { code: 'education',        nameKo: '교육비',       costGroup: 'fixed', displayOrder: 9 },
+  { code: 'donation',         nameKo: '기부금',       costGroup: 'fixed', displayOrder: 10 },
+  { code: 'fuel',             nameKo: '주유비',       costGroup: 'fixed', displayOrder: 11 },
+  { code: 'commission_fee',   nameKo: '지급수수료',   costGroup: 'fixed', displayOrder: 12 },
+  { code: 'office_rent',      nameKo: '지급임차료',   costGroup: 'fixed', displayOrder: 13 },
+  { code: 'communication',    nameKo: '통신비',       costGroup: 'fixed', displayOrder: 14 },
+  { code: 'vehicle',          nameKo: '차량유지비',   costGroup: 'fixed', displayOrder: 15 },
+  { code: 'insurance',        nameKo: '보험비',       costGroup: 'fixed', displayOrder: 16 },
+  { code: 'loan_interest',    nameKo: '대출이자',     costGroup: 'fixed', displayOrder: 17 },
   // 변동비
-  { code: 'meals',           nameKo: '식대비',     isFixedCost: false, displayOrder: 1 },
-  { code: 'transport',       nameKo: '교통비',     isFixedCost: false, displayOrder: 2 },
-  { code: 'commission_fee',  nameKo: '지급수수료',  isFixedCost: false, displayOrder: 3 },
-  { code: 'welfare',         nameKo: '복리후생비',  isFixedCost: false, displayOrder: 4 },
-  { code: 'donation',        nameKo: '기부금',     isFixedCost: false, displayOrder: 5 },
-  { code: 'books_print',     nameKo: '도서인쇄비',  isFixedCost: false, displayOrder: 6 },
-  { code: 'travel',          nameKo: '출장비',     isFixedCost: false, displayOrder: 7 },
-  { code: 'marketing',       nameKo: '마케팅비',    isFixedCost: false, displayOrder: 8 },
-  { code: 'office_supplies', nameKo: '사무용품비',  isFixedCost: false, displayOrder: 9 },
-  { code: 'entertainment',   nameKo: '접대비',     isFixedCost: false, displayOrder: 10 },
-  { code: 'external_labor',  nameKo: '외부인건비',  isFixedCost: false, displayOrder: 11 },
-  { code: 'postage',         nameKo: '우편요금',    isFixedCost: false, displayOrder: 12 },
-  { code: 'outsourcing',     nameKo: '외주용역비',  isFixedCost: false, displayOrder: 13 },
-  { code: 'cargo',           nameKo: '운반비',     isFixedCost: false, displayOrder: 14 },
-  { code: 'education',       nameKo: '교육비',     isFixedCost: false, displayOrder: 15 },
-  { code: 'other_var',       nameKo: '기타(변동)',  isFixedCost: false, displayOrder: 19 },
-  // 고정비
-  { code: 'labor',            nameKo: '인건비',       isFixedCost: true, displayOrder: 20 },
-  { code: 'social_insurance', nameKo: '4대보험료',    isFixedCost: true, displayOrder: 21 },
-  { code: 'office_rent',      nameKo: '지급임차료',   isFixedCost: true, displayOrder: 22 },
-  { code: 'utility',          nameKo: '건물관리비',   isFixedCost: true, displayOrder: 23 },
-  { code: 'communication',    nameKo: '통신비',       isFixedCost: true, displayOrder: 24 },
-  { code: 'loan_interest',    nameKo: '대출이자',     isFixedCost: true, displayOrder: 25 },
+  { code: 'other_ops',        nameKo: '기타운영비',   costGroup: 'variable', displayOrder: 18 },
+  { code: 'books_print',      nameKo: '도서인쇄비',   costGroup: 'variable', displayOrder: 19 },
+  { code: 'marketing',        nameKo: '마케팅비',     costGroup: 'variable', displayOrder: 20 },
+  { code: 'welfare',          nameKo: '복리후생비',   costGroup: 'variable', displayOrder: 21 },
+  { code: 'external_labor',   nameKo: '외부인건비',   costGroup: 'variable', displayOrder: 22 },
+  { code: 'outsourcing',      nameKo: '외주용역비',   costGroup: 'variable', displayOrder: 23 },
+  { code: 'entertainment',    nameKo: '접대비',       costGroup: 'variable', displayOrder: 24 },
+  { code: 'travel',           nameKo: '출장비',       costGroup: 'variable', displayOrder: 25 },
+  // 판관비 외 — 당기순이익에서 차감
+  { code: 'tax',              nameKo: '세금',         costGroup: 'non_operating', displayOrder: 30 },
+  // 리포트 제외 (매입비용 등 분류 불가)
+  { code: 'other_var',        nameKo: '기타(판관비 외)', costGroup: 'excluded', displayOrder: 40 },
 ] as const
 
 async function main() {

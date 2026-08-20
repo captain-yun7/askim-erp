@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
+import { COST_GROUPS } from '@/lib/cost-groups'
 import { db } from '@/lib/db/client'
 import {
   account,
@@ -99,7 +100,7 @@ export async function updateSalesMethod(id: number, raw: unknown) {
 
 const expenseCategorySchema = z.object({
   nameKo: z.string().trim().min(1, '명칭 필수'),
-  isFixedCost: z.boolean().default(false),
+  costGroup: z.enum(COST_GROUPS).default('variable'),
   displayOrder: z.coerce.number().int().default(0),
 })
 
@@ -113,7 +114,7 @@ export async function updateExpenseCategory(id: number, raw: unknown) {
     .update(expenseCategory)
     .set({
       nameKo: parsed.data.nameKo,
-      isFixedCost: parsed.data.isFixedCost,
+      costGroup: parsed.data.costGroup,
       displayOrder: parsed.data.displayOrder,
     })
     .where(eq(expenseCategory.id, id))

@@ -36,11 +36,14 @@ export const salesMethod = pgTable('sales_method', {
 })
 
 // 거래항목 (판관비 — 식대/교통/지급수수료 등)
+// costGroup: fixed(고정비) | variable(변동비) | non_operating(판관비 외, 세금 → 당기순이익 차감) | excluded(리포트 제외)
 export const expenseCategory = pgTable('expense_category', {
   id: serial('id').primaryKey(),
   code: text('code').notNull().unique(),
   nameKo: text('name_ko').notNull(),
-  isFixedCost: boolean('is_fixed_cost').notNull().default(false),
+  costGroup: text('cost_group', { enum: ['fixed', 'variable', 'non_operating', 'excluded'] })
+    .notNull()
+    .default('variable'),
   displayOrder: integer('display_order').notNull().default(0),
 })
 
