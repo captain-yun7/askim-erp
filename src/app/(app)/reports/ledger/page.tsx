@@ -122,7 +122,7 @@ function Cell({ value, pct, emphasis }: { value: number; pct?: string; emphasis?
           emphasis && 'bg-muted/30 font-semibold',
         )}
       >
-        {value ? formatKRW(value) : <span className="text-muted-foreground/60">0</span>}
+        {Math.round(value) ? formatKRW(Math.round(value)) : <span className="text-muted-foreground/60">0</span>}
       </td>
       <td className={cn('w-12 px-1.5 py-1.5 text-right text-[11px] text-muted-foreground tabular-nums', emphasis && 'bg-muted/30')}>
         {pct ?? ''}

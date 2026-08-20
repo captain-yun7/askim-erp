@@ -4,10 +4,12 @@ import { useState } from 'react'
 import { Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { formatKRW } from '@/lib/format'
+import { formatKRW as formatRaw } from '@/lib/format'
 import type { PlanReport } from '@/server/queries/reports-plan'
 import { SalesTargetEditor } from './sales-target-editor'
 import { CashBalanceEditor } from './cash-balance-editor'
+
+const formatKRW = (v: number) => formatRaw(Math.round(v))
 
 const cell = 'whitespace-nowrap px-3 py-2 text-right tabular-nums'
 const pct = (v: number, base: number) => (base ? `${((v / base) * 100).toFixed(2)}%` : '-')

@@ -3,7 +3,9 @@ import { YearTabs } from '@/components/reports/year-tabs'
 import { canEditPlan, getSessionUser } from '@/server/auth/guards'
 import { getMonthlyCollection, type CollectionMonth } from '@/server/queries/reports-collection'
 import { cn } from '@/lib/utils'
-import { formatKRW } from '@/lib/format'
+import { formatKRW as formatRaw } from '@/lib/format'
+
+const formatKRW = (v: number) => formatRaw(Math.round(v))
 
 type SP = { [k: string]: string | string[] | undefined }
 
