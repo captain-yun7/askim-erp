@@ -22,7 +22,9 @@ export const counterparty = pgTable(
     phone: text('phone'),
     email: text('email'),
     contactPerson: text('contact_person'),
-    bankAccountRaw: text('bank_account_raw'),
+    bankAccountRaw: text('bank_account_raw'), // 엑셀 원문(legacy) — 은행/계좌 분리 전 값 보존
+    bankName: text('bank_name'),
+    accountNo: text('account_no'),
     accountHolder: text('account_holder'),
     officialFeeRate: text('official_fee_rate'),
     unofficialFeeRate: text('unofficial_fee_rate'),

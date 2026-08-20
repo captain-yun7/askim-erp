@@ -8,7 +8,7 @@ import {
   expenseCategory,
 } from '@/lib/db/schema'
 import { listDeals, type DealListFilters } from '@/server/queries/deals'
-import { getSessionUser } from '@/server/auth/guards'
+import { canViewBankInfo, getSessionUser } from '@/server/auth/guards'
 import { toCsv } from '@/lib/csv'
 
 type ExportResult = { ok: true; filename: string; csv: string } | { error: string }
@@ -131,6 +131,9 @@ export async function exportCounterpartiesCsv(
         roleTags: counterparty.roleTags,
         paymentTerm: counterparty.paymentTerm,
         officialFeeRate: counterparty.officialFeeRate,
+        bankName: counterparty.bankName,
+        accountHolder: counterparty.accountHolder,
+        accountNo: counterparty.accountNo,
         memo: counterparty.memo,
       })
       .from(counterparty)
@@ -138,12 +141,22 @@ export async function exportCounterpartiesCsv(
       .orderBy(asc(counterparty.name))
       .limit(5000)
 
-    const headers = ['상호명', '사업자번호', '역할', '결제일', '수수료', '비고']
+    const showBank = canViewBankInfo(user.role)
+    const headers = [
+      '상호명',
+      '사업자번호',
+      '역할',
+      ...(showBank ? ['거래은행', '예금주', '계좌번호'] : []),
+      '결제일',
+      '수수료',
+      '비고',
+    ]
 
     const csvRows = rows.map((r): (string | number | null)[] => [
       r.name,
       r.businessNo ?? '',
       r.roleTags.map((t) => ROLE_LABEL[t] ?? t).join(', '),
+      ...(showBank ? [r.bankName ?? '', r.accountHolder ?? '', r.accountNo ?? ''] : []),
       r.paymentTerm ?? '',
       r.officialFeeRate ?? '',
       r.memo ?? '',

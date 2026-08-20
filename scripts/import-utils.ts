@@ -178,6 +178,18 @@ export function mapExpenseCategory(raw: unknown): string {
   return 'other_var'
 }
 
+/** "100-000-424857 (신한)" / "신한은행 100-…" / "110-… 신한 공동주" → { bankName, accountNo } */
+export function splitBankAccount(raw: string | null): { bankName: string | null; accountNo: string | null } {
+  if (!raw) return { bankName: null, accountNo: null }
+  const paren = raw.match(/\(([^)]+)\)/)
+  let bankName = paren?.[1]?.trim() ?? null
+  if (!bankName && /[0-9]{3,}/.test(raw)) {
+    bankName = raw.replace(/\([^)]*\)/g, '').match(/[A-Za-z가-힣]+/)?.[0] ?? null
+  }
+  const accountNo = raw.match(/[0-9][0-9 -]*[0-9]/)?.[0] ?? raw
+  return { bankName, accountNo }
+}
+
 /** 계정항목 텍스트 → account code */
 export const ACCOUNT_MAP: Record<string, string> = {
   '광고비': 'ad_fee',

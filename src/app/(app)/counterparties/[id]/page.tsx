@@ -37,6 +37,8 @@ export default async function EditCounterpartyPage({
           email: cp.email,
           contactPerson: cp.contactPerson,
           bankAccountRaw: cp.bankAccountRaw,
+          bankName: cp.bankName,
+          accountNo: cp.accountNo,
           accountHolder: cp.accountHolder,
           officialFeeRate: cp.officialFeeRate,
           unofficialFeeRate: cp.unofficialFeeRate,

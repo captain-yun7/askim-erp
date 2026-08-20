@@ -6,6 +6,7 @@ import {
   cleanBizNo,
   cleanText,
   counterpartyKey,
+  splitBankAccount,
   loadWorkbook,
   sheetToRows,
 } from './import-utils'
@@ -37,6 +38,9 @@ async function importMaster(rows: unknown[][]): Promise<number> {
       contactPerson: cleanText(r[9]),
       email: cleanText(r[10]),
       bankAccountRaw: cleanText(r[11]),
+      // 은행명 컬럼(12) 우선, 없으면 계좌 원문에서 괄호/꼬리 텍스트 추출
+      bankName: cleanText(r[12]) ?? splitBankAccount(cleanText(r[11])).bankName,
+      accountNo: splitBankAccount(cleanText(r[11])).accountNo,
       accountHolder: cleanText(r[13]),
       officialFeeRate: cleanText(r[14]),
       unofficialFeeRate: cleanText(r[15]),

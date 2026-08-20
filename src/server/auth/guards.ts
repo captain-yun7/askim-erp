@@ -87,6 +87,11 @@ export function canEditCounterparty(user: SessionUser, cp: CounterpartyRef): boo
   return user.role === 'sales' && cp.createdBy === user.id
 }
 
+/** 계좌정보(은행/계좌번호/예금주) 목록·CSV 노출: 회계/admin만 */
+export function canViewBankInfo(role: Role): boolean {
+  return isStaff(role)
+}
+
 /** 민감 필드(사업자번호/계좌/수수료) 수정: 회계/admin만 */
 export function canEditCounterpartySensitive(role: Role): boolean {
   return isStaff(role)

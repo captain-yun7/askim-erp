@@ -17,6 +17,8 @@ import {
 const SENSITIVE_FIELDS = [
   'businessNo',
   'bankAccountRaw',
+  'bankName',
+  'accountNo',
   'accountHolder',
   'officialFeeRate',
   'unofficialFeeRate',
@@ -37,6 +39,8 @@ const counterpartySchema = z.object({
   email: z.string().trim().optional().nullable(),
   contactPerson: z.string().trim().optional().nullable(),
   bankAccountRaw: z.string().trim().optional().nullable(),
+  bankName: z.string().trim().optional().nullable(),
+  accountNo: z.string().trim().optional().nullable(),
   accountHolder: z.string().trim().optional().nullable(),
   officialFeeRate: z.string().trim().optional().nullable(),
   unofficialFeeRate: z.string().trim().optional().nullable(),

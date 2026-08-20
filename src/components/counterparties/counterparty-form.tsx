@@ -33,6 +33,8 @@ export function CounterpartyForm({
     email: initial?.email ?? '',
     contactPerson: initial?.contactPerson ?? '',
     bankAccountRaw: initial?.bankAccountRaw ?? '',
+    bankName: initial?.bankName ?? '',
+    accountNo: initial?.accountNo ?? '',
     accountHolder: initial?.accountHolder ?? '',
     officialFeeRate: initial?.officialFeeRate ?? '',
     unofficialFeeRate: initial?.unofficialFeeRate ?? '',
@@ -140,6 +142,14 @@ export function CounterpartyForm({
             />
           </div>
           <div className="grid gap-1.5">
+            <Label>거래은행</Label>
+            <Input
+              value={form.bankName ?? ''}
+              onChange={(e) => set('bankName', e.target.value)}
+              placeholder="신한"
+            />
+          </div>
+          <div className="grid gap-1.5">
             <Label>예금주</Label>
             <Input
               value={form.accountHolder ?? ''}
@@ -149,10 +159,15 @@ export function CounterpartyForm({
           <div className="grid gap-1.5 md:col-span-2">
             <Label>계좌번호</Label>
             <Input
-              value={form.bankAccountRaw ?? ''}
-              onChange={(e) => set('bankAccountRaw', e.target.value)}
-              placeholder="100-000-424857 (신한)"
+              value={form.accountNo ?? ''}
+              onChange={(e) => set('accountNo', e.target.value)}
+              placeholder="100-000-424857"
             />
+            {form.bankAccountRaw && (
+              <p className="text-[11.5px] text-muted-foreground">
+                엑셀 원문: {form.bankAccountRaw}
+              </p>
+            )}
           </div>
           <div className="grid gap-1.5">
             <Label>공식수수료</Label>

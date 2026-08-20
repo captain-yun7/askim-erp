@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/table'
 import { CounterpartiesFilters } from '@/components/counterparties/counterparties-filters'
 import { cn } from '@/lib/utils'
+import { canViewBankInfo, getSessionUser } from '@/server/auth/guards'
 
 const ROLE_LABEL: Record<string, string> = {
   media: '매체사',
@@ -30,6 +31,8 @@ export default async function CounterpartiesPage({
   searchParams: Promise<{ q?: string; role?: string; noBiz?: string }>
 }) {
   const { q, role, noBiz } = await searchParams
+  const user = await getSessionUser()
+  const showBank = user ? canViewBankInfo(user.role) : false
   const conds = [isNull(counterparty.deletedAt), eq(counterparty.isActive, true)]
   if (q)
     conds.push(
@@ -57,6 +60,9 @@ export default async function CounterpartiesPage({
         roleTags: counterparty.roleTags,
         paymentTerm: counterparty.paymentTerm,
         officialFeeRate: counterparty.officialFeeRate,
+        bankName: counterparty.bankName,
+        accountHolder: counterparty.accountHolder,
+        accountNo: counterparty.accountNo,
         memo: counterparty.memo,
       })
       .from(counterparty)
@@ -109,6 +115,13 @@ export default async function CounterpartiesPage({
                 <TableHead>상호명</TableHead>
                 <TableHead>사업자번호</TableHead>
                 <TableHead>역할</TableHead>
+                {showBank && (
+                  <>
+                    <TableHead>거래은행</TableHead>
+                    <TableHead>예금주</TableHead>
+                    <TableHead>계좌번호</TableHead>
+                  </>
+                )}
                 <TableHead className="text-right">수수료</TableHead>
                 <TableHead>결제일</TableHead>
                 <TableHead>비고</TableHead>
@@ -144,6 +157,15 @@ export default async function CounterpartiesPage({
                       <span className="text-xs text-muted-foreground">-</span>
                     )}
                   </TableCell>
+                  {showBank && (
+                    <>
+                      <TableCell className="text-xs">{r.bankName ?? '-'}</TableCell>
+                      <TableCell className="text-xs">{r.accountHolder ?? '-'}</TableCell>
+                      <TableCell className="font-mono text-xs tabular-nums">
+                        {r.accountNo ?? '-'}
+                      </TableCell>
+                    </>
+                  )}
                   <TableCell className="text-right font-mono text-xs tabular-nums">
                     {r.officialFeeRate ?? '-'}
                   </TableCell>
