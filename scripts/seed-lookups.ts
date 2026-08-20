@@ -8,22 +8,22 @@ import {
 } from '../src/lib/db/schema'
 
 const DEAL_CATEGORIES = [
-  { code: 'outwall_self_seongsu',  nameKo: '외벽/자사(성수)',     commissionRate: '0.1000', isOverseas: false, isSpecialShare: null,        displayOrder: 1 },
-  { code: 'outwall_self_other',    nameKo: '외벽/자사(성수 외)',  commissionRate: '0.1000', isOverseas: false, isSpecialShare: null,        displayOrder: 2 },
-  { code: 'outwall_share_seongsu', nameKo: '외벽/공판(성수)',     commissionRate: '0.1000', isOverseas: false, isSpecialShare: null,        displayOrder: 3 },
-  { code: 'outwall_share_other',   nameKo: '외벽/공판(성수 외)',  commissionRate: '0.1000', isOverseas: false, isSpecialShare: null,        displayOrder: 4 },
-  { code: 'exclusive_self',        nameKo: '전속/자사',            commissionRate: '0.1000', isOverseas: false, isSpecialShare: null,        displayOrder: 5 },
-  { code: 'etc_self',              nameKo: '기타/자사',            commissionRate: '0.1000', isOverseas: false, isSpecialShare: null,        displayOrder: 6 },
-  { code: 'fanclub_self',          nameKo: '팬클럽/자사',          commissionRate: '0.2000', isOverseas: false, isSpecialShare: null,        displayOrder: 7 },
-  { code: 'fanclub_agency',        nameKo: '팬클럽/대행',          commissionRate: '0.3000', isOverseas: false, isSpecialShare: null,        displayOrder: 8 },
-  { code: 'popup',                 nameKo: '팝업',                commissionRate: '0.1000', isOverseas: false, isSpecialShare: null,        displayOrder: 9 },
-  { code: 'overseas',              nameKo: '해외매체',             commissionRate: '0.1500', isOverseas: true,  isSpecialShare: null,        displayOrder: 10 },
-  { code: 'sales_agency',          nameKo: '영업대행',             commissionRate: '0.3000', isOverseas: false, isSpecialShare: null,        displayOrder: 11 },
-  { code: 'purchase_only',         nameKo: '매입건',               commissionRate: '0.0000', isOverseas: false, isSpecialShare: null,        displayOrder: 12 },
-  { code: 'sponsorship_self',      nameKo: '협찬/자사',            commissionRate: '0.0000', isOverseas: false, isSpecialShare: null,        displayOrder: 13 },
-  { code: 'ip',                    nameKo: 'IP',                  commissionRate: '0.0000', isOverseas: false, isSpecialShare: 'narin_20', displayOrder: 14 },
-  { code: 'han_river_bus',         nameKo: '한강버스',             commissionRate: '0.1000', isOverseas: false, isSpecialShare: null,        displayOrder: 15 },
-  { code: 'china_biz',             nameKo: '중국사업',             commissionRate: '0.0000', isOverseas: false, isSpecialShare: null,        displayOrder: 16 },
+  { code: 'outwall_self_seongsu',  nameKo: '외벽/자사(성수)',     commissionRate: '0.1000', isOverseas: false, isSpecialShare: null,        displayOrder: 1, planGroup: 'outwall_seongsu' },
+  { code: 'outwall_self_other',    nameKo: '외벽/자사(성수 외)',  commissionRate: '0.1000', isOverseas: false, isSpecialShare: null,        displayOrder: 2, planGroup: 'outwall_other' },
+  { code: 'outwall_share_seongsu', nameKo: '외벽/공판(성수)',     commissionRate: '0.1000', isOverseas: false, isSpecialShare: null,        displayOrder: 3, planGroup: 'outwall_seongsu' },
+  { code: 'outwall_share_other',   nameKo: '외벽/공판(성수 외)',  commissionRate: '0.1000', isOverseas: false, isSpecialShare: null,        displayOrder: 4, planGroup: 'outwall_other' },
+  { code: 'exclusive_self',        nameKo: '전속/자사',            commissionRate: '0.1000', isOverseas: false, isSpecialShare: null,        displayOrder: 5, planGroup: 'exclusive' },
+  { code: 'etc_self',              nameKo: '기타/자사',            commissionRate: '0.1000', isOverseas: false, isSpecialShare: null,        displayOrder: 6, planGroup: null },
+  { code: 'fanclub_self',          nameKo: '팬클럽/자사',          commissionRate: '0.2000', isOverseas: false, isSpecialShare: null,        displayOrder: 7, planGroup: 'fanclub' },
+  { code: 'fanclub_agency',        nameKo: '팬클럽/대행',          commissionRate: '0.3000', isOverseas: false, isSpecialShare: null,        displayOrder: 8, planGroup: 'fanclub' },
+  { code: 'popup',                 nameKo: '팝업',                commissionRate: '0.1000', isOverseas: false, isSpecialShare: null,        displayOrder: 9, planGroup: null },
+  { code: 'overseas',              nameKo: '해외매체',             commissionRate: '0.1500', isOverseas: true,  isSpecialShare: null,        displayOrder: 10, planGroup: 'overseas' },
+  { code: 'sales_agency',          nameKo: '영업대행',             commissionRate: '0.3000', isOverseas: false, isSpecialShare: null,        displayOrder: 11, planGroup: 'sales_agency' },
+  { code: 'purchase_only',         nameKo: '매입건',               commissionRate: '0.0000', isOverseas: false, isSpecialShare: null,        displayOrder: 12, planGroup: null },
+  { code: 'sponsorship_self',      nameKo: '협찬/자사',            commissionRate: '0.0000', isOverseas: false, isSpecialShare: null,        displayOrder: 13, planGroup: null },
+  { code: 'ip',                    nameKo: 'IP',                  commissionRate: '0.0000', isOverseas: false, isSpecialShare: 'narin_20', displayOrder: 14, planGroup: null },
+  { code: 'han_river_bus',         nameKo: '한강버스',             commissionRate: '0.1000', isOverseas: false, isSpecialShare: null,        displayOrder: 15, planGroup: 'han_river_bus' },
+  { code: 'china_biz',             nameKo: '중국사업',             commissionRate: '0.0000', isOverseas: false, isSpecialShare: null,        displayOrder: 16, planGroup: 'china' },
 ] as const
 
 const ACCOUNTS = [

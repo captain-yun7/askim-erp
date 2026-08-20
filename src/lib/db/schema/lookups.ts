@@ -17,6 +17,8 @@ export const dealCategory = pgTable('deal_category', {
   isSpecialShare: text('is_special_share'),
   displayOrder: integer('display_order').notNull().default(0),
   memo: text('memo'),
+  // 매출목표 그룹 (src/lib/plan-groups.ts) — 목표 달성률 집계 단위
+  planGroup: text('plan_group'),
 })
 
 // 계정항목 (광고비/제작비/보증금/등)

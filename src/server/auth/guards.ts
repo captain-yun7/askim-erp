@@ -117,6 +117,12 @@ export function canEditExpense(user: SessionUser, exp: ExpenseRef): boolean {
   )
 }
 
+// ── Plan (매출목표·현금흐름·연 목표) ─────────────────────
+/** 목표/계좌잔액 수기 입력: 회계/admin만 */
+export function canEditPlan(role: Role): boolean {
+  return isStaff(role)
+}
+
 // ── Admin / Lookup ──────────────────────────────────────
 export function canManageUsers(role: Role): boolean {
   return isAdmin(role)
