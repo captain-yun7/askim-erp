@@ -110,7 +110,7 @@ export function SalesTargetSection({ report, editable }: { report: PlanReport; e
                   </tr>
                 )
               })}
-              <tr className="border-b bg-yellow-50 font-medium">
+              <tr className="border-b bg-muted font-medium">
                 <td className="px-4 py-2.5">총 합</td>
                 <td />
                 <td className={cell}>{formatKRW(totals.target)}</td>
