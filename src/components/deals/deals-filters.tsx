@@ -1,11 +1,10 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown, Download, Search } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -185,35 +184,55 @@ function OwnerMultiSelect({
     apply(local.includes(id) ? local.filter((x) => x !== id) : [...local, id])
   }
 
+  // 포털 팝오버는 body zoom(화면 크기 설정)과 위치가 어긋나서 인라인 드롭다운 사용
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
+
   return (
-    <Popover>
-      <PopoverTrigger className={cn(chip, 'inline-flex items-center')} data-active={local.length > 0}>
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        className={cn(chip, 'inline-flex items-center')}
+        data-active={local.length > 0}
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
         <span className="max-w-40 truncate">{summary}</span>
         <span className="text-muted-foreground">담당자</span>
         <ChevronDown className="size-3.5 text-muted-foreground" />
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-56 gap-0 p-1">
-        <button
-          type="button"
-          className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-[12.5px] hover:bg-accent"
-          onClick={() => apply([])}
-        >
-          전체
-          {local.length === 0 && <Check className="size-3.5 text-primary" />}
-        </button>
-        <div className="my-1 h-px bg-border" />
-        <div className="max-h-72 overflow-y-auto">
-          {users.map((u) => (
-            <label
-              key={u.id}
-              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[12.5px] hover:bg-accent"
-            >
-              <Checkbox checked={local.includes(u.id)} onCheckedChange={() => toggle(u.id)} />
-              {u.name}
-            </label>
-          ))}
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-1 w-56 rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-[12.5px] hover:bg-accent"
+            onClick={() => apply([])}
+          >
+            전체
+            {local.length === 0 && <Check className="size-3.5 text-primary" />}
+          </button>
+          <div className="my-1 h-px bg-border" />
+          <div className="max-h-72 overflow-y-auto">
+            {users.map((u) => (
+              <label
+                key={u.id}
+                className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[12.5px] hover:bg-accent"
+              >
+                <Checkbox checked={local.includes(u.id)} onCheckedChange={() => toggle(u.id)} />
+                {u.name}
+              </label>
+            ))}
+          </div>
         </div>
-      </PopoverContent>
-    </Popover>
+      )}
+    </div>
   )
 }
