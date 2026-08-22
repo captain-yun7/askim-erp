@@ -107,7 +107,7 @@ export default async function DealsPage({
           value={`${aggregate.unpaidCount.toLocaleString()}건`}
           sub={
             <>
-              <span className="font-medium text-destructive">
+              <span className="font-medium">
                 ₩ {formatKRW(aggregate.unpaidAmount)}
               </span>{' '}
               회수 대기
@@ -178,10 +178,10 @@ export default async function DealsPage({
 }
 
 const TONE = {
-  primary: 'bg-accent text-primary',
-  muted: 'bg-muted text-muted-foreground',
-  ok: 'bg-success/12 text-success-foreground',
-  warn: 'bg-accent text-accent-foreground',
+  primary: 'bg-background text-foreground',
+  muted: 'bg-background text-muted-foreground',
+  ok: 'bg-background text-success-foreground',
+  warn: 'bg-background text-accent-foreground',
 } as const
 
 function SummaryCard({
@@ -199,23 +199,32 @@ function SummaryCard({
   valueClass?: string
   sub: React.ReactNode
 }) {
+  const warn = tone === 'warn'
   return (
-    <div className="rounded-2xl border bg-card p-4">
-      <div className="flex items-center gap-2.5 text-xs font-medium text-muted-foreground">
-        <span
-          className={cn(
-            'grid size-[26px] place-items-center rounded-md border border-current/40',
-            TONE[tone],
-          )}
-        >
+    <div className={cn('rounded-lg px-5 py-4', warn ? 'bg-accent' : 'bg-muted')}>
+      <div
+        className={cn(
+          'flex items-center gap-2.5 text-[11px] font-medium tracking-[0.04em]',
+          warn ? 'text-accent-foreground' : 'text-muted-foreground',
+        )}
+      >
+        <span className={cn('grid size-[26px] place-items-center rounded-full', TONE[tone])}>
           {icon}
         </span>
         {label}
       </div>
-      <div className={cn('mt-3 text-[23px] font-medium tracking-tight tabular-nums', valueClass)}>
+      <div
+        className={cn(
+          'mt-2.5 text-[24px] font-normal leading-tight tabular-nums',
+          warn && 'text-accent-foreground',
+          valueClass,
+        )}
+      >
         {value}
       </div>
-      <div className="mt-1.5 text-[11.5px] text-muted-foreground">{sub}</div>
+      <div className={cn('mt-1.5 text-xs', warn ? 'text-accent-foreground' : 'text-subtle-foreground')}>
+        {sub}
+      </div>
     </div>
   )
 }
