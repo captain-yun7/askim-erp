@@ -21,7 +21,9 @@ type Row = {
   status: string
   itemName: string | null
   salesAmountNet: string | null
+  salesVat: string | null
   purchaseAmountNet: string | null
+  purchaseVat: string | null
   profit: string | null
   salesPaidStatus: string
   purchasePaidStatus: string
@@ -94,12 +96,14 @@ export function DealsTable({ rows }: { rows: Row[] }) {
           <TableRow className="hover:bg-transparent">
             <TableHead>거래코드</TableHead>
             <TableHead>귀속</TableHead>
-            <TableHead>구분</TableHead>
+            <TableHead>상품구분</TableHead>
             <TableHead>담당</TableHead>
             <TableHead>발행처 / 광고주</TableHead>
             <TableHead>매체사</TableHead>
             <TableHead className="text-right">매출</TableHead>
+            <TableHead className="text-right">부가세</TableHead>
             <TableHead className="text-right">매입</TableHead>
+            <TableHead className="text-right">부가세</TableHead>
             <TableHead className="text-right">손익</TableHead>
             <TableHead className="text-center">입금 / 결산</TableHead>
             <TableHead>매출계산서<br />발행일</TableHead>
@@ -160,8 +164,14 @@ export function DealsTable({ rows }: { rows: Row[] }) {
                 <TableCell className="text-right font-mono text-xs tabular-nums">
                   {formatKRW(r.salesAmountNet)}
                 </TableCell>
+                <TableCell className="text-right font-mono text-xs text-muted-foreground tabular-nums">
+                  {formatKRW(r.salesVat)}
+                </TableCell>
                 <TableCell className="text-right font-mono text-xs tabular-nums">
                   {formatKRW(r.purchaseAmountNet)}
+                </TableCell>
+                <TableCell className="text-right font-mono text-xs text-muted-foreground tabular-nums">
+                  {formatKRW(r.purchaseVat)}
                 </TableCell>
                 <TableCell
                   className={cn(

@@ -1,22 +1,19 @@
-import { and, asc, desc, eq, ilike, isNull, or, sql } from 'drizzle-orm'
+import { and, desc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
 import {
-  account,
   counterparty,
   deal,
   dealCategory,
   users,
 } from '@/lib/db/schema'
 
-const issuerCp = sql<typeof counterparty>`issuer_cp`
-const supplierCp = sql<typeof counterparty>`supplier_cp`
-
 export type DealListFilters = {
   q?: string
   year?: number
   month?: number
   categoryId?: number
-  ownerUserId?: string
+  /** 담당자 다중 선택 */
+  ownerUserIds?: string[]
   paidStatus?: 'pending' | 'completed' | 'partial' | 'unpaid' | 'unsettled' | 'all'
   page?: number
   pageSize?: number
@@ -30,7 +27,7 @@ export async function listDeals(f: DealListFilters = {}) {
   if (f.year) conds.push(eq(deal.accrualYear, f.year))
   if (f.month) conds.push(eq(deal.accrualMonth, f.month))
   if (f.categoryId) conds.push(eq(deal.categoryId, f.categoryId))
-  if (f.ownerUserId) conds.push(eq(deal.ownerUserId, f.ownerUserId))
+  if (f.ownerUserIds?.length) conds.push(inArray(deal.ownerUserId, f.ownerUserIds))
   if (f.paidStatus === 'unpaid') conds.push(eq(deal.salesPaidStatus, 'pending'))
   if (f.paidStatus === 'unsettled')
     conds.push(eq(deal.purchasePaidStatus, 'pending'))
@@ -59,7 +56,7 @@ export async function listDeals(f: DealListFilters = {}) {
       eq(deal.accrualMonth, prevMonth),
     ]
     if (f.categoryId) prevConds.push(eq(deal.categoryId, f.categoryId))
-    if (f.ownerUserId) prevConds.push(eq(deal.ownerUserId, f.ownerUserId))
+    if (f.ownerUserIds?.length) prevConds.push(inArray(deal.ownerUserId, f.ownerUserIds))
     const [prevAggr] = await db
       .select({
         sales: sql<string>`coalesce(sum(${deal.salesAmountNet}), 0)::text`,
@@ -102,7 +99,9 @@ export async function listDeals(f: DealListFilters = {}) {
       status: deal.status,
       itemName: deal.itemName,
       salesAmountNet: deal.salesAmountNet,
+      salesVat: deal.salesVat,
       purchaseAmountNet: deal.purchaseAmountNet,
+      purchaseVat: deal.purchaseVat,
       profit: deal.profit,
       salesPaidStatus: deal.salesPaidStatus,
       purchasePaidStatus: deal.purchasePaidStatus,
