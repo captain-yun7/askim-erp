@@ -17,7 +17,7 @@ export default async function DashboardPage() {
   return (
     <div className="flex flex-col px-8 pb-8 pt-6">
       <div>
-        <h1 className="text-[22px] font-bold tracking-tight">대시보드</h1>
+        <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">대시보드</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
           {d.period.year}년 {d.period.month}월 기준 경영 현황
         </p>
@@ -43,7 +43,7 @@ export default async function DashboardPage() {
           tone="ok"
           label={`${d.period.month}월 손익`}
           value={`₩ ${formatKRW(d.thisMonth.profit)}`}
-          valueClass={d.thisMonth.profit < 0 ? 'text-destructive' : 'text-emerald-700'}
+          valueClass={d.thisMonth.profit < 0 ? 'text-destructive' : 'text-success-foreground'}
           sub={
             <>
               마진율{' '}
@@ -77,12 +77,12 @@ export default async function DashboardPage() {
         />
       </section>
 
-      <section className="mt-5 overflow-hidden rounded-xl border bg-card">
+      <section className="mt-5 overflow-hidden rounded-2xl border bg-card">
         <div className="flex items-center justify-between border-b px-4 py-3">
-          <h2 className="text-sm font-semibold">최근 거래</h2>
+          <h2 className="text-base font-medium">최근 거래</h2>
           <Link
             href="/deals"
-            className="inline-flex items-center gap-1 text-[12.5px] text-muted-foreground hover:text-foreground"
+            className="inline-flex items-center gap-1 text-[13px] font-medium text-muted-foreground hover:text-foreground"
           >
             전체 보기 <ArrowRight className="size-3.5" />
           </Link>
@@ -99,13 +99,13 @@ export default async function DashboardPage() {
                 <li key={r.id}>
                   <Link
                     href={`/deals/${r.id}`}
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-accent/40"
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-muted/60"
                   >
-                    <span className="font-mono text-[11.5px] font-semibold text-primary">
+                    <span className="text-[13px] font-medium tabular-nums text-foreground">
                       {r.dealCode}
                     </span>
                     {r.categoryName && (
-                      <span className="inline-flex rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold text-primary">
+                      <span className="inline-flex rounded-full bg-info px-2.5 py-0.5 text-[12px] text-info-foreground">
                         {r.categoryName}
                       </span>
                     )}
@@ -117,8 +117,8 @@ export default async function DashboardPage() {
                     </span>
                     <span
                       className={cn(
-                        'w-28 text-right font-mono text-xs font-semibold tabular-nums',
-                        loss ? 'text-destructive' : 'text-emerald-700',
+                        'w-28 text-right text-[13px] font-medium tabular-nums',
+                        loss ? 'text-destructive' : 'text-success-foreground',
                       )}
                     >
                       {formatKRW(r.profit)}
@@ -135,9 +135,9 @@ export default async function DashboardPage() {
 }
 
 const TONE = {
-  primary: 'bg-accent text-primary',
-  muted: 'bg-zinc-100 text-zinc-500',
-  ok: 'bg-emerald-50 text-emerald-700',
+  primary: 'bg-background text-foreground',
+  muted: 'bg-background text-muted-foreground',
+  ok: 'bg-background text-success-foreground',
 } as const
 
 function SummaryCard({
@@ -156,11 +156,11 @@ function SummaryCard({
   sub: React.ReactNode
 }) {
   return (
-    <div className="rounded-xl border bg-card p-4">
-      <div className="flex items-center gap-2.5 text-xs font-medium text-muted-foreground">
+    <div className="rounded-lg bg-muted px-5 py-4">
+      <div className="flex items-center gap-2.5 text-[11px] font-medium tracking-[0.04em] text-muted-foreground">
         <span
           className={cn(
-            'grid size-[26px] place-items-center rounded-md border border-current/40',
+            'grid size-[26px] place-items-center rounded-full',
             TONE[tone],
           )}
         >
@@ -168,10 +168,10 @@ function SummaryCard({
         </span>
         {label}
       </div>
-      <div className={cn('mt-3 text-[23px] font-bold tracking-tight tabular-nums', valueClass)}>
+      <div className={cn('mt-2.5 text-[24px] font-normal leading-tight tabular-nums', valueClass)}>
         {value}
       </div>
-      <div className="mt-1.5 text-[11.5px] text-muted-foreground">{sub}</div>
+      <div className="mt-1.5 text-xs text-subtle-foreground">{sub}</div>
     </div>
   )
 }
@@ -191,26 +191,29 @@ function AlertCard({
   return (
     <Link
       href={href}
-      className="flex items-center gap-3.5 rounded-xl border bg-card p-4 transition-colors hover:bg-accent/40"
+      className={cn(
+        'flex items-center gap-3.5 rounded-lg p-4 transition-opacity hover:opacity-90',
+        has ? 'bg-accent text-accent-foreground' : 'bg-muted text-foreground',
+      )}
     >
       <span
         className={cn(
-          'grid size-9 shrink-0 place-items-center rounded-lg',
-          has ? 'bg-amber-50 text-amber-700' : 'bg-zinc-100 text-zinc-400',
+          'grid size-9 shrink-0 place-items-center rounded-full bg-background',
+          has ? 'text-accent-foreground' : 'text-subtle-foreground',
         )}
       >
         {has ? <AlertTriangle className="size-4" /> : <Clock className="size-4" />}
       </span>
       <div className="min-w-0">
-        <div className="text-xs font-medium text-muted-foreground">{label}</div>
-        <div className="mt-0.5 text-lg font-bold tabular-nums">
+        <div className="text-[13px] font-medium">{label}</div>
+        <div className="mt-0.5 text-lg font-normal tabular-nums">
           {count.toLocaleString()}건
-          <span className="ml-2 text-sm font-semibold text-destructive">
+          <span className="ml-2 text-sm font-medium">
             ₩{formatKRWShort(amount)}
           </span>
         </div>
       </div>
-      <ArrowRight className="ml-auto size-4 shrink-0 text-muted-foreground" />
+      <ArrowRight className="ml-auto size-4 shrink-0" />
     </Link>
   )
 }
