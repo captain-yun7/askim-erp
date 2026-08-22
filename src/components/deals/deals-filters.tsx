@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useState } from 'react'
 import { Check, ChevronDown, Download, Search } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -163,17 +164,30 @@ function OwnerMultiSelect({
   selected: string[]
   onChange: (ids: string[]) => void
 }) {
-  const names = users.filter((u) => selected.includes(u.id)).map((u) => u.name)
+  // 연속 클릭 시 URL 반영 전 stale prop 으로 덮어쓰지 않도록 로컬 상태 유지, prop 바뀌면 동기화
+  const propKey = selected.join(',')
+  const [syncedKey, setSyncedKey] = useState(propKey)
+  const [local, setLocal] = useState(selected)
+  if (syncedKey !== propKey) {
+    setSyncedKey(propKey)
+    setLocal(selected)
+  }
+
+  const names = users.filter((u) => local.includes(u.id)).map((u) => u.name)
   const summary =
     names.length === 0 ? '전체' : names.length <= 2 ? names.join(', ') : `${names[0]} 외 ${names.length - 1}명`
 
+  function apply(ids: string[]) {
+    setLocal(ids)
+    onChange(ids)
+  }
   function toggle(id: string) {
-    onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id])
+    apply(local.includes(id) ? local.filter((x) => x !== id) : [...local, id])
   }
 
   return (
     <Popover>
-      <PopoverTrigger className={cn(chip, 'inline-flex items-center')} data-active={selected.length > 0}>
+      <PopoverTrigger className={cn(chip, 'inline-flex items-center')} data-active={local.length > 0}>
         <span className="max-w-40 truncate">{summary}</span>
         <span className="text-muted-foreground">담당자</span>
         <ChevronDown className="size-3.5 text-muted-foreground" />
@@ -182,10 +196,10 @@ function OwnerMultiSelect({
         <button
           type="button"
           className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-[12.5px] hover:bg-accent"
-          onClick={() => onChange([])}
+          onClick={() => apply([])}
         >
           전체
-          {selected.length === 0 && <Check className="size-3.5 text-primary" />}
+          {local.length === 0 && <Check className="size-3.5 text-primary" />}
         </button>
         <div className="my-1 h-px bg-border" />
         <div className="max-h-72 overflow-y-auto">
@@ -194,7 +208,7 @@ function OwnerMultiSelect({
               key={u.id}
               className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[12.5px] hover:bg-accent"
             >
-              <Checkbox checked={selected.includes(u.id)} onCheckedChange={() => toggle(u.id)} />
+              <Checkbox checked={local.includes(u.id)} onCheckedChange={() => toggle(u.id)} />
               {u.name}
             </label>
           ))}
