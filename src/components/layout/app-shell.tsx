@@ -1,9 +1,9 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  BarChart3,
   FileBarChart,
   LayoutDashboard,
   Receipt,
@@ -76,19 +76,23 @@ export function AppShell({
     user.role === 'admin' ? [...NAV_SECTIONS, ADMIN_SECTION] : NAV_SECTIONS
   return (
     <div className="flex min-h-screen">
-      <aside className="hidden w-58 shrink-0 flex-col bg-zinc-900 p-3.5 text-zinc-400 md:flex">
-        <Link href="/" className="flex items-center gap-2.5 px-2 pb-4 pt-1.5">
-          <span className="grid size-7 place-items-center rounded-lg bg-primary text-primary-foreground">
-            <BarChart3 className="size-4" />
-          </span>
-          <span className="text-[15px] font-bold tracking-tight text-white">
-            에스킴 ERP
-          </span>
+      <aside className="hidden w-58 shrink-0 flex-col border-r border-sidebar-border bg-sidebar p-3 text-sidebar-foreground md:flex">
+        <Link href="/" className="flex items-center gap-2 px-2.5 pb-5 pt-1.5">
+          <Image src="/brand/askim-symbol.png" alt="" width={44} height={17} priority />
+          <Image
+            src="/brand/askim-wordmark-white.png"
+            alt="ASKIM"
+            width={46}
+            height={13}
+            className="invert"
+            priority
+          />
+          <span className="text-[12px] font-medium tracking-wide text-subtle-foreground">ERP</span>
         </Link>
         <nav className="flex flex-col gap-4">
           {sections.map((section) => (
             <div key={section.title} className="flex flex-col gap-0.5">
-              <span className="px-3 pb-1 text-[10.5px] font-semibold uppercase tracking-wider text-zinc-600">
+              <span className="px-3 pb-1 text-[11px] font-medium tracking-[0.04em] text-subtle-foreground">
                 {section.title}
               </span>
               {section.items.map((item) => {
@@ -97,11 +101,11 @@ export function AppShell({
                   return (
                     <span
                       key={item.href}
-                      className="flex cursor-default items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-600"
+                      className="flex h-9 cursor-default items-center gap-2.5 rounded-full px-3 text-sm font-medium text-subtle-foreground"
                     >
-                      <Icon className="size-[17px]" />
+                      <Icon className="size-4" strokeWidth={1.5} />
                       {item.label}
-                      <span className="ml-auto rounded bg-zinc-800 px-1.5 py-0.5 text-[9.5px] font-semibold text-zinc-500">
+                      <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-subtle-foreground">
                         준비중
                       </span>
                     </span>
@@ -115,13 +119,13 @@ export function AppShell({
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      'flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                      'flex h-9 items-center gap-2.5 rounded-full px-3 text-sm font-medium transition-colors',
                       active
-                        ? 'bg-zinc-800 font-semibold text-white'
-                        : 'hover:bg-zinc-800 hover:text-white',
+                        ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                        : 'hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground',
                     )}
                   >
-                    <Icon className="size-[17px]" />
+                    <Icon className="size-4" strokeWidth={1.5} />
                     {item.label}
                   </Link>
                 )
@@ -129,19 +133,19 @@ export function AppShell({
             </div>
           ))}
         </nav>
-        <div className="mt-auto border-t border-zinc-700 pt-2">
+        <div className="mt-auto border-t border-sidebar-border pt-2">
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
-                <button className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors hover:bg-zinc-800">
-                  <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                <button className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition-colors hover:bg-sidebar-accent">
+                  <span className="grid size-7 shrink-0 place-items-center rounded-full bg-accent text-xs font-medium text-accent-foreground">
                     {user.name.slice(0, 1)}
                   </span>
                   <span className="flex flex-col leading-tight">
-                    <span className="text-[13px] font-semibold text-white">
+                    <span className="text-[13px] font-medium text-foreground">
                       {user.name}
                     </span>
-                    <span className="text-[11px] text-zinc-500">
+                    <span className="text-[11px] text-subtle-foreground">
                       {user.team ?? user.role}
                     </span>
                   </span>
