@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -153,9 +154,12 @@ export function AppShell({
               }
             />
             <DropdownMenuContent align="start" className="w-48">
-              <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
+              </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuItem render={<Link href="/profile">내 프로필</Link>} />
+              <DropdownMenuItem render={<Link href="/profile">글자 크기</Link>} />
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => logoutAction()}>
                 로그아웃
