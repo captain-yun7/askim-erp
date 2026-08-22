@@ -59,9 +59,10 @@ const EXPENSE_CATEGORIES = [
   { code: 'commission_fee',   nameKo: '지급수수료',   costGroup: 'fixed', displayOrder: 12 },
   { code: 'office_rent',      nameKo: '지급임차료',   costGroup: 'fixed', displayOrder: 13 },
   { code: 'communication',    nameKo: '통신비',       costGroup: 'fixed', displayOrder: 14 },
-  { code: 'vehicle',          nameKo: '차량유지비',   costGroup: 'fixed', displayOrder: 15 },
-  { code: 'insurance',        nameKo: '보험비',       costGroup: 'fixed', displayOrder: 16 },
-  { code: 'loan_interest',    nameKo: '대출이자',     costGroup: 'fixed', displayOrder: 17 },
+  { code: 'vehicle_asset',    nameKo: '차량운반구',   costGroup: 'fixed', displayOrder: 15 },
+  { code: 'vehicle',          nameKo: '차량유지비',   costGroup: 'fixed', displayOrder: 16 },
+  { code: 'insurance',        nameKo: '보험비',       costGroup: 'fixed', displayOrder: 17 },
+  { code: 'loan_interest',    nameKo: '대출이자',     costGroup: 'fixed', displayOrder: 18 },
   // 변동비
   { code: 'other_ops',        nameKo: '기타운영비',   costGroup: 'variable', displayOrder: 18 },
   { code: 'books_print',      nameKo: '도서인쇄비',   costGroup: 'variable', displayOrder: 19 },

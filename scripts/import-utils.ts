@@ -4,7 +4,10 @@
  */
 import * as XLSX from 'xlsx'
 
-export const XLSX_FILE = '2026 에스킴 컴퍼니 거래처 매출·매입 통합프로그램 - 회계용_2026.05.13.xlsx'
+/** 기본 원본 파일 — 환경변수 XLSX_FILE 로 덮어쓸 수 있음 */
+export const XLSX_FILE =
+  process.env.XLSX_FILE ??
+  '2026 에스킴 컴퍼니 거래처 매출·매입 통합프로그램 - 회계용_2026.08.19.xlsx'
 
 /** TRIM + 공백 정규화 + 빈문자열 → null */
 export function cleanText(v: unknown): string | null {
@@ -161,6 +164,7 @@ export const EXPENSE_CAT_MAP: Record<string, string> = {
   '일반소모품비': 'general_supplies',
   '주유비': 'fuel',
   '차량유지비': 'vehicle',
+  '차량운반구': 'vehicle_asset',
   '보험비': 'insurance',
   '기타운영비': 'other_ops',
   '세금': 'tax',
