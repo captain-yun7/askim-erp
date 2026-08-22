@@ -153,7 +153,7 @@ export function AppShell({
                 </button>
               }
             />
-            <DropdownMenuContent align="start" className="w-48">
+            <DropdownMenuContent align="start" side="top" className="w-48">
               <DropdownMenuGroup>
                 <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
               </DropdownMenuGroup>
