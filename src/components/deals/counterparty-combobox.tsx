@@ -10,7 +10,7 @@ type Item = { id: string; name: string; businessNo: string | null }
 
 /**
  * 거래처 자동완성 콤보박스.
- * - 글자 입력시 /api/counterparties/search 호출
+ * - 열리면 즉시 상위 목록, 글자 입력시 /api/counterparties/search 재조회 (㈜/공백 무시)
  * - 마스터에 없으면 [신규 등록] 옵션 → onCreateRequest 콜백
  */
 export function CounterpartyCombobox({
@@ -45,7 +45,7 @@ export function CounterpartyCombobox({
   }, [open])
 
   useEffect(() => {
-    if (!open || !query) {
+    if (!open) {
       setItems([])
       return
     }
@@ -125,9 +125,10 @@ export function CounterpartyCombobox({
           {loading && (
             <div className="px-3 py-2 text-xs text-zinc-500">검색 중...</div>
           )}
-          {!loading && query && items.length === 0 && (
+          {!loading && items.length === 0 && (
             <div className="px-3 py-2 text-xs text-zinc-500">검색 결과 없음</div>
           )}
+          <div className="max-h-64 overflow-y-auto">
           {items.map((it) => (
             <button
               key={it.id}
@@ -141,6 +142,7 @@ export function CounterpartyCombobox({
               )}
             </button>
           ))}
+          </div>
           {query && onCreateRequest && (
             <button
               type="button"
@@ -151,7 +153,7 @@ export function CounterpartyCombobox({
               className="flex w-full items-center gap-1 border-t bg-zinc-50 px-3 py-2 text-left text-sm hover:bg-zinc-100"
             >
               <Plus className="size-3.5" />
-              <span>'{query}' 신규 등록</span>
+              <span>&lsquo;{query}&rsquo; 신규 등록</span>
             </button>
           )}
         </div>
