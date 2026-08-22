@@ -164,7 +164,7 @@ export default async function ExpensesPage({
                   </TableCell>
                   <TableCell>
                     {r.category ? (
-                      <span className="inline-flex rounded-full bg-accent px-2 py-0.5 text-[11px] font-medium text-primary">
+                      <span className="inline-flex h-[22px] items-center rounded-full bg-info px-2.5 text-[12px] text-info-foreground">
                         {r.category}
                       </span>
                     ) : (
@@ -188,7 +188,7 @@ export default async function ExpensesPage({
 }
 
 const TONE = {
-  primary: 'bg-accent text-primary',
+  primary: 'bg-background text-foreground',
   muted: 'bg-muted text-muted-foreground',
 } as const
 

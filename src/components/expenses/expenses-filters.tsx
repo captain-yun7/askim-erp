@@ -14,7 +14,7 @@ import {
 type Cat = { id: number; nameKo: string }
 
 const chip =
-  'h-9 gap-1.5 rounded-lg border bg-background px-3 text-[12.5px] font-medium data-[active=true]:border-primary data-[active=true]:bg-accent data-[active=true]:text-primary'
+  'h-9 gap-1.5 rounded-full border bg-background px-3.5 text-[13px] font-medium data-[active=true]:border-primary data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:[&_span]:text-primary-foreground/70'
 
 const PAYMENT_METHODS = [
   { value: 'corporate_card', label: '법인카드' },
