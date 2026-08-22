@@ -1,11 +1,18 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Figtree, Geist_Mono, Noto_Sans_KR } from 'next/font/google'
 import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+const figtree = Figtree({
+  variable: '--font-figtree',
   subsets: ['latin'],
+  weight: ['300', '400', '500'],
+})
+
+const notoSansKr = Noto_Sans_KR({
+  variable: '--font-noto-kr',
+  subsets: ['latin'],
+  weight: ['300', '400', '500'],
 })
 
 const geistMono = Geist_Mono({
@@ -24,7 +31,7 @@ export default function RootLayout({
   return (
     <html
       lang="ko"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${figtree.variable} ${notoSansKr.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full">
         {children}
