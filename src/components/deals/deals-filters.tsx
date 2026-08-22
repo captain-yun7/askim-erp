@@ -19,7 +19,7 @@ type Cat = { id: number; nameKo: string }
 type User = { id: string; name: string }
 
 const chip =
-  'h-9 gap-1.5 rounded-lg border bg-background px-3 text-[12.5px] font-medium data-[active=true]:border-primary data-[active=true]:bg-accent data-[active=true]:text-primary'
+  'h-9 gap-1.5 rounded-full border bg-background px-3.5 text-[13px] font-medium data-[active=true]:border-primary data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:[&_span]:text-primary-foreground/70'
 
 export function DealsFilters({
   categories,
@@ -57,7 +57,7 @@ export function DealsFilters({
         <Input
           defaultValue={initial.q ?? ''}
           placeholder="거래코드, 거래처, 품목 검색..."
-          className="h-9 rounded-lg pl-9"
+          className="h-9 pl-9"
           onKeyDown={(e) => {
             if (e.key === 'Enter')
               update({ q: (e.target as HTMLInputElement).value })
@@ -146,7 +146,7 @@ export function DealsFilters({
       <button
         type="button"
         title="내보내기"
-        className="ml-auto grid size-9 shrink-0 place-items-center rounded-lg border bg-background text-muted-foreground transition-colors hover:bg-accent"
+        className="ml-auto grid size-9 shrink-0 place-items-center rounded-full border bg-background text-muted-foreground transition-colors hover:bg-muted"
       >
         <Download className="size-4" />
       </button>

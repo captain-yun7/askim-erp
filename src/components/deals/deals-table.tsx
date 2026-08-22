@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { Check, Clock } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -41,11 +40,9 @@ type Row = {
 }
 
 const AVATAR_COLORS = [
-  'oklch(0.55 0.2 277)',
-  'oklch(0.6 0.17 30)',
-  'oklch(0.55 0.16 162)',
-  'oklch(0.58 0.16 250)',
-  'oklch(0.6 0.15 320)',
+  'bg-muted text-muted-foreground',
+  'bg-accent text-accent-foreground',
+  'bg-info text-info-foreground',
 ]
 
 function avatarColor(name: string) {
@@ -56,9 +53,9 @@ function avatarColor(name: string) {
 
 function DatePair({ planned, actual }: { planned: string | null; actual: string | null }) {
   return (
-    <div className="font-mono text-[11px] leading-tight tabular-nums">
+    <div className="text-[12px] leading-tight tabular-nums">
       <div className="text-muted-foreground">{formatDate(planned)}</div>
-      <div className={cn(actual ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
+      <div className={cn(actual ? 'font-medium text-foreground' : 'text-subtle-foreground')}>
         {formatDate(actual)}
       </div>
     </div>
@@ -69,13 +66,11 @@ function StatusPill({ done, doneLabel, todoLabel }: { done: boolean; doneLabel: 
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold',
-        done
-          ? 'bg-emerald-50 text-emerald-700'
-          : 'bg-amber-50 text-amber-700',
+        'inline-flex items-center gap-1.5 text-[12px]',
+        done ? 'text-success-foreground' : 'text-accent-foreground',
       )}
     >
-      {done ? <Check className="size-3" /> : <Clock className="size-3" />}
+      <span className={cn('size-[7px] rounded-full', done ? 'bg-success' : 'bg-brand')} />
       {done ? doneLabel : todoLabel}
     </span>
   )
@@ -117,11 +112,11 @@ export function DealsTable({ rows }: { rows: Row[] }) {
             const owner = r.ownerName ?? '-'
             const loss = parseFloat(r.profit ?? '0') < 0
             return (
-              <TableRow key={r.id} className="hover:bg-accent/40">
+              <TableRow key={r.id} className="hover:bg-muted/60">
                 <TableCell>
                   <Link
                     href={`/deals/${r.id}`}
-                    className="font-mono text-[11.5px] font-semibold text-primary hover:underline"
+                    className="text-[13px] font-medium tabular-nums text-foreground hover:text-brand"
                   >
                     {r.dealCode}
                   </Link>
@@ -136,7 +131,7 @@ export function DealsTable({ rows }: { rows: Row[] }) {
                 </TableCell>
                 <TableCell>
                   {r.categoryName ? (
-                    <span className="inline-flex rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold text-primary">
+                    <span className="inline-flex h-[22px] items-center rounded-full bg-info px-2.5 text-[12px] text-info-foreground">
                       {r.categoryName}
                     </span>
                   ) : (
@@ -144,45 +139,47 @@ export function DealsTable({ rows }: { rows: Row[] }) {
                   )}
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-2 text-xs">
+                  <div className="flex items-center gap-2 text-[13px]">
                     <span
-                      className="grid size-[22px] shrink-0 place-items-center rounded-full text-[10.5px] font-bold text-white"
-                      style={{ background: avatarColor(owner) }}
+                      className={cn(
+                        'grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-medium',
+                        avatarColor(owner),
+                      )}
                     >
                       {owner.slice(0, 1)}
                     </span>
                     {owner}
                   </div>
                 </TableCell>
-                <TableCell className="text-xs">
+                <TableCell className="text-[13px]">
                   <div>{r.issuerName ?? '-'}</div>
                   {r.advertiserName && r.advertiserName !== r.issuerName && (
                     <div className="text-muted-foreground">→ {r.advertiserName}</div>
                   )}
                 </TableCell>
-                <TableCell className="text-xs">{r.supplierName ?? '-'}</TableCell>
-                <TableCell className="text-right font-mono text-xs tabular-nums">
+                <TableCell className="text-[13px] text-muted-foreground">{r.supplierName ?? '-'}</TableCell>
+                <TableCell className="text-right text-[13px] tabular-nums">
                   {formatKRW(r.salesAmountNet)}
                 </TableCell>
-                <TableCell className="text-right font-mono text-xs text-muted-foreground tabular-nums">
+                <TableCell className="text-right text-[13px] text-muted-foreground tabular-nums">
                   {formatKRW(r.salesVat)}
                 </TableCell>
-                <TableCell className="text-right font-mono text-xs tabular-nums">
+                <TableCell className="text-right text-[13px] tabular-nums">
                   {formatKRW(r.purchaseAmountNet)}
                 </TableCell>
-                <TableCell className="text-right font-mono text-xs text-muted-foreground tabular-nums">
+                <TableCell className="text-right text-[13px] text-muted-foreground tabular-nums">
                   {formatKRW(r.purchaseVat)}
                 </TableCell>
                 <TableCell
                   className={cn(
-                    'text-right font-mono text-xs font-semibold tabular-nums',
-                    loss ? 'text-destructive' : 'text-emerald-700',
+                    'text-right text-[13px] font-medium tabular-nums',
+                    loss ? 'text-destructive' : 'text-success-foreground',
                   )}
                 >
                   {formatKRW(r.profit)}
                 </TableCell>
                 <TableCell>
-                  <div className="flex justify-center gap-1.5">
+                  <div className="flex justify-center gap-3">
                     <span title={`입금예정 ${formatDate(r.salesDueDate)}`}>
                       <StatusPill
                         done={r.salesPaidStatus === 'completed'}
@@ -199,10 +196,10 @@ export function DealsTable({ rows }: { rows: Row[] }) {
                     </span>
                   </div>
                 </TableCell>
-                <TableCell className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                <TableCell className="text-[12px] text-muted-foreground tabular-nums">
                   {formatDate(r.salesInvoiceDate)}
                 </TableCell>
-                <TableCell className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                <TableCell className="text-[12px] text-muted-foreground tabular-nums">
                   {formatDate(r.purchaseInvoiceDate)}
                 </TableCell>
                 <TableCell>

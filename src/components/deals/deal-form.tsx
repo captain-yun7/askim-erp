@@ -155,7 +155,7 @@ export function DealForm({
   return (
     <div className="px-8 py-6">
       {readOnly && (
-        <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+        <div className="mb-4 rounded-md border border-accent-foreground/30 bg-accent px-4 py-2.5 text-sm text-accent-foreground">
           🔒 완료(closed) 거래는 읽기 전용입니다. 수정은 회계 담당자에게 요청하세요.
         </div>
       )}
@@ -269,7 +269,7 @@ export function DealForm({
         {/* 매출 (좌) */}
         <Card>
           <CardContent className="pt-6">
-            <h3 className="mb-4 flex items-center gap-2 text-base font-semibold">
+            <h3 className="mb-4 flex items-center gap-2 text-base font-medium">
               <span className="grid size-[26px] place-items-center rounded-md border border-current/40 bg-accent text-primary">
                 <Coins className="size-[15px]" />
               </span>
@@ -415,8 +415,8 @@ export function DealForm({
         {/* 매입 (우) */}
         <Card>
           <CardContent className="pt-6">
-            <h3 className="mb-4 flex items-center gap-2 text-base font-semibold">
-              <span className="grid size-[26px] place-items-center rounded-md border border-current/40 bg-zinc-100 text-zinc-500">
+            <h3 className="mb-4 flex items-center gap-2 text-base font-medium">
+              <span className="grid size-[26px] place-items-center rounded-md border border-current/40 bg-muted text-muted-foreground">
                 <Package className="size-[15px]" />
               </span>
               매입
@@ -541,23 +541,23 @@ export function DealForm({
       <Card className="mt-4">
         <CardContent className="flex items-center justify-around gap-6 py-4 text-sm">
           <div>
-            <span className="text-zinc-500">손익</span>{' '}
+            <span className="text-muted-foreground">손익</span>{' '}
             <b
-              className={profit < 0 ? 'text-destructive' : profit > 0 ? 'text-emerald-700' : ''}
+              className={profit < 0 ? 'text-destructive' : profit > 0 ? 'text-success-foreground' : ''}
             >
               {formatKRW(profit)}
             </b>
             {salesNet > 0 && (
-              <span className="ml-1 text-xs text-zinc-500">
+              <span className="ml-1 text-xs text-muted-foreground">
                 ({((profit / salesNet) * 100).toFixed(1)}%)
               </span>
             )}
           </div>
           <div>
-            <span className="text-zinc-500">성과급</span>{' '}
+            <span className="text-muted-foreground">성과급</span>{' '}
             <b>{formatKRW(computedCommission)}</b>
             {cat && (
-              <span className="ml-1 text-xs text-zinc-500">
+              <span className="ml-1 text-xs text-muted-foreground">
                 ({(commissionRate * 100).toFixed(0)}% — {cat.nameKo})
               </span>
             )}

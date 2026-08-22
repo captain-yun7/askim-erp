@@ -88,7 +88,7 @@ export function CounterpartyCombobox({
         onClick={() => setOpen(true)}
       >
         {value && label && !open ? (
-          <span className="flex-1 truncate text-zinc-900">{label}</span>
+          <span className="flex-1 truncate text-foreground">{label}</span>
         ) : (
           <input
             className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
@@ -110,23 +110,23 @@ export function CounterpartyCombobox({
                 e.stopPropagation()
                 clear()
               }}
-              className="text-zinc-400 hover:text-zinc-700"
+              className="text-subtle-foreground hover:text-foreground"
               aria-label="지우기"
             >
               <X className="size-3.5" />
             </button>
           )}
-          <ChevronDown className="size-3.5 text-zinc-400" />
+          <ChevronDown className="size-3.5 text-subtle-foreground" />
         </div>
       </div>
 
       {open && (
         <div className="absolute top-full left-0 z-50 mt-1 w-full overflow-hidden rounded-md border bg-white shadow-lg">
           {loading && (
-            <div className="px-3 py-2 text-xs text-zinc-500">검색 중...</div>
+            <div className="px-3 py-2 text-xs text-muted-foreground">검색 중...</div>
           )}
           {!loading && items.length === 0 && (
-            <div className="px-3 py-2 text-xs text-zinc-500">검색 결과 없음</div>
+            <div className="px-3 py-2 text-xs text-muted-foreground">검색 결과 없음</div>
           )}
           <div className="max-h-64 overflow-y-auto">
           {items.map((it) => (
@@ -134,11 +134,11 @@ export function CounterpartyCombobox({
               key={it.id}
               type="button"
               onClick={() => select(it)}
-              className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-zinc-50"
+              className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-muted"
             >
               <span>{it.name}</span>
               {it.businessNo && (
-                <span className="text-xs text-zinc-500">{it.businessNo}</span>
+                <span className="text-xs text-muted-foreground">{it.businessNo}</span>
               )}
             </button>
           ))}
@@ -150,7 +150,7 @@ export function CounterpartyCombobox({
                 onCreateRequest(query)
                 setOpen(false)
               }}
-              className="flex w-full items-center gap-1 border-t bg-zinc-50 px-3 py-2 text-left text-sm hover:bg-zinc-100"
+              className="flex w-full items-center gap-1 border-t bg-muted px-3 py-2 text-left text-sm hover:bg-muted"
             >
               <Plus className="size-3.5" />
               <span>&lsquo;{query}&rsquo; 신규 등록</span>

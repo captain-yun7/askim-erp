@@ -48,7 +48,7 @@ export default async function DealsPage({
     <div className="flex flex-col px-8 pb-8 pt-6">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-[22px] font-bold tracking-tight">거래</h1>
+          <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">거래</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             매출·매입 통합 거래원장
           </p>
@@ -93,10 +93,10 @@ export default async function DealsPage({
           tone="ok"
           label="손익"
           value={`₩ ${formatKRW(aggregate.profit)}`}
-          valueClass={aggregate.profit < 0 ? 'text-destructive' : 'text-emerald-700'}
+          valueClass={aggregate.profit < 0 ? 'text-destructive' : 'text-success-foreground'}
           sub={
             <>
-              마진율 <b className="font-semibold text-foreground">{margin.toFixed(1)}%</b>
+              마진율 <b className="font-medium text-foreground">{margin.toFixed(1)}%</b>
             </>
           }
         />
@@ -107,7 +107,7 @@ export default async function DealsPage({
           value={`${aggregate.unpaidCount.toLocaleString()}건`}
           sub={
             <>
-              <span className="font-semibold text-destructive">
+              <span className="font-medium text-destructive">
                 ₩ {formatKRW(aggregate.unpaidAmount)}
               </span>{' '}
               회수 대기
@@ -116,7 +116,7 @@ export default async function DealsPage({
         />
       </section>
 
-      <section className="mt-5 overflow-hidden rounded-xl border bg-card">
+      <section className="mt-5 overflow-hidden rounded-2xl border bg-card">
         <div className="border-b p-4">
           <DealsFilters
             categories={lookups.categories}
@@ -140,7 +140,7 @@ export default async function DealsPage({
           매입 <b className="text-foreground">₩{formatKRWShort(aggregate.purchase)}</b>
           <span>·</span>
           손익{' '}
-          <b className={aggregate.profit < 0 ? 'text-destructive' : 'text-emerald-700'}>
+          <b className={aggregate.profit < 0 ? 'text-destructive' : 'text-success-foreground'}>
             ₩{formatKRWShort(aggregate.profit)}
           </b>
         </div>
@@ -179,9 +179,9 @@ export default async function DealsPage({
 
 const TONE = {
   primary: 'bg-accent text-primary',
-  muted: 'bg-zinc-100 text-zinc-500',
-  ok: 'bg-emerald-50 text-emerald-700',
-  warn: 'bg-amber-50 text-amber-700',
+  muted: 'bg-muted text-muted-foreground',
+  ok: 'bg-success/12 text-success-foreground',
+  warn: 'bg-accent text-accent-foreground',
 } as const
 
 function SummaryCard({
@@ -200,7 +200,7 @@ function SummaryCard({
   sub: React.ReactNode
 }) {
   return (
-    <div className="rounded-xl border bg-card p-4">
+    <div className="rounded-2xl border bg-card p-4">
       <div className="flex items-center gap-2.5 text-xs font-medium text-muted-foreground">
         <span
           className={cn(
@@ -212,7 +212,7 @@ function SummaryCard({
         </span>
         {label}
       </div>
-      <div className={cn('mt-3 text-[23px] font-bold tracking-tight tabular-nums', valueClass)}>
+      <div className={cn('mt-3 text-[23px] font-medium tracking-tight tabular-nums', valueClass)}>
         {value}
       </div>
       <div className="mt-1.5 text-[11.5px] text-muted-foreground">{sub}</div>
@@ -225,7 +225,7 @@ function Delta({ current, prev }: { current: number; prev: number }) {
     return (
       <>
         전월 대비{' '}
-        <span className="font-semibold text-foreground">
+        <span className="font-medium text-foreground">
           {current > 0 ? '신규' : '—'}
         </span>
       </>
@@ -238,11 +238,11 @@ function Delta({ current, prev }: { current: number; prev: number }) {
   const color = flat
     ? 'text-muted-foreground'
     : up
-      ? 'text-emerald-700'
+      ? 'text-success-foreground'
       : 'text-destructive'
   return (
     <span className="inline-flex items-center gap-1">
-      <span className={cn('inline-flex items-center gap-0.5 font-semibold', color)}>
+      <span className={cn('inline-flex items-center gap-0.5 font-medium', color)}>
         <Icon className="size-3" />
         {Math.abs(pct).toFixed(1)}%
       </span>
