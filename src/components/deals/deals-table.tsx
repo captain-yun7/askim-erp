@@ -9,7 +9,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
-import { avatarInitials, formatDate, formatKRW } from '@/lib/format'
+import { formatDate, formatKRW } from '@/lib/format'
 
 type Row = {
   id: string
@@ -39,17 +39,6 @@ type Row = {
   supplierName: string | null
 }
 
-const AVATAR_COLORS = [
-  'bg-muted text-muted-foreground',
-  'bg-accent text-accent-foreground',
-  'bg-info text-info-foreground',
-]
-
-function avatarColor(name: string) {
-  let h = 0
-  for (let i = 0; i < name.length; i++) h = (h + name.charCodeAt(i)) % AVATAR_COLORS.length
-  return AVATAR_COLORS[h]
-}
 
 function DatePair({ planned, actual }: { planned: string | null; actual: string | null }) {
   return (
@@ -139,17 +128,7 @@ export function DealsTable({ rows }: { rows: Row[] }) {
                   )}
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-2 text-[13px]">
-                    <span
-                      className={cn(
-                        'grid size-6 shrink-0 place-items-center rounded-full text-[9.5px] font-medium tracking-tight',
-                        avatarColor(owner),
-                      )}
-                    >
-                      {avatarInitials(owner)}
-                    </span>
-                    {owner}
-                  </div>
+                  <span className="text-[13px]">{owner}</span>
                 </TableCell>
                 <TableCell className="text-[13px]">
                   <div>{r.issuerName ?? '-'}</div>
