@@ -52,11 +52,11 @@ export function LoginForm() {
             />
           </div>
           {error && (
-            <div className="rounded-md bg-accent px-3 py-2 text-sm text-destructive">
+            <div className="rounded-lg bg-accent px-3.5 py-2.5 text-sm text-accent-foreground">
               {error}
             </div>
           )}
-          <Button type="submit" disabled={pending} className="mt-2">
+          <Button type="submit" size="lg" disabled={pending} className="mt-2">
             {pending ? '로그인 중...' : '로그인'}
           </Button>
         </form>
