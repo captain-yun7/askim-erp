@@ -8,7 +8,7 @@ type SP = { [k: string]: string | string[] | undefined }
 const TONE: Record<NonNullable<LedgerLine['tone']>, string> = {
   sales: 'bg-muted/40 font-medium',
   profit: 'font-medium',
-  operating: 'bg-accent font-medium text-accent-foreground',
+  operating: 'bg-muted/60 font-medium',
   net: 'bg-success/12 font-medium text-success-foreground',
   muted: 'text-muted-foreground',
 }

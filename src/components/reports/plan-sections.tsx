@@ -16,15 +16,15 @@ const pct = (v: number, base: number) => (base ? `${((v / base) * 100).toFixed(2
 const pct0 = (v: number, base: number) => (base ? `${Math.round((v / base) * 100)}%` : '-')
 
 const PRIORITY_TONE: Record<string, string> = {
-  상: 'bg-accent text-destructive',
-  중: 'bg-accent text-accent-foreground',
+  상: 'bg-primary text-primary-foreground',
+  중: 'bg-muted text-foreground',
   하: 'bg-muted text-muted-foreground',
 }
 
 function heat(ratio: number) {
   if (!Number.isFinite(ratio) || ratio <= 0) return ''
-  if (ratio >= 0.4) return 'bg-accent'
-  if (ratio >= 0.25) return 'bg-accent'
+  if (ratio >= 0.4) return 'bg-muted'
+  if (ratio >= 0.25) return 'bg-muted/50'
   return ''
 }
 
@@ -100,8 +100,8 @@ export function SalesTargetSection({ report, editable }: { report: PlanReport; e
                       {pct0(g.target, totals.target)}
                     </td>
                     <td className={cell}>{pct(g.achieved, g.target)}</td>
-                    <td className={cn(cell, 'bg-accent')}>{g.achieved ? formatKRW(g.achieved) : '-'}</td>
-                    <td className={cn(cell, 'bg-accent', g.profit < 0 && 'text-destructive')}>
+                    <td className={cn(cell, 'bg-muted/60')}>{g.achieved ? formatKRW(g.achieved) : '-'}</td>
+                    <td className={cn(cell, 'bg-muted/60', g.profit < 0 && 'text-destructive')}>
                       {g.profit ? formatKRW(g.profit) : '-'}
                     </td>
                     <td className={cn(cell, heat(margin), margin < 0 && 'text-destructive')}>
@@ -190,7 +190,7 @@ export function CashFlowSection({ report, editable }: { report: PlanReport; edit
                   </td>
                 )}
                 <td className="px-3 py-2">{r.label}</td>
-                <td className={cn(cell, 'bg-info')}>{formatKRW(r.amountKrw)}</td>
+                <td className={cn(cell, 'bg-muted/60')}>{formatKRW(r.amountKrw)}</td>
                 <td className="px-3 py-2 text-muted-foreground">
                   {r.amountFx != null && r.fxCurrency
                     ? `${r.fxCurrency} ${r.amountFx.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
@@ -205,19 +205,19 @@ export function CashFlowSection({ report, editable }: { report: PlanReport; edit
                 </td>
               </tr>
             )}
-            <tr className="border-b bg-accent font-medium">
+            <tr className="border-b bg-muted font-medium">
               <td className="px-4 py-2" colSpan={2}>합 계(대출제외)</td>
               <td className={cell}>{formatKRW(cash.balanceTotal)}</td>
               <td />
             </tr>
             <tr className="border-b">
               <td className="px-4 py-2" colSpan={2}>업데이트 시점 이후 매출(예정)</td>
-              <td className={cn(cell, 'bg-accent')}>{formatKRW(cash.futureSales)}</td>
+              <td className={cn(cell, 'bg-muted/60')}>{formatKRW(cash.futureSales)}</td>
               <td className="px-3 py-2 text-[11.5px] text-muted-foreground">입금 완료 건 제외</td>
             </tr>
             <tr className="border-b">
               <td className="px-4 py-2" colSpan={2}>업데이트 시점 이후 매입(예정)</td>
-              <td className={cn(cell, 'bg-accent')}>{formatKRW(cash.futurePurchase)}</td>
+              <td className={cn(cell, 'bg-muted/60')}>{formatKRW(cash.futurePurchase)}</td>
               <td className="px-3 py-2 text-[11.5px] text-muted-foreground">결산 완료 건 제외</td>
             </tr>
             <tr className="border-b">
@@ -225,7 +225,7 @@ export function CashFlowSection({ report, editable }: { report: PlanReport; edit
               <td className={cn(cell, futureNet < 0 && 'text-destructive')}>{formatKRW(futureNet)}</td>
               <td />
             </tr>
-            <tr className="bg-accent font-medium">
+            <tr className="bg-muted font-medium">
               <td className="px-4 py-2.5" colSpan={2}>업데이트 시점 합계 + 미래 현금매출(대출제외)</td>
               <td className={cell}>{formatKRW(cash.balanceTotal + futureNet)}</td>
               <td />

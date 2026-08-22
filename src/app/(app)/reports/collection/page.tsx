@@ -26,7 +26,7 @@ function HalfTable({ months, label }: { months: CollectionMonth[]; label: string
       key: 'done',
       label: '수금/결산',
       pick: (m) => [m.salesCollected, m.purchaseSettled, m.salesCollected - m.purchaseSettled],
-      tone: 'bg-accent',
+      tone: 'bg-muted/60',
     },
     { key: 'outstanding', label: '미수/미결산', pick: (m) => [m.salesOutstanding, m.purchaseOutstanding, null] },
   ]

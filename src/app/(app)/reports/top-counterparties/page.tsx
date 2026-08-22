@@ -16,7 +16,7 @@ import { formatKRW } from '@/lib/format'
 type SP = { [k: string]: string | string[] | undefined }
 
 const LIMIT = 20
-const RANK_TONE = ['text-accent-foreground', 'text-subtle-foreground', 'text-accent-foreground']
+const RANK_TONE = ['text-brand', 'text-subtle-foreground', 'text-subtle-foreground']
 
 export default async function TopCounterpartiesPage({
   searchParams,
