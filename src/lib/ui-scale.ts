@@ -1,5 +1,3 @@
-export const UI_SCALE_COOKIE = 'ui-scale'
-
 export const UI_SCALES = [
   { value: 'sm', label: '작게', zoom: 0.9 },
   { value: 'md', label: '기본', zoom: 1 },
@@ -9,7 +7,7 @@ export const UI_SCALES = [
 
 export type UiScale = (typeof UI_SCALES)[number]['value']
 
-export function parseUiScale(v: string | undefined): UiScale {
+export function parseUiScale(v: string | null | undefined): UiScale {
   return (UI_SCALES.find((s) => s.value === v)?.value ?? 'md') as UiScale
 }
 

@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "ui_scale" text DEFAULT 'md' NOT NULL;

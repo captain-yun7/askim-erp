@@ -43,6 +43,13 @@
       "when": 1787228222129,
       "tag": "0005_expense_vehicle_asset",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787384393070,
+      "tag": "0006_user_ui_scale",
+      "breakpoints": true
     }
   ]
 }

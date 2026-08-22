@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
-import { cookies } from 'next/headers'
 import { Figtree, Geist_Mono, Noto_Sans_KR } from 'next/font/google'
 import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
-import { UI_SCALE_COOKIE, parseUiScale, uiScaleZoom } from '@/lib/ui-scale'
+import { uiScaleZoom } from '@/lib/ui-scale'
+import { getMyUiScale } from '@/server/queries/ui-scale'
 
 const figtree = Figtree({
   variable: '--font-figtree',
@@ -30,8 +30,8 @@ export const metadata: Metadata = {
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  // 사용자별 글자 크기 선호 — 쿠키 기반, SSR 시 적용해 깜빡임 없음
-  const scale = parseUiScale((await cookies()).get(UI_SCALE_COOKIE)?.value)
+  // 사용자별 화면 배율 — 계정(users.ui_scale)에 저장, SSR 시 적용해 깜빡임 없음
+  const scale = await getMyUiScale()
   return (
     <html
       lang="ko"
