@@ -33,7 +33,7 @@ export default async function DealsPage({
     year: sp.year ? parseInt(String(sp.year), 10) : undefined,
     month: sp.month ? parseInt(String(sp.month), 10) : undefined,
     categoryId: sp.categoryId ? parseInt(String(sp.categoryId), 10) : undefined,
-    ownerUserId: typeof sp.owner === 'string' ? sp.owner : undefined,
+    ownerUserIds: typeof sp.owner === 'string' && sp.owner ? sp.owner.split(',').filter(Boolean) : undefined,
     paidStatus: sp.paid as 'unpaid' | 'unsettled' | undefined,
     page: sp.page ? parseInt(String(sp.page), 10) : 1,
   }
@@ -126,7 +126,7 @@ export default async function DealsPage({
               year: filters.year,
               month: filters.month,
               categoryId: filters.categoryId,
-              ownerUserId: filters.ownerUserId,
+              ownerUserIds: filters.ownerUserIds,
               paid: filters.paidStatus,
             }}
           />

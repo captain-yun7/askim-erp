@@ -1,8 +1,10 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Download, Search } from 'lucide-react'
+import { Check, ChevronDown, Download, Search } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -30,7 +32,7 @@ export function DealsFilters({
     year?: number
     month?: number
     categoryId?: number
-    ownerUserId?: string
+    ownerUserIds?: string[]
     paid?: string
   }
 }) {
@@ -116,23 +118,11 @@ export function DealsFilters({
         </SelectContent>
       </Select>
 
-      <Select
-        defaultValue={initial.ownerUserId ?? 'all'}
-        onValueChange={(v) => update({ owner: v ?? undefined })}
-      >
-        <SelectTrigger className={chip} data-active={Boolean(initial.ownerUserId)}>
-          <SelectValue />
-          <span className="text-muted-foreground">담당자</span>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">전체</SelectItem>
-          {users.map((u) => (
-            <SelectItem key={u.id} value={u.id}>
-              {u.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <OwnerMultiSelect
+        users={users}
+        selected={initial.ownerUserIds ?? []}
+        onChange={(ids) => update({ owner: ids.length ? ids.join(',') : undefined })}
+      />
 
       <Select
         defaultValue={initial.paid ?? 'all'}
@@ -160,5 +150,56 @@ export function DealsFilters({
         <Download className="size-4" />
       </button>
     </div>
+  )
+}
+
+/** 담당자 다중 선택 — 체크박스 팝오버, URL 은 owner=id1,id2 */
+function OwnerMultiSelect({
+  users,
+  selected,
+  onChange,
+}: {
+  users: User[]
+  selected: string[]
+  onChange: (ids: string[]) => void
+}) {
+  const names = users.filter((u) => selected.includes(u.id)).map((u) => u.name)
+  const summary =
+    names.length === 0 ? '전체' : names.length <= 2 ? names.join(', ') : `${names[0]} 외 ${names.length - 1}명`
+
+  function toggle(id: string) {
+    onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id])
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger className={cn(chip, 'inline-flex items-center')} data-active={selected.length > 0}>
+        <span className="max-w-40 truncate">{summary}</span>
+        <span className="text-muted-foreground">담당자</span>
+        <ChevronDown className="size-3.5 text-muted-foreground" />
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-56 gap-0 p-1">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-[12.5px] hover:bg-accent"
+          onClick={() => onChange([])}
+        >
+          전체
+          {selected.length === 0 && <Check className="size-3.5 text-primary" />}
+        </button>
+        <div className="my-1 h-px bg-border" />
+        <div className="max-h-72 overflow-y-auto">
+          {users.map((u) => (
+            <label
+              key={u.id}
+              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[12.5px] hover:bg-accent"
+            >
+              <Checkbox checked={selected.includes(u.id)} onCheckedChange={() => toggle(u.id)} />
+              {u.name}
+            </label>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }
