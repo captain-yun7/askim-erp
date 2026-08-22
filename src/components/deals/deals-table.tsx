@@ -9,7 +9,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
-import { formatDate, formatKRW } from '@/lib/format'
+import { avatarInitials, formatDate, formatKRW } from '@/lib/format'
 
 type Row = {
   id: string
@@ -142,11 +142,11 @@ export function DealsTable({ rows }: { rows: Row[] }) {
                   <div className="flex items-center gap-2 text-[13px]">
                     <span
                       className={cn(
-                        'grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-medium',
+                        'grid size-6 shrink-0 place-items-center rounded-full text-[9.5px] font-medium tracking-tight',
                         avatarColor(owner),
                       )}
                     >
-                      {owner.slice(0, 1)}
+                      {avatarInitials(owner)}
                     </span>
                     {owner}
                   </div>

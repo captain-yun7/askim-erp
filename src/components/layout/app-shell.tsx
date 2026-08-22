@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { logoutAction } from '@/server/actions/auth'
 import { cn } from '@/lib/utils'
+import { avatarInitials } from '@/lib/format'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -139,8 +140,8 @@ export function AppShell({
             <DropdownMenuTrigger
               render={
                 <button className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition-colors hover:bg-sidebar-accent">
-                  <span className="grid size-7 shrink-0 place-items-center rounded-full bg-accent text-xs font-medium text-accent-foreground">
-                    {user.name.slice(0, 1)}
+                  <span className="grid size-7 shrink-0 place-items-center rounded-full bg-accent text-[10.5px] font-medium tracking-tight text-accent-foreground">
+                    {avatarInitials(user.name)}
                   </span>
                   <span className="flex flex-col leading-tight">
                     <span className="text-[13px] font-medium text-foreground">
