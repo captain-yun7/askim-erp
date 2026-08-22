@@ -14,7 +14,7 @@ export default async function NewDealPage() {
         >
           <ChevronLeft className="size-3.5" />거래 목록
         </Link>
-        <h1 className="text-[22px] font-bold tracking-tight">새 거래 등록</h1>
+        <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">새 거래 등록</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
           거래코드는 비워두면 담당자 prefix + YYMMDD로 자동 채번됩니다
         </p>

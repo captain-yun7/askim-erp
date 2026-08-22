@@ -25,7 +25,7 @@ export default async function AdminHomePage() {
   return (
     <div className="flex flex-col px-8 pb-8 pt-6">
       <div>
-        <h1 className="text-[22px] font-bold tracking-tight">관리자</h1>
+        <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">관리자</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
           사용자 및 기준정보 마스터 관리
         </p>
@@ -36,13 +36,13 @@ export default async function AdminHomePage() {
           <Link
             key={href}
             href={href}
-            className="group flex items-start gap-4 rounded-xl border bg-card p-5 transition-colors hover:bg-accent/40"
+            className="group flex items-start gap-4 rounded-2xl border bg-card p-5 transition-colors hover:bg-muted/60"
           >
             <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
               <Icon className="size-5" />
             </span>
             <span className="flex flex-col">
-              <span className="font-semibold group-hover:text-primary">
+              <span className="font-medium group-hover:text-primary">
                 {title}
               </span>
               <span className="mt-0.5 text-sm text-muted-foreground">

@@ -47,7 +47,7 @@ export default async function DashboardPage() {
           sub={
             <>
               마진율{' '}
-              <b className="font-semibold text-foreground">
+              <b className="font-medium text-foreground">
                 {d.thisMonth.margin.toFixed(1)}%
               </b>
             </>

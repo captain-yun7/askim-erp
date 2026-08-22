@@ -90,7 +90,7 @@ export default async function ExpensesPage({
     <div className="flex flex-col px-8 pb-8 pt-6">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-[22px] font-bold tracking-tight">판관비</h1>
+          <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">판관비</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             법인카드·개인카드·현금 지출
           </p>
@@ -120,7 +120,7 @@ export default async function ExpensesPage({
         />
       </section>
 
-      <section className="mt-5 overflow-hidden rounded-xl border bg-card">
+      <section className="mt-5 overflow-hidden rounded-2xl border bg-card">
         <div className="border-b p-4">
           <ExpensesFilters
             categories={lookups.expenseCategories}
@@ -154,7 +154,7 @@ export default async function ExpensesPage({
             </TableHeader>
             <TableBody>
               {rows.map((r) => (
-                <TableRow key={r.id} className="hover:bg-accent/40">
+                <TableRow key={r.id} className="hover:bg-muted/60">
                   <TableCell className="font-mono text-xs text-muted-foreground">
                     {r.date}
                   </TableCell>
@@ -164,7 +164,7 @@ export default async function ExpensesPage({
                   </TableCell>
                   <TableCell>
                     {r.category ? (
-                      <span className="inline-flex rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold text-primary">
+                      <span className="inline-flex rounded-full bg-accent px-2 py-0.5 text-[11px] font-medium text-primary">
                         {r.category}
                       </span>
                     ) : (
@@ -189,7 +189,7 @@ export default async function ExpensesPage({
 
 const TONE = {
   primary: 'bg-accent text-primary',
-  muted: 'bg-zinc-100 text-zinc-500',
+  muted: 'bg-muted text-muted-foreground',
 } as const
 
 function SummaryCard({
@@ -206,7 +206,7 @@ function SummaryCard({
   sub: string
 }) {
   return (
-    <div className="rounded-xl border bg-card p-4">
+    <div className="rounded-2xl border bg-card p-4">
       <div className="flex items-center gap-2.5 text-xs font-medium text-muted-foreground">
         <span
           className={cn(
@@ -218,7 +218,7 @@ function SummaryCard({
         </span>
         {label}
       </div>
-      <div className="mt-3 text-[23px] font-bold tracking-tight tabular-nums">
+      <div className="mt-3 text-[23px] font-medium tracking-tight tabular-nums">
         {value}
       </div>
       <div className="mt-1.5 text-[11.5px] text-muted-foreground">{sub}</div>

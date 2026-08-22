@@ -8,7 +8,7 @@ export default async function ProfilePage() {
 
   return (
     <div className="px-8 pb-8 pt-6">
-      <h1 className="text-[22px] font-bold tracking-tight">내 프로필</h1>
+      <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">내 프로필</h1>
       <p className="mt-0.5 text-sm text-muted-foreground">
         계정 정보 및 비밀번호 관리
       </p>

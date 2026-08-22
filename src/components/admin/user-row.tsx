@@ -61,8 +61,8 @@ export function UserRow({ user }: { user: AdminUser }) {
   }
 
   return (
-    <TableRow className="hover:bg-accent/40">
-      <TableCell className="font-semibold">{user.name}</TableCell>
+    <TableRow className="hover:bg-muted/60">
+      <TableCell className="font-medium">{user.name}</TableCell>
       <TableCell className="font-mono text-xs text-muted-foreground">
         {user.email}
       </TableCell>
@@ -94,8 +94,8 @@ export function UserRow({ user }: { user: AdminUser }) {
         <span
           className={
             user.isActive
-              ? 'inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700'
-              : 'inline-flex rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground'
+              ? 'inline-flex rounded-full bg-success/20 px-2 py-0.5 text-[11px] font-medium text-success-foreground'
+              : 'inline-flex rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground'
           }
         >
           {user.isActive ? '활성' : '비활성'}

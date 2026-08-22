@@ -13,7 +13,7 @@ const cell = 'whitespace-nowrap px-3 py-1.5 text-right tabular-nums'
 
 function Amt({ v, strong, neg }: { v: number; strong?: boolean; neg?: boolean }) {
   return (
-    <td className={cn(cell, strong && 'font-semibold', (neg || v < 0) && v !== 0 && 'text-destructive')}>
+    <td className={cn(cell, strong && 'font-medium', (neg || v < 0) && v !== 0 && 'text-destructive')}>
       {v ? formatKRW(v) : <span className="text-muted-foreground/60">-</span>}
     </td>
   )
@@ -26,7 +26,7 @@ function HalfTable({ months, label }: { months: CollectionMonth[]; label: string
       key: 'done',
       label: '수금/결산',
       pick: (m) => [m.salesCollected, m.purchaseSettled, m.salesCollected - m.purchaseSettled],
-      tone: 'bg-amber-50/60',
+      tone: 'bg-accent',
     },
     { key: 'outstanding', label: '미수/미결산', pick: (m) => [m.salesOutstanding, m.purchaseOutstanding, null] },
   ]
@@ -36,7 +36,7 @@ function HalfTable({ months, label }: { months: CollectionMonth[]; label: string
         <tr className="border-b bg-muted/40 text-[12px] text-muted-foreground">
           <th className="sticky left-0 z-10 bg-muted/40 px-4 py-2 text-left font-medium">{label}</th>
           {months.map((m) => (
-            <th key={m.month} colSpan={3} className="border-l px-3 py-2 text-center font-semibold text-foreground">
+            <th key={m.month} colSpan={3} className="border-l px-3 py-2 text-center font-medium text-foreground">
               {m.month}월
             </th>
           ))}
@@ -104,7 +104,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
     <div className="flex flex-col px-8 pb-8 pt-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[22px] font-bold tracking-tight">월별 수금결산</h1>
+          <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">월별 수금결산</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             {year}년 · 예정(입금·결산예정일 기준) / 수금·결산(입금·지급일 기준) / 미수·미결산
           </p>
@@ -112,7 +112,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
         <YearTabs year={year} path="/reports/collection" />
       </div>
 
-      <section className="mt-5 overflow-hidden rounded-xl border bg-card">
+      <section className="mt-5 overflow-hidden rounded-2xl border bg-card">
         <div className="overflow-x-auto border-b">
           <HalfTable months={report.months.slice(0, 6)} label="상반기" />
         </div>
@@ -122,9 +122,9 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
       </section>
 
       <section className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="overflow-hidden rounded-xl border bg-card">
+        <div className="overflow-hidden rounded-2xl border bg-card">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
-            <div className="text-[13px] font-semibold">월별 달성율</div>
+            <div className="text-[13px] font-medium">월별 달성율</div>
             <AnnualTargetForm year={year} initial={annual} editable={editable} />
           </div>
           <table className="w-full text-[12.5px]">
@@ -137,7 +137,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
               </tr>
             </thead>
             <tbody>
-              <tr className="border-b bg-muted/30 font-semibold">
+              <tr className="border-b bg-muted/30 font-medium">
                 <td className="px-4 py-2">소계</td>
                 <Amt v={report.total.salesPlanned} />
                 <Amt v={report.total.salesCollected} />
@@ -155,11 +155,11 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
           </table>
         </div>
 
-        <div className="h-fit rounded-xl border bg-card p-4 text-[12.5px]">
-          <div className="mb-3 text-[13px] font-semibold">목표</div>
+        <div className="h-fit rounded-2xl border bg-card p-4 text-[12.5px]">
+          <div className="mb-3 text-[13px] font-medium">목표</div>
           <dl className="grid grid-cols-2 gap-y-2">
             <dt className="text-muted-foreground">연 목표매출</dt>
-            <dd className="text-right font-mono font-semibold tabular-nums">
+            <dd className="text-right font-mono font-medium tabular-nums">
               {annual != null ? formatKRW(annual) : '미설정'}
             </dd>
             <dt className="text-muted-foreground">월 목표매출</dt>
@@ -167,7 +167,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
               {monthlyTarget != null ? formatKRW(Math.round(monthlyTarget)) : '-'}
             </dd>
             <dt className="text-muted-foreground">연 달성율</dt>
-            <dd className="text-right font-mono font-semibold tabular-nums">
+            <dd className="text-right font-mono font-medium tabular-nums">
               {pct(report.total.salesCollected, annual)}
             </dd>
           </dl>

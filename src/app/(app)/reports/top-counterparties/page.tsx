@@ -16,7 +16,7 @@ import { formatKRW } from '@/lib/format'
 type SP = { [k: string]: string | string[] | undefined }
 
 const LIMIT = 20
-const RANK_TONE = ['text-amber-500', 'text-zinc-400', 'text-amber-700']
+const RANK_TONE = ['text-accent-foreground', 'text-subtle-foreground', 'text-accent-foreground']
 
 export default async function TopCounterpartiesPage({
   searchParams,
@@ -33,7 +33,7 @@ export default async function TopCounterpartiesPage({
     <div className="flex flex-col px-8 pb-8 pt-6">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-[22px] font-bold tracking-tight">TOP 거래처</h1>
+          <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">TOP 거래처</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             발행처 기준 매출·손익 상위 {LIMIT}
             {sp.year === undefined || sp.year === '' ? ' · 2026' : ` · ${year}년`}
@@ -41,7 +41,7 @@ export default async function TopCounterpartiesPage({
         </div>
       </div>
 
-      <section className="mt-5 overflow-hidden rounded-xl border bg-card">
+      <section className="mt-5 overflow-hidden rounded-2xl border bg-card">
         <div className="border-b p-4">
           <TopControls initial={{ year: sp.year ? year : 2026, sort }} />
         </div>
@@ -66,11 +66,11 @@ export default async function TopCounterpartiesPage({
                 {rows.map((r, i) => {
                   const loss = r.profit < 0
                   return (
-                    <TableRow key={r.id} className="hover:bg-accent/40">
+                    <TableRow key={r.id} className="hover:bg-muted/60">
                       <TableCell className="text-center">
                         <span
                           className={cn(
-                            'inline-flex items-center justify-center gap-1 font-bold tabular-nums',
+                            'inline-flex items-center justify-center gap-1 font-medium tabular-nums',
                             i < 3 ? RANK_TONE[i] : 'text-muted-foreground',
                           )}
                         >
@@ -81,18 +81,18 @@ export default async function TopCounterpartiesPage({
                       <TableCell>
                         <Link
                           href={`/counterparties/${r.id}`}
-                          className="text-[13px] font-semibold text-primary hover:underline"
+                          className="text-[13px] font-medium text-primary hover:underline"
                         >
                           {r.name}
                         </Link>
                       </TableCell>
-                      <TableCell className="text-right font-mono text-xs font-semibold tabular-nums">
+                      <TableCell className="text-right font-mono text-xs font-medium tabular-nums">
                         {formatKRW(r.sales)}
                       </TableCell>
                       <TableCell
                         className={cn(
-                          'text-right font-mono text-xs font-semibold tabular-nums',
-                          loss ? 'text-destructive' : 'text-emerald-700',
+                          'text-right font-mono text-xs font-medium tabular-nums',
+                          loss ? 'text-destructive' : 'text-success-foreground',
                         )}
                       >
                         {formatKRW(r.profit)}

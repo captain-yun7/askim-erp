@@ -6,10 +6,10 @@ import { formatKRW } from '@/lib/format'
 type SP = { [k: string]: string | string[] | undefined }
 
 const TONE: Record<NonNullable<LedgerLine['tone']>, string> = {
-  sales: 'bg-muted/40 font-semibold',
-  profit: 'font-semibold',
-  operating: 'bg-amber-50/60 font-semibold text-amber-900',
-  net: 'bg-emerald-50/60 font-semibold text-emerald-900',
+  sales: 'bg-muted/40 font-medium',
+  profit: 'font-medium',
+  operating: 'bg-accent font-medium text-accent-foreground',
+  net: 'bg-success/12 font-medium text-success-foreground',
   muted: 'text-muted-foreground',
 }
 
@@ -39,13 +39,13 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
   return (
     <div className="flex flex-col px-8 pb-8 pt-6">
       <div>
-        <h1 className="text-[22px] font-bold tracking-tight">매출장표</h1>
+        <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">매출장표</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
           {year}년 {title} · 총매출·손익·영업이익·판관비(고정/변동)·당기순이익
         </p>
       </div>
 
-      <section className="mt-5 overflow-hidden rounded-xl border bg-card">
+      <section className="mt-5 overflow-hidden rounded-2xl border bg-card">
         <div className="border-b p-4">
           <LedgerControls year={year} half={half} />
         </div>
@@ -58,11 +58,11 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
                   (월)
                 </th>
                 {monthIdx.map((i) => (
-                  <th key={i} colSpan={2} className="border-l px-3 py-2.5 text-right font-semibold text-foreground">
+                  <th key={i} colSpan={2} className="border-l px-3 py-2.5 text-right font-medium text-foreground">
                     {i + 1}
                   </th>
                 ))}
-                <th colSpan={2} className="border-l bg-muted px-3 py-2.5 text-right font-semibold text-foreground">
+                <th colSpan={2} className="border-l bg-muted px-3 py-2.5 text-right font-medium text-foreground">
                   {title} 합계
                 </th>
               </tr>
@@ -77,7 +77,7 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
                     className={cn(
                       'border-b last:border-0',
                       ln.tone && TONE[ln.tone],
-                      ln.level === 1 && 'font-semibold',
+                      ln.level === 1 && 'font-medium',
                       ln.level === 2 && 'text-[12px]',
                     )}
                   >
@@ -119,7 +119,7 @@ function Cell({ value, pct, emphasis }: { value: number; pct?: string; emphasis?
         className={cn(
           'whitespace-nowrap border-l px-3 py-1.5 text-right tabular-nums',
           value < 0 && 'text-destructive',
-          emphasis && 'bg-muted/30 font-semibold',
+          emphasis && 'bg-muted/30 font-medium',
         )}
       >
         {Math.round(value) ? formatKRW(Math.round(value)) : <span className="text-muted-foreground/60">0</span>}

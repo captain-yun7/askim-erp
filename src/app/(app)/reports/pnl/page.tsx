@@ -31,7 +31,7 @@ export default async function PnlReportPage({
     <div className="flex flex-col px-8 pb-8 pt-6">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-[22px] font-bold tracking-tight">월별 손익</h1>
+          <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">월별 손익</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             귀속월 기준 손익 · 영업이익 · 십일조 ({year}년)
           </p>
@@ -39,7 +39,7 @@ export default async function PnlReportPage({
         <PnlControls year={year} />
       </div>
 
-      <section className="mt-5 overflow-hidden rounded-xl border bg-card">
+      <section className="mt-5 overflow-hidden rounded-2xl border bg-card">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -63,7 +63,7 @@ export default async function PnlReportPage({
           </TableBody>
           <TableFooter>
             <TableRow className="hover:bg-transparent">
-              <TableCell className="pl-4 font-semibold">합계</TableCell>
+              <TableCell className="pl-4 font-medium">합계</TableCell>
               <Amount value={total.grossProfit} bold />
               <Amount value={total.expense} bold />
               <Amount value={total.operatingProfit} bold />
@@ -89,7 +89,7 @@ function Amount({
     <TableCell
       className={cn(
         'text-right tabular-nums',
-        bold && 'font-semibold',
+        bold && 'font-medium',
         value < 0 && 'text-destructive',
         className,
       )}

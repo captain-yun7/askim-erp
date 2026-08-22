@@ -14,7 +14,7 @@ export default async function NewExpensePage() {
         >
           <ChevronLeft className="size-3.5" />판관비 목록
         </Link>
-        <h1 className="text-[22px] font-bold tracking-tight">판관비 입력</h1>
+        <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">판관비 입력</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
           여러 영수증을 표 형태로 한 번에 입력하세요
         </p>

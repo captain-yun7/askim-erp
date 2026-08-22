@@ -79,7 +79,7 @@ export default async function CounterpartiesPage({
     <div className="flex flex-col px-8 pb-8 pt-6">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-[22px] font-bold tracking-tight">거래처</h1>
+          <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">거래처</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             매체사·광고주·대행사 통합 마스터
           </p>
@@ -98,7 +98,7 @@ export default async function CounterpartiesPage({
         </div>
       </div>
 
-      <section className="mt-5 overflow-hidden rounded-xl border bg-card">
+      <section className="mt-5 overflow-hidden rounded-2xl border bg-card">
         <div className="border-b p-4">
           <CounterpartiesFilters initial={{ q, role, noBiz: Boolean(noBiz) }} />
         </div>
@@ -129,11 +129,11 @@ export default async function CounterpartiesPage({
             </TableHeader>
             <TableBody>
               {rows.map((r) => (
-                <TableRow key={r.id} className="hover:bg-accent/40">
+                <TableRow key={r.id} className="hover:bg-muted/60">
                   <TableCell>
                     <Link
                       href={`/counterparties/${r.id}`}
-                      className="font-semibold text-primary hover:underline"
+                      className="font-medium text-primary hover:underline"
                     >
                       {r.name}
                     </Link>
@@ -147,7 +147,7 @@ export default async function CounterpartiesPage({
                         {r.roleTags.map((t) => (
                           <span
                             key={t}
-                            className="inline-flex rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold text-primary"
+                            className="inline-flex rounded-full bg-accent px-2 py-0.5 text-[11px] font-medium text-primary"
                           >
                             {ROLE_LABEL[t] ?? t}
                           </span>

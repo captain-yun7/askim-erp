@@ -55,7 +55,7 @@ export function ProfileForm({
         </div>
 
         <div className="mt-2 border-t pt-4">
-          <p className="mb-3 text-sm font-semibold">비밀번호 변경 (선택)</p>
+          <p className="mb-3 text-sm font-medium">비밀번호 변경 (선택)</p>
           <div className="grid gap-3">
             <div className="grid gap-1.5">
               <Label>현재 비밀번호</Label>

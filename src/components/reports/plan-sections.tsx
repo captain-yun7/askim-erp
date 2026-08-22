@@ -16,15 +16,15 @@ const pct = (v: number, base: number) => (base ? `${((v / base) * 100).toFixed(2
 const pct0 = (v: number, base: number) => (base ? `${Math.round((v / base) * 100)}%` : '-')
 
 const PRIORITY_TONE: Record<string, string> = {
-  상: 'bg-rose-100 text-rose-800',
-  중: 'bg-amber-100 text-amber-800',
-  하: 'bg-slate-100 text-slate-700',
+  상: 'bg-accent text-destructive',
+  중: 'bg-accent text-accent-foreground',
+  하: 'bg-muted text-muted-foreground',
 }
 
 function heat(ratio: number) {
   if (!Number.isFinite(ratio) || ratio <= 0) return ''
-  if (ratio >= 0.4) return 'bg-rose-100/80'
-  if (ratio >= 0.25) return 'bg-rose-50'
+  if (ratio >= 0.4) return 'bg-accent'
+  if (ratio >= 0.25) return 'bg-accent'
   return ''
 }
 
@@ -33,10 +33,10 @@ export function SalesTargetSection({ report, editable }: { report: PlanReport; e
   const { groups, totals, unmapped, year } = report
 
   return (
-    <section className="overflow-hidden rounded-xl border bg-card">
+    <section className="overflow-hidden rounded-2xl border bg-card">
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div>
-          <div className="text-[13px] font-semibold">{year} 매출 달성률</div>
+          <div className="text-[13px] font-medium">{year} 매출 달성률</div>
           <div className="text-[11.5px] text-muted-foreground">VAT 제외 · 귀속연도 기준 · 상품구분 → 목표군 합산</div>
         </div>
         {editable && !editing && (
@@ -85,7 +85,7 @@ export function SalesTargetSection({ report, editable }: { report: PlanReport; e
                       {g.priority ? (
                         <span
                           className={cn(
-                            'inline-flex rounded px-2 py-0.5 text-[11px] font-semibold',
+                            'inline-flex rounded px-2 py-0.5 text-[11px] font-medium',
                             PRIORITY_TONE[g.priority],
                           )}
                         >
@@ -100,8 +100,8 @@ export function SalesTargetSection({ report, editable }: { report: PlanReport; e
                       {pct0(g.target, totals.target)}
                     </td>
                     <td className={cell}>{pct(g.achieved, g.target)}</td>
-                    <td className={cn(cell, 'bg-amber-50/60')}>{g.achieved ? formatKRW(g.achieved) : '-'}</td>
-                    <td className={cn(cell, 'bg-amber-50/60', g.profit < 0 && 'text-destructive')}>
+                    <td className={cn(cell, 'bg-accent')}>{g.achieved ? formatKRW(g.achieved) : '-'}</td>
+                    <td className={cn(cell, 'bg-accent', g.profit < 0 && 'text-destructive')}>
                       {g.profit ? formatKRW(g.profit) : '-'}
                     </td>
                     <td className={cn(cell, heat(margin), margin < 0 && 'text-destructive')}>
@@ -110,7 +110,7 @@ export function SalesTargetSection({ report, editable }: { report: PlanReport; e
                   </tr>
                 )
               })}
-              <tr className="border-b bg-yellow-50 font-semibold">
+              <tr className="border-b bg-yellow-50 font-medium">
                 <td className="px-4 py-2.5">총 합</td>
                 <td />
                 <td className={cell}>{formatKRW(totals.target)}</td>
@@ -144,10 +144,10 @@ export function CashFlowSection({ report, editable }: { report: PlanReport; edit
   const futureNet = cash.futureSales - cash.futurePurchase
 
   return (
-    <section className="overflow-hidden rounded-xl border bg-card">
+    <section className="overflow-hidden rounded-2xl border bg-card">
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div>
-          <div className="text-[13px] font-semibold">{year} 현금흐름</div>
+          <div className="text-[13px] font-medium">{year} 현금흐름</div>
           <div className="text-[11.5px] text-muted-foreground">
             VAT 포함 · 기준일 {cash.asOf ?? '미설정'}
             {cash.fxRateUsd ? ` · 적용환율 ${formatKRW(cash.fxRateUsd)}` : ''} · 계좌 잔액은 회계담당 수기 입력
@@ -190,7 +190,7 @@ export function CashFlowSection({ report, editable }: { report: PlanReport; edit
                   </td>
                 )}
                 <td className="px-3 py-2">{r.label}</td>
-                <td className={cn(cell, 'bg-sky-50/70')}>{formatKRW(r.amountKrw)}</td>
+                <td className={cn(cell, 'bg-info')}>{formatKRW(r.amountKrw)}</td>
                 <td className="px-3 py-2 text-muted-foreground">
                   {r.amountFx != null && r.fxCurrency
                     ? `${r.fxCurrency} ${r.amountFx.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
@@ -205,19 +205,19 @@ export function CashFlowSection({ report, editable }: { report: PlanReport; edit
                 </td>
               </tr>
             )}
-            <tr className="border-b bg-amber-50/60 font-semibold">
+            <tr className="border-b bg-accent font-medium">
               <td className="px-4 py-2" colSpan={2}>합 계(대출제외)</td>
               <td className={cell}>{formatKRW(cash.balanceTotal)}</td>
               <td />
             </tr>
             <tr className="border-b">
               <td className="px-4 py-2" colSpan={2}>업데이트 시점 이후 매출(예정)</td>
-              <td className={cn(cell, 'bg-amber-50/40')}>{formatKRW(cash.futureSales)}</td>
+              <td className={cn(cell, 'bg-accent')}>{formatKRW(cash.futureSales)}</td>
               <td className="px-3 py-2 text-[11.5px] text-muted-foreground">입금 완료 건 제외</td>
             </tr>
             <tr className="border-b">
               <td className="px-4 py-2" colSpan={2}>업데이트 시점 이후 매입(예정)</td>
-              <td className={cn(cell, 'bg-amber-50/40')}>{formatKRW(cash.futurePurchase)}</td>
+              <td className={cn(cell, 'bg-accent')}>{formatKRW(cash.futurePurchase)}</td>
               <td className="px-3 py-2 text-[11.5px] text-muted-foreground">결산 완료 건 제외</td>
             </tr>
             <tr className="border-b">
@@ -225,7 +225,7 @@ export function CashFlowSection({ report, editable }: { report: PlanReport; edit
               <td className={cn(cell, futureNet < 0 && 'text-destructive')}>{formatKRW(futureNet)}</td>
               <td />
             </tr>
-            <tr className="bg-amber-50/60 font-semibold">
+            <tr className="bg-accent font-medium">
               <td className="px-4 py-2.5" colSpan={2}>업데이트 시점 합계 + 미래 현금매출(대출제외)</td>
               <td className={cell}>{formatKRW(cash.balanceTotal + futureNet)}</td>
               <td />

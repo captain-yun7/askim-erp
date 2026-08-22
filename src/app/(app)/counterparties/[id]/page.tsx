@@ -21,7 +21,7 @@ export default async function EditCounterpartyPage({
         >
           <ChevronLeft className="size-3.5" />거래처 목록
         </Link>
-        <h1 className="text-[22px] font-bold tracking-tight">거래처 수정</h1>
+        <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">거래처 수정</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">{cp.name}</p>
       </div>
       <CounterpartyForm

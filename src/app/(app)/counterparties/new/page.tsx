@@ -12,7 +12,7 @@ export default function NewCounterpartyPage() {
         >
           <ChevronLeft className="size-3.5" />거래처 목록
         </Link>
-        <h1 className="text-[22px] font-bold tracking-tight">새 거래처</h1>
+        <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">새 거래처</h1>
       </div>
       <CounterpartyForm />
     </div>

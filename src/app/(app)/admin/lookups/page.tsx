@@ -30,9 +30,9 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <section className="overflow-hidden rounded-xl border bg-card">
+    <section className="overflow-hidden rounded-2xl border bg-card">
       <div className="border-b px-4 py-3">
-        <h2 className="text-sm font-semibold">{title}</h2>
+        <h2 className="text-sm font-medium">{title}</h2>
         <p className="text-xs text-muted-foreground">{desc}</p>
       </div>
       {children}
@@ -57,7 +57,7 @@ export default async function AdminLookupsPage() {
   return (
     <div className="flex flex-col gap-5 px-8 pb-8 pt-6">
       <div>
-        <h1 className="text-[22px] font-bold tracking-tight">Lookup 마스터</h1>
+        <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">Lookup 마스터</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
           상품구분·계정항목·매출수단·거래항목 기준정보 관리
         </p>

@@ -34,7 +34,7 @@ export default async function AdminUsersPage() {
     <div className="flex flex-col px-8 pb-8 pt-6">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-[22px] font-bold tracking-tight">사용자 관리</h1>
+          <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">사용자 관리</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             계정 등록·역할 변경·활성화 관리
           </p>
@@ -42,7 +42,7 @@ export default async function AdminUsersPage() {
         <CreateUserDialog />
       </div>
 
-      <section className="mt-5 overflow-hidden rounded-xl border bg-card">
+      <section className="mt-5 overflow-hidden rounded-2xl border bg-card">
         <div className="flex items-center gap-3.5 border-b px-4 py-2.5 text-[12.5px] text-muted-foreground">
           총 <b className="text-foreground">{rows.length.toLocaleString()}</b>명
         </div>

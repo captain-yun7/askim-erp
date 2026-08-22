@@ -35,9 +35,9 @@ export default async function EditDealPage({
         >
           <ChevronLeft className="size-3.5" />거래 목록
         </Link>
-        <h1 className="text-[22px] font-bold tracking-tight">
+        <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">
           거래 수정{' '}
-          <span className="font-mono text-base font-semibold text-primary">
+          <span className="font-mono text-base font-medium text-primary">
             {d.dealCode}
           </span>
         </h1>
