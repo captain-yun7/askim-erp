@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,6 +27,7 @@ export function CashBalanceEditor({
   const [pending, start] = useTransition()
   const [date, setDate] = useState(asOf ?? new Date().toISOString().slice(0, 10))
   const [fx, setFx] = useState(fxRateUsd != null ? String(fxRateUsd) : '')
+  const [fxLoading, setFxLoading] = useState(false)
   const [state, setState] = useState<Row[]>(
     rows.map((r) => ({
       id: r.id,
@@ -84,6 +85,30 @@ export function CashBalanceEditor({
             placeholder="1,418.40"
           />
         </label>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5"
+          disabled={fxLoading}
+          onClick={async () => {
+            setFxLoading(true)
+            try {
+              const res = await fetch('/api/fx-rate?base=USD')
+              const data = await res.json()
+              if (!res.ok || !data.krw) throw new Error(data.error)
+              setFx(String(data.krw))
+              toast.success(`오늘 환율 ${data.krw.toLocaleString()}원 적용`)
+            } catch {
+              toast.error('환율 조회 실패 — 수기로 입력해 주세요')
+            } finally {
+              setFxLoading(false)
+            }
+          }}
+        >
+          <RefreshCw className={fxLoading ? 'size-3.5 animate-spin' : 'size-3.5'} />
+          오늘 환율
+        </Button>
       </div>
 
       <table className="w-full text-[12.5px]">
