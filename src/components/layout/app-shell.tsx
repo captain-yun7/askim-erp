@@ -13,6 +13,7 @@ import {
   Users,
   Wallet,
   CalendarCheck,
+  Landmark,
   Target,
 } from 'lucide-react'
 import { logoutAction } from '@/server/actions/auth'
@@ -46,6 +47,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
     items: [
       { href: '/deals', label: '거래', icon: Receipt },
       { href: '/counterparties', label: '거래처', icon: Users },
+      { href: '/deposits', label: '보증금·전속계약', icon: Landmark },
       { href: '/expenses', label: '판관비', icon: Wallet },
     ],
   },
