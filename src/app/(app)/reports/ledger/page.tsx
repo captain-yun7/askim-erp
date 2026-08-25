@@ -2,6 +2,8 @@ import { LedgerControls, type LedgerHalf } from '@/components/reports/ledger-con
 import { buildLedgerLines, getSalesLedger, type LedgerLine } from '@/server/queries/reports-ledger'
 import { cn } from '@/lib/utils'
 import { formatKRW } from '@/lib/format'
+import { LedgerEditableCell } from '@/components/reports/ledger-editable-cell'
+import { canEditPlan, getSessionUser } from '@/server/auth/guards'
 import { requireBackoffice } from '@/server/auth/require-backoffice'
 
 type SP = { [k: string]: string | string[] | undefined }
@@ -26,8 +28,9 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
   const year = sp.year ? parseInt(String(sp.year), 10) : 2026
   const half: LedgerHalf = sp.half === 'h2' ? 'h2' : sp.half === 'all' ? 'all' : 'h1'
 
-  const report = await getSalesLedger({ year })
+  const [report, me] = await Promise.all([getSalesLedger({ year }), getSessionUser()])
   const lines = buildLedgerLines(report)
+  const editable = me != null && canEditPlan(me.role)
 
   const monthIdx =
     half === 'h1'
@@ -95,6 +98,19 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
                     </td>
                     {monthIdx.map((i) => {
                       const v = ln.values[i]
+                      if (editable && ln.editableField) {
+                        return (
+                          <EditableSlot
+                            key={i}
+                            year={year}
+                            month={i + 1}
+                            field={ln.editableField}
+                            value={v}
+                            overridden={ln.overridden?.[i] ?? false}
+                            pct={ln.pctBase ? fmtPct(v, ln.pctBase[i]) : undefined}
+                          />
+                        )
+                      }
                       return (
                         <Cell key={i} value={v} pct={ln.pctBase ? fmtPct(v, ln.pctBase[i]) : undefined} />
                       )
@@ -112,6 +128,33 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
         </div>
       </section>
     </div>
+  )
+}
+
+function EditableSlot({
+  year,
+  month,
+  field,
+  value,
+  overridden,
+  pct,
+}: {
+  year: number
+  month: number
+  field: 'sales_accrual' | 'cogs_accrual'
+  value: number
+  overridden: boolean
+  pct?: string
+}) {
+  return (
+    <>
+      <td className="whitespace-nowrap border-l px-3 py-1.5 text-right tabular-nums">
+        <LedgerEditableCell year={year} month={month} field={field} value={value} overridden={overridden} />
+      </td>
+      <td className="w-12 px-1.5 py-1.5 text-right text-[11px] text-muted-foreground tabular-nums">
+        {pct ?? ''}
+      </td>
+    </>
   )
 }
 
