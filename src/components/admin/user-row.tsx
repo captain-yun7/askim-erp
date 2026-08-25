@@ -13,7 +13,8 @@ import {
 } from '@/components/ui/select'
 import { TableCell, TableRow } from '@/components/ui/table'
 import { Checkbox } from '@/components/ui/checkbox'
-import { toggleUserActive, toggleUserTeamLead, updateUserRole } from '@/server/actions/users'
+import { toggleUserActive, toggleUserTeamLead, updateUserRole, updateUserTeam } from '@/server/actions/users'
+import { TEAMS } from '@/lib/teams'
 
 export type AdminUser = {
   id: string
@@ -86,8 +87,35 @@ export function UserRow({ user }: { user: AdminUser }) {
           </SelectContent>
         </Select>
       </TableCell>
-      <TableCell className="text-xs text-muted-foreground">
-        {user.team ?? '-'}
+      <TableCell>
+        <Select
+          value={user.team ?? 'none'}
+          disabled={pending}
+          onValueChange={(team) => {
+            const next = team === 'none' ? null : team
+            if (next === user.team) return
+            startTransition(async () => {
+              const res = await updateUserTeam(user.id, next)
+              if (res.error) toast.error(res.error)
+              else {
+                toast.success('팀이 변경되었습니다 (본인 재로그인 후 조회 범위 반영)')
+                router.refresh()
+              }
+            })
+          }}
+        >
+          <SelectTrigger className="h-8 w-32">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">-</SelectItem>
+            {[...new Set([...TEAMS, ...(user.team ? [user.team] : [])])].map((t) => (
+              <SelectItem key={t} value={t}>
+                {t}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </TableCell>
       <TableCell className="text-center">
         <Checkbox

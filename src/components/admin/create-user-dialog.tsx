@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { TEAMS } from '@/lib/teams'
 import { createUser } from '@/server/actions/users'
 
 const ROLE_OPTIONS = [
@@ -120,7 +121,18 @@ export function CreateUserDialog() {
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label>팀</Label>
-              <Input value={form.team} onChange={(e) => set('team', e.target.value)} />
+              <select
+                className="h-9 w-full rounded-lg border bg-background px-2 text-sm"
+                value={form.team}
+                onChange={(e) => set('team', e.target.value)}
+              >
+                <option value="">-</option>
+                {TEAMS.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="grid gap-1.5">
               <Label>거래코드 prefix</Label>
