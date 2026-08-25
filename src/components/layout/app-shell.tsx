@@ -76,8 +76,18 @@ export function AppShell({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  // 영업: 거래·거래처·보증금만 (2026-08-25 회의)
   const sections =
-    user.role === 'admin' ? [...NAV_SECTIONS, ADMIN_SECTION] : NAV_SECTIONS
+    user.role === 'admin'
+      ? [...NAV_SECTIONS, ADMIN_SECTION]
+      : user.role === 'sales'
+        ? NAV_SECTIONS.map((s) => ({
+            ...s,
+            items: s.items.filter((i) =>
+              ['/deals', '/counterparties', '/deposits'].includes(i.href),
+            ),
+          })).filter((s) => s.items.length > 0)
+        : NAV_SECTIONS
   return (
     <div className="flex min-h-screen">
       <aside className="hidden w-58 shrink-0 flex-col border-r border-sidebar-border bg-sidebar p-3 text-sidebar-foreground md:flex">

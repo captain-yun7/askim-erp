@@ -145,7 +145,7 @@ test.describe('영업 권한 차단', () => {
   test('⑥ 영업은 /admin 접근 시 홈으로 차단 + 관리 메뉴 미노출', async ({ page }) => {
     await login(page, SALES)
     await page.goto('/admin')
-    await page.waitForURL('http://localhost:3300/')
+    await page.waitForURL(/\/deals$|3300\/$/)
     // 사이드바에 관리(사용자·설정) 메뉴 없음
     await expect(page.getByText('사용자·설정')).toHaveCount(0)
     // 거래 메뉴는 접근 가능

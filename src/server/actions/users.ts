@@ -79,6 +79,16 @@ export async function updateUserRole(id: string, role: unknown) {
   return { ok: true }
 }
 
+export async function toggleUserTeamLead(id: string, isTeamLead: unknown) {
+  const guard = await requireAdmin()
+  if ('error' in guard) return { error: guard.error }
+  const parsed = z.boolean().safeParse(isTeamLead)
+  if (!parsed.success) return { error: '잘못된 값입니다' }
+  await db.update(users).set({ isTeamLead: parsed.data }).where(eq(users.id, id))
+  revalidatePath('/admin/users')
+  return { ok: true }
+}
+
 export async function toggleUserActive(id: string, active: unknown) {
   const guard = await requireAdmin()
   if ('error' in guard) return { error: guard.error }

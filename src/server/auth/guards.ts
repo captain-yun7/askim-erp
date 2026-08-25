@@ -16,6 +16,7 @@ export type SessionUser = {
   name?: string
   email?: string
   team?: string
+  isTeamLead?: boolean
 }
 
 /** 현재 로그인 유저 (없으면 null) */
@@ -28,6 +29,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     name: session.user.name ?? undefined,
     email: session.user.email ?? undefined,
     team: session.user.team,
+    isTeamLead: session.user.isTeamLead ?? false,
   }
 }
 
@@ -36,6 +38,27 @@ const STAFF: Role[] = ['admin', 'accountant']
 export const isStaff = (role: Role) => STAFF.includes(role)
 export const isAdmin = (role: Role) => role === 'admin'
 export const isViewer = (role: Role) => role === 'viewer'
+
+// ── 메뉴/데이터 범위 (2026-08-25 회의 권한 체계) ─────────
+// 관리자(회계+대표): 전체. 영업(sales): 거래·거래처·보증금 메뉴만,
+// 팀장은 자기 팀 전체, 팀원은 본인 것만.
+
+/** 판관비·리포트·대시보드 등 백오피스 메뉴 접근 */
+export function canAccessBackoffice(role: Role): boolean {
+  return role !== 'sales'
+}
+
+export type DealScope =
+  | { kind: 'all' }
+  | { kind: 'team'; team: string }
+  | { kind: 'own'; userId: string }
+
+/** 거래 행 단위 조회 범위 */
+export function getDealScope(user: SessionUser): DealScope {
+  if (isStaff(user.role) || user.role === 'viewer') return { kind: 'all' }
+  if (user.isTeamLead && user.team) return { kind: 'team', team: user.team }
+  return { kind: 'own', userId: user.id }
+}
 
 // ── Deal ────────────────────────────────────────────────
 type DealRef = { status: 'draft' | 'confirmed' | 'closed'; ownerUserId: string | null }

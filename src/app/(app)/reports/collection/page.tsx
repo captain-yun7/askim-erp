@@ -4,6 +4,7 @@ import { canEditPlan, getSessionUser } from '@/server/auth/guards'
 import { getMonthlyCollection, type CollectionMonth } from '@/server/queries/reports-collection'
 import { cn } from '@/lib/utils'
 import { formatKRW as formatRaw } from '@/lib/format'
+import { requireBackoffice } from '@/server/auth/require-backoffice'
 
 const formatKRW = (v: number) => formatRaw(Math.round(v))
 
@@ -90,6 +91,8 @@ function FragmentRow({ s, p, profit }: { s: number; p: number; profit: number | 
 }
 
 export default async function CollectionPage({ searchParams }: { searchParams: Promise<SP> }) {
+  await requireBackoffice()
+
   const sp = await searchParams
   const parsed = sp.year ? parseInt(String(sp.year), 10) : NaN
   const year = Number.isFinite(parsed) ? parsed : 2026

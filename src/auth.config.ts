@@ -31,6 +31,7 @@ export const authConfig: NextAuthConfig = {
         token.role = user.role
         token.name = user.name
         token.team = user.team
+        token.isTeamLead = user.isTeamLead
       }
       return token
     },
@@ -39,6 +40,7 @@ export const authConfig: NextAuthConfig = {
       session.user.role = token.role as string
       session.user.name = token.name as string
       session.user.team = token.team as string | undefined
+      session.user.isTeamLead = Boolean(token.isTeamLead)
       return session
     },
   },

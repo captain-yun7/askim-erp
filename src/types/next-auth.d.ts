@@ -7,6 +7,7 @@ declare module 'next-auth' {
     role: string
     name: string
     team?: string
+    isTeamLead?: boolean
   }
   interface Session {
     user: {
@@ -15,6 +16,7 @@ declare module 'next-auth' {
       name: string
       role: string
       team?: string
+      isTeamLead?: boolean
     }
   }
 }
@@ -25,5 +27,6 @@ declare module 'next-auth/jwt' {
     role: string
     name: string
     team?: string
+    isTeamLead?: boolean
   }
 }

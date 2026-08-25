@@ -2,6 +2,7 @@ import { LedgerControls, type LedgerHalf } from '@/components/reports/ledger-con
 import { buildLedgerLines, getSalesLedger, type LedgerLine } from '@/server/queries/reports-ledger'
 import { cn } from '@/lib/utils'
 import { formatKRW } from '@/lib/format'
+import { requireBackoffice } from '@/server/auth/require-backoffice'
 
 type SP = { [k: string]: string | string[] | undefined }
 
@@ -19,6 +20,8 @@ function fmtPct(v: number, base: number) {
 }
 
 export default async function LedgerPage({ searchParams }: { searchParams: Promise<SP> }) {
+  await requireBackoffice()
+
   const sp = await searchParams
   const year = sp.year ? parseInt(String(sp.year), 10) : 2026
   const half: LedgerHalf = sp.half === 'h2' ? 'h2' : sp.half === 'all' ? 'all' : 'h1'

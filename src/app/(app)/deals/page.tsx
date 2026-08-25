@@ -16,6 +16,7 @@ import { exportDealsCsv } from '@/server/actions/export'
 import { DealsTable } from '@/components/deals/deals-table'
 import { DealsFilters } from '@/components/deals/deals-filters'
 import { listDeals } from '@/server/queries/deals'
+import { getDealScope, getSessionUser } from '@/server/auth/guards'
 import { getAllLookups } from '@/server/queries/lookups'
 import { cn } from '@/lib/utils'
 import { formatKRW, formatKRWShort } from '@/lib/format'
@@ -38,8 +39,17 @@ export default async function DealsPage({
     page: sp.page ? parseInt(String(sp.page), 10) : 1,
   }
 
-  const [{ rows, total, page, pageSize, aggregate, prevAggregate }, lookups] =
-    await Promise.all([listDeals(filters), getAllLookups()])
+  const [{ rows, total, page, pageSize, aggregate, prevAggregate }, lookups, me] =
+    await Promise.all([listDeals(filters), getAllLookups(), getSessionUser()])
+
+  // 담당자 필터 옵션도 조회 범위에 맞춤 (팀장=팀원, 팀원=본인)
+  const scope = me ? getDealScope(me) : ({ kind: 'all' } as const)
+  const filterUsers =
+    scope.kind === 'team'
+      ? lookups.users.filter((u) => u.team === scope.team)
+      : scope.kind === 'own'
+        ? lookups.users.filter((u) => u.id === scope.userId)
+        : lookups.users
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const margin = aggregate.sales > 0 ? (aggregate.profit / aggregate.sales) * 100 : 0
@@ -120,7 +130,7 @@ export default async function DealsPage({
         <div className="border-b p-4">
           <DealsFilters
             categories={lookups.categories}
-            users={lookups.users}
+            users={filterUsers}
             initial={{
               q: filters.q,
               year: filters.year,

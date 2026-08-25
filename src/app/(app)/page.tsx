@@ -10,8 +10,11 @@ import {
 import { getDashboard } from '@/server/queries/dashboard'
 import { cn } from '@/lib/utils'
 import { formatKRW, formatKRWShort } from '@/lib/format'
+import { requireBackoffice } from '@/server/auth/require-backoffice'
 
 export default async function DashboardPage() {
+  await requireBackoffice()
+
   const d = await getDashboard()
 
   return (

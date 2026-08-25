@@ -2,10 +2,13 @@ import { CashFlowSection, SalesTargetSection } from '@/components/reports/plan-s
 import { YearTabs } from '@/components/reports/year-tabs'
 import { canEditPlan, getSessionUser } from '@/server/auth/guards'
 import { getPlanReport } from '@/server/queries/reports-plan'
+import { requireBackoffice } from '@/server/auth/require-backoffice'
 
 type SP = { [k: string]: string | string[] | undefined }
 
 export default async function PlanPage({ searchParams }: { searchParams: Promise<SP> }) {
+  await requireBackoffice()
+
   const sp = await searchParams
   const parsed = sp.year ? parseInt(String(sp.year), 10) : NaN
   const year = Number.isFinite(parsed) ? parsed : 2026

@@ -57,6 +57,13 @@
       "when": 1787661603696,
       "tag": "0007_deposits",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787663286491,
+      "tag": "0008_users_team_lead",
+      "breakpoints": true
     }
   ]
 }

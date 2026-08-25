@@ -11,6 +11,7 @@ import { PnlControls } from '@/components/reports/pnl-controls'
 import { getMonthlyPnl } from '@/server/queries/reports-pnl'
 import { cn } from '@/lib/utils'
 import { formatKRW } from '@/lib/format'
+import { requireBackoffice } from '@/server/auth/require-backoffice'
 
 type SP = { [k: string]: string | string[] | undefined }
 
@@ -21,6 +22,8 @@ export default async function PnlReportPage({
 }: {
   searchParams: Promise<SP>
 }) {
+  await requireBackoffice()
+
   const sp = await searchParams
   const parsed = sp.year ? parseInt(String(sp.year), 10) : NaN
   const year = Number.isFinite(parsed) ? parsed : DEFAULT_YEAR

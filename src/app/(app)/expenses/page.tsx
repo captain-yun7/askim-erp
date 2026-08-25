@@ -18,6 +18,7 @@ import { ExpensesFilters } from '@/components/expenses/expenses-filters'
 import { getAllLookups } from '@/server/queries/lookups'
 import { cn } from '@/lib/utils'
 import { formatKRW } from '@/lib/format'
+import { requireBackoffice } from '@/server/auth/require-backoffice'
 
 const PAYMENT_LABEL: Record<string, string> = {
   corporate_card: '법인카드',
@@ -38,6 +39,8 @@ export default async function ExpensesPage({
 }: {
   searchParams: Promise<SP>
 }) {
+  await requireBackoffice()
+
   const sp = await searchParams
   const filters = {
     q: typeof sp.q === 'string' ? sp.q : undefined,

@@ -12,6 +12,7 @@ import { TopControls } from '@/components/reports/top-controls'
 import { getTopCounterparties, type TopSort } from '@/server/queries/reports-top'
 import { cn } from '@/lib/utils'
 import { formatKRW } from '@/lib/format'
+import { requireBackoffice } from '@/server/auth/require-backoffice'
 
 type SP = { [k: string]: string | string[] | undefined }
 
@@ -23,6 +24,8 @@ export default async function TopCounterpartiesPage({
 }: {
   searchParams: Promise<SP>
 }) {
+  await requireBackoffice()
+
   const sp = await searchParams
   const year = sp.year ? parseInt(String(sp.year), 10) : 2026
   const sort: TopSort = sp.sort === 'profit' ? 'profit' : 'sales'

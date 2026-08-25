@@ -2,8 +2,11 @@ import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import { ExpenseForm } from '@/components/expenses/expense-form'
 import { getAllLookups } from '@/server/queries/lookups'
+import { requireBackoffice } from '@/server/auth/require-backoffice'
 
 export default async function NewExpensePage() {
+  await requireBackoffice()
+
   const lookups = await getAllLookups()
   return (
     <div>

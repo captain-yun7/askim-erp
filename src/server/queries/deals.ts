@@ -1,5 +1,6 @@
 import { and, desc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
+import { getDealScope, getSessionUser } from '@/server/auth/guards'
 import {
   counterparty,
   deal,
@@ -19,11 +20,24 @@ export type DealListFilters = {
   pageSize?: number
 }
 
+/** 세션 기준 행 단위 범위 조건 (팀장=자기팀, 팀원=본인) */
+async function scopeConds() {
+  const user = await getSessionUser()
+  if (!user) return []
+  const scope = getDealScope(user)
+  if (scope.kind === 'team')
+    return [
+      sql`${deal.ownerUserId} in (select id from users where team = ${scope.team})`,
+    ]
+  if (scope.kind === 'own') return [eq(deal.ownerUserId, scope.userId)]
+  return []
+}
+
 export async function listDeals(f: DealListFilters = {}) {
   const page = Math.max(1, f.page ?? 1)
   const pageSize = Math.min(5000, Math.max(10, f.pageSize ?? 50))
 
-  const conds = [isNull(deal.deletedAt)]
+  const conds = [isNull(deal.deletedAt), ...(await scopeConds())]
   if (f.year) conds.push(eq(deal.accrualYear, f.year))
   if (f.month) conds.push(eq(deal.accrualMonth, f.month))
   if (f.categoryId) conds.push(eq(deal.categoryId, f.categoryId))
@@ -52,6 +66,7 @@ export async function listDeals(f: DealListFilters = {}) {
     const prevMonth = f.month === 1 ? 12 : f.month - 1
     const prevConds = [
       isNull(deal.deletedAt),
+      ...(await scopeConds()),
       eq(deal.accrualYear, prevYear),
       eq(deal.accrualMonth, prevMonth),
     ]
@@ -145,7 +160,7 @@ export async function getDealById(id: string) {
   const [row] = await db
     .select()
     .from(deal)
-    .where(and(eq(deal.id, id), isNull(deal.deletedAt)))
+    .where(and(eq(deal.id, id), isNull(deal.deletedAt), ...(await scopeConds())))
     .limit(1)
   return row ?? null
 }

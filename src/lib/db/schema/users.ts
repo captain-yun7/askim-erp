@@ -19,6 +19,8 @@ export const users = pgTable(
     role: userRoleEnum('role').notNull().default('sales'),
     dealCodePrefix: text('deal_code_prefix'),
     team: text('team'),
+    // 팀장: 자기 팀 전체 거래 조회 가능 (2026-08-25 회의)
+    isTeamLead: boolean('is_team_lead').notNull().default(false),
     isActive: boolean('is_active').notNull().default(true),
     // 사용자별 화면 배율 선호 (sm/md/lg/xl) — src/lib/ui-scale.ts
     uiScale: text('ui_scale').notNull().default('md'),

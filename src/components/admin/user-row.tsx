@@ -12,7 +12,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { TableCell, TableRow } from '@/components/ui/table'
-import { toggleUserActive, updateUserRole } from '@/server/actions/users'
+import { Checkbox } from '@/components/ui/checkbox'
+import { toggleUserActive, toggleUserTeamLead, updateUserRole } from '@/server/actions/users'
 
 export type AdminUser = {
   id: string
@@ -20,6 +21,7 @@ export type AdminUser = {
   email: string
   role: 'admin' | 'accountant' | 'sales' | 'viewer'
   team: string | null
+  isTeamLead: boolean
   dealCodePrefix: string | null
   isActive: boolean
 }
@@ -86,6 +88,22 @@ export function UserRow({ user }: { user: AdminUser }) {
       </TableCell>
       <TableCell className="text-xs text-muted-foreground">
         {user.team ?? '-'}
+      </TableCell>
+      <TableCell className="text-center">
+        <Checkbox
+          checked={user.isTeamLead}
+          disabled={pending || user.role !== 'sales'}
+          onCheckedChange={(v) =>
+            startTransition(async () => {
+              const res = await toggleUserTeamLead(user.id, v === true)
+              if (res.error) toast.error(res.error)
+              else {
+                toast.success(v ? '팀장으로 지정되었습니다' : '팀장 해제되었습니다')
+                router.refresh()
+              }
+            })
+          }
+        />
       </TableCell>
       <TableCell className="font-mono text-xs text-muted-foreground">
         {user.dealCodePrefix ?? '-'}
