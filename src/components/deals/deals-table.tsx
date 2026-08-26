@@ -2,9 +2,9 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { toggleDealPaid } from '@/server/actions/deals'
+import { toggleDealPaid, updateDealInline } from '@/server/actions/deals'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -48,14 +48,137 @@ type Row = {
 }
 
 
-function DatePair({ planned, actual }: { planned: string | null; actual: string | null }) {
+type InlineField =
+  | 'salesAmountNet'
+  | 'purchaseAmountNet'
+  | 'salesInvoiceDate'
+  | 'purchaseInvoiceDate'
+  | 'salesDueDate'
+  | 'salesPaidDate'
+  | 'purchaseDueDate'
+  | 'purchasePaidDate'
+
+function useInlineSave(dealId: string) {
+  const router = useRouter()
+  const [pending, start] = useTransition()
+  function save(field: InlineField, value: string | number | null) {
+    start(async () => {
+      const res = await updateDealInline(dealId, { field, value })
+      if ('error' in res) toast.error(res.error)
+      else router.refresh()
+    })
+  }
+  return { pending, save }
+}
+
+/** 금액 셀 — 클릭 → 입력 → Enter/blur 저장. 부가세·총액은 서버에서 10% 재계산 */
+function InlineAmount({
+  dealId,
+  field,
+  value,
+  enabled,
+  className,
+}: {
+  dealId: string
+  field: 'salesAmountNet' | 'purchaseAmountNet'
+  value: string | null
+  enabled: boolean
+  className?: string
+}) {
+  const { pending, save } = useInlineSave(dealId)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  if (!enabled) return <>{formatKRW(value)}</>
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        className="h-6 w-24 rounded border border-primary bg-background px-1 text-right font-mono text-xs tabular-nums outline-none"
+        inputMode="numeric"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          setEditing(false)
+          const cleaned = draft.replace(/,/g, '').trim()
+          const num = cleaned === '' ? null : Number(cleaned)
+          if (num !== null && !Number.isFinite(num)) return
+          const current = value != null ? Math.round(parseFloat(value)) : null
+          if (num === current) return
+          save(field, num)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+          if (e.key === 'Escape') setEditing(false)
+        }}
+      />
+    )
+  }
   return (
-    <div className="text-[12px] leading-tight tabular-nums">
-      <div className="text-muted-foreground">{formatDate(planned)}</div>
-      <div className={cn(actual ? 'font-medium text-foreground' : 'text-subtle-foreground')}>
-        {formatDate(actual)}
-      </div>
-    </div>
+    <button
+      type="button"
+      title="클릭해서 수정 (부가세 10% 자동)"
+      className={cn('w-full rounded px-0.5 text-right hover:bg-accent/60', pending && 'opacity-40', className)}
+      onClick={() => {
+        setDraft(value != null ? String(Math.round(parseFloat(value))) : '')
+        setEditing(true)
+      }}
+    >
+      {formatKRW(value)}
+    </button>
+  )
+}
+
+/** 날짜 셀 — 클릭 → date input. 지우면 날짜 삭제 */
+function InlineDate({
+  dealId,
+  field,
+  value,
+  enabled,
+  muted,
+}: {
+  dealId: string
+  field: InlineField
+  value: string | null
+  enabled: boolean
+  muted?: boolean
+}) {
+  const { pending, save } = useInlineSave(dealId)
+  const [editing, setEditing] = useState(false)
+  if (!enabled)
+    return <span className={cn(muted && 'text-muted-foreground')}>{formatDate(value)}</span>
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        type="date"
+        className="h-6 rounded border border-primary bg-background px-1 font-mono text-[11px] outline-none"
+        defaultValue={value ?? ''}
+        onBlur={(e) => {
+          setEditing(false)
+          const v = e.target.value || null
+          if (v === value) return
+          save(field, v)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+          if (e.key === 'Escape') setEditing(false)
+        }}
+      />
+    )
+  }
+  return (
+    <button
+      type="button"
+      title="클릭해서 날짜 수정"
+      className={cn(
+        'rounded px-0.5 font-mono tabular-nums hover:bg-accent/60',
+        muted && 'text-muted-foreground',
+        pending && 'opacity-40',
+      )}
+      onClick={() => setEditing(true)}
+    >
+      {formatDate(value)}
+    </button>
   )
 }
 
@@ -183,13 +306,13 @@ export function DealsTable({ rows }: { rows: Row[] }) {
                 </TableCell>
                 <TableCell className="text-[13px] text-muted-foreground">{r.supplierName ?? '-'}</TableCell>
                 <TableCell className="text-right text-[13px] tabular-nums">
-                  {formatKRW(r.salesAmountNet)}
+                  <InlineAmount dealId={r.id} field="salesAmountNet" value={r.salesAmountNet} enabled={r.canTogglePaid} />
                 </TableCell>
                 <TableCell className="text-right text-[13px] text-muted-foreground tabular-nums">
                   {formatKRW(r.salesVat)}
                 </TableCell>
                 <TableCell className="text-right text-[13px] tabular-nums">
-                  {formatKRW(r.purchaseAmountNet)}
+                  <InlineAmount dealId={r.id} field="purchaseAmountNet" value={r.purchaseAmountNet} enabled={r.canTogglePaid} />
                 </TableCell>
                 <TableCell className="text-right text-[13px] text-muted-foreground tabular-nums">
                   {formatKRW(r.purchaseVat)}
@@ -222,17 +345,31 @@ export function DealsTable({ rows }: { rows: Row[] }) {
                     />
                   </div>
                 </TableCell>
-                <TableCell className="text-[12px] text-muted-foreground tabular-nums">
-                  {formatDate(r.salesInvoiceDate)}
+                <TableCell className="text-[12px] tabular-nums">
+                  <InlineDate dealId={r.id} field="salesInvoiceDate" value={r.salesInvoiceDate} enabled={r.canTogglePaid} muted />
                 </TableCell>
-                <TableCell className="text-[12px] text-muted-foreground tabular-nums">
-                  {formatDate(r.purchaseInvoiceDate)}
-                </TableCell>
-                <TableCell>
-                  <DatePair planned={r.salesDueDate} actual={r.salesPaidDate} />
+                <TableCell className="text-[12px] tabular-nums">
+                  <InlineDate dealId={r.id} field="purchaseInvoiceDate" value={r.purchaseInvoiceDate} enabled={r.canTogglePaid} muted />
                 </TableCell>
                 <TableCell>
-                  <DatePair planned={r.purchaseDueDate} actual={r.purchasePaidDate} />
+                  <div className="text-[12px] leading-tight tabular-nums">
+                    <div>
+                      <InlineDate dealId={r.id} field="salesDueDate" value={r.salesDueDate} enabled={r.canTogglePaid} muted />
+                    </div>
+                    <div>
+                      <InlineDate dealId={r.id} field="salesPaidDate" value={r.salesPaidDate} enabled={r.canTogglePaid} muted={!r.salesPaidDate} />
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="text-[12px] leading-tight tabular-nums">
+                    <div>
+                      <InlineDate dealId={r.id} field="purchaseDueDate" value={r.purchaseDueDate} enabled={r.canTogglePaid} muted />
+                    </div>
+                    <div>
+                      <InlineDate dealId={r.id} field="purchasePaidDate" value={r.purchasePaidDate} enabled={r.canTogglePaid} muted={!r.purchasePaidDate} />
+                    </div>
+                  </div>
                 </TableCell>
               </TableRow>
             )

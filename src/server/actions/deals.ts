@@ -275,3 +275,75 @@ export async function toggleDealPaid(
   revalidatePath('/deals')
   return { ok: true, status: next }
 }
+
+/** 목록 인라인 셀 편집 (2단계): 금액(매출금/매입금)·날짜 6종 (2026-08-25 회의)
+ *  금액 변경 시 VAT(10%)·총액 자동 재계산 — 폼과 동일 규칙. KRW 외 통화는 VAT 0 유지 */
+const INLINE_DATE_FIELDS = [
+  'salesInvoiceDate',
+  'purchaseInvoiceDate',
+  'salesDueDate',
+  'salesPaidDate',
+  'purchaseDueDate',
+  'purchasePaidDate',
+] as const
+
+const inlineSchema = z.union([
+  z.object({
+    field: z.enum(['salesAmountNet', 'purchaseAmountNet']),
+    value: z.coerce.number().finite().min(0).nullable(),
+  }),
+  z.object({
+    field: z.enum(INLINE_DATE_FIELDS),
+    value: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+  }),
+])
+
+export async function updateDealInline(
+  id: string,
+  raw: unknown,
+): Promise<{ ok: true } | { error: string }> {
+  const user = await getSessionUser()
+  if (!user) return { error: '로그인 필요' }
+  const parsed = inlineSchema.safeParse(raw)
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? '검증 실패' }
+
+  const [existing] = await db
+    .select({
+      status: deal.status,
+      ownerUserId: deal.ownerUserId,
+      currency: deal.currency,
+    })
+    .from(deal)
+    .where(and(eq(deal.id, id), isNull(deal.deletedAt)))
+    .limit(1)
+  if (!existing) return { error: '거래를 찾을 수 없습니다' }
+  if (!canEditDeal(user, existing)) return { error: '이 거래를 수정할 권한이 없습니다' }
+
+  const { field, value } = parsed.data
+  if (field === 'salesAmountNet' || field === 'purchaseAmountNet') {
+    if (!canEditDealAmounts(user, existing))
+      return { error: '금액은 회계/admin(영업은 본인 draft)만 수정할 수 있습니다' }
+    const net = value as number | null
+    const vat = net != null && existing.currency === 'KRW' ? Math.round(net * 0.1) : 0
+    const patch =
+      field === 'salesAmountNet'
+        ? {
+            salesAmountNet: net != null ? String(net) : null,
+            salesVat: net != null ? String(vat) : null,
+            salesAmountGross: net != null ? String(net + vat) : null,
+          }
+        : {
+            purchaseAmountNet: net != null ? String(net) : null,
+            purchaseVat: net != null ? String(vat) : null,
+            purchaseAmountGross: net != null ? String(net + vat) : null,
+          }
+    await db.update(deal).set({ ...patch, updatedBy: user.id }).where(eq(deal.id, id))
+  } else {
+    await db
+      .update(deal)
+      .set({ [field]: value, updatedBy: user.id })
+      .where(eq(deal.id, id))
+  }
+  revalidatePath('/deals')
+  return { ok: true }
+}
