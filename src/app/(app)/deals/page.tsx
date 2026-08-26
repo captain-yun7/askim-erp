@@ -15,6 +15,7 @@ import { CsvExportButton } from '@/components/csv-export-button'
 import { exportDealsCsv } from '@/server/actions/export'
 import { DealsTable } from '@/components/deals/deals-table'
 import { DealsFilters } from '@/components/deals/deals-filters'
+import { DealQuickAdd } from '@/components/deals/deal-quick-add'
 import { listDeals } from '@/server/queries/deals'
 import { canEditDeal, getDealScope, getSessionUser } from '@/server/auth/guards'
 import { getAllLookups } from '@/server/queries/lookups'
@@ -166,6 +167,15 @@ export default async function DealsPage({
               }),
           }))}
         />
+        {me && me.role !== 'viewer' && (
+          <DealQuickAdd
+            categories={lookups.categories}
+            users={filterUsers}
+            meId={me.id}
+            defaultYear={filters.year ?? new Date().getFullYear()}
+            defaultMonth={filters.month ?? new Date().getMonth() + 1}
+          />
+        )}
 
         <div className="flex items-center justify-between px-4 py-3 text-xs text-muted-foreground">
           <span>
