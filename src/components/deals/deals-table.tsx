@@ -1,4 +1,10 @@
+'use client'
+
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useTransition } from 'react'
+import { toast } from 'sonner'
+import { toggleDealPaid } from '@/server/actions/deals'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -32,6 +38,8 @@ type Row = {
   purchaseDueDate: string | null
   purchasePaidDate: string | null
   purchaseInvoiceDate: string | null
+  ownerUserId: string | null
+  canTogglePaid: boolean
   categoryName: string | null
   ownerName: string | null
   issuerName: string | null
@@ -48,6 +56,43 @@ function DatePair({ planned, actual }: { planned: string | null; actual: string 
         {formatDate(actual)}
       </div>
     </div>
+  )
+}
+
+function PaidToggle({
+  dealId,
+  side,
+  done,
+  doneLabel,
+  todoLabel,
+  enabled,
+}: {
+  dealId: string
+  side: 'sales' | 'purchase'
+  done: boolean
+  doneLabel: string
+  todoLabel: string
+  enabled: boolean
+}) {
+  const router = useRouter()
+  const [pending, start] = useTransition()
+  if (!enabled) return <StatusPill done={done} doneLabel={doneLabel} todoLabel={todoLabel} />
+  return (
+    <button
+      type="button"
+      title={done ? `클릭하면 ${todoLabel}(으)로 되돌립니다` : `클릭하면 ${doneLabel} 처리(오늘 날짜)`}
+      className={pending ? 'opacity-40' : 'transition-transform hover:scale-105'}
+      disabled={pending}
+      onClick={() =>
+        start(async () => {
+          const res = await toggleDealPaid(dealId, side)
+          if ('error' in res) toast.error(res.error)
+          else router.refresh()
+        })
+      }
+    >
+      <StatusPill done={done} doneLabel={doneLabel} todoLabel={todoLabel} />
+    </button>
   )
 }
 
@@ -159,20 +204,22 @@ export function DealsTable({ rows }: { rows: Row[] }) {
                 </TableCell>
                 <TableCell>
                   <div className="flex justify-center gap-3">
-                    <span title={`입금예정 ${formatDate(r.salesDueDate)}`}>
-                      <StatusPill
-                        done={r.salesPaidStatus === 'completed'}
-                        doneLabel="입금"
-                        todoLabel="미입금"
-                      />
-                    </span>
-                    <span title={`결산예정 ${formatDate(r.purchaseDueDate)}`}>
-                      <StatusPill
-                        done={r.purchasePaidStatus === 'completed'}
-                        doneLabel="결산"
-                        todoLabel="미결산"
-                      />
-                    </span>
+                    <PaidToggle
+                      dealId={r.id}
+                      side="sales"
+                      done={r.salesPaidStatus === 'completed'}
+                      doneLabel="입금"
+                      todoLabel="미입금"
+                      enabled={r.canTogglePaid}
+                    />
+                    <PaidToggle
+                      dealId={r.id}
+                      side="purchase"
+                      done={r.purchasePaidStatus === 'completed'}
+                      doneLabel="결산"
+                      todoLabel="미결산"
+                      enabled={r.canTogglePaid}
+                    />
                   </div>
                 </TableCell>
                 <TableCell className="text-[12px] text-muted-foreground tabular-nums">

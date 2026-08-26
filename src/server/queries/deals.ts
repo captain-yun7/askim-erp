@@ -120,6 +120,7 @@ export async function listDeals(f: DealListFilters = {}) {
       profit: deal.profit,
       salesPaidStatus: deal.salesPaidStatus,
       purchasePaidStatus: deal.purchasePaidStatus,
+      ownerUserId: deal.ownerUserId,
       salesDueDate: deal.salesDueDate,
       salesPaidDate: deal.salesPaidDate,
       salesInvoiceDate: deal.salesInvoiceDate,

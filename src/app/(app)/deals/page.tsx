@@ -16,7 +16,7 @@ import { exportDealsCsv } from '@/server/actions/export'
 import { DealsTable } from '@/components/deals/deals-table'
 import { DealsFilters } from '@/components/deals/deals-filters'
 import { listDeals } from '@/server/queries/deals'
-import { getDealScope, getSessionUser } from '@/server/auth/guards'
+import { canEditDeal, getDealScope, getSessionUser } from '@/server/auth/guards'
 import { getAllLookups } from '@/server/queries/lookups'
 import { cn } from '@/lib/utils'
 import { formatKRW, formatKRWShort } from '@/lib/format'
@@ -155,7 +155,17 @@ export default async function DealsPage({
           </b>
         </div>
 
-        <DealsTable rows={rows} />
+        <DealsTable
+          rows={rows.map((r) => ({
+            ...r,
+            canTogglePaid:
+              me != null &&
+              canEditDeal(me, {
+                status: r.status as 'draft' | 'confirmed' | 'closed',
+                ownerUserId: r.ownerUserId,
+              }),
+          }))}
+        />
 
         <div className="flex items-center justify-between px-4 py-3 text-xs text-muted-foreground">
           <span>

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '@/lib/db/client'
 import { deal, users } from '@/lib/db/schema'
@@ -223,4 +223,55 @@ export async function deleteDeal(id: string) {
     .where(eq(deal.id, id))
   revalidatePath('/deals')
   redirect('/deals')
+}
+
+/** 목록 인라인 토글: 미입금↔입금 / 미결산↔결산 (2026-08-25 회의)
+ *  completed 전환 시 입금일/지급일이 비면 오늘 날짜, pending 복귀 시 날짜 제거(통장 리포트 일관성) */
+export async function toggleDealPaid(
+  id: string,
+  side: 'sales' | 'purchase',
+): Promise<{ ok: true; status: string } | { error: string }> {
+  const user = await getSessionUser()
+  if (!user) return { error: '로그인 필요' }
+
+  const [row] = await db
+    .select({
+      status: deal.status,
+      ownerUserId: deal.ownerUserId,
+      salesPaidStatus: deal.salesPaidStatus,
+      purchasePaidStatus: deal.purchasePaidStatus,
+      salesPaidDate: deal.salesPaidDate,
+      purchasePaidDate: deal.purchasePaidDate,
+    })
+    .from(deal)
+    .where(and(eq(deal.id, id), isNull(deal.deletedAt)))
+    .limit(1)
+  if (!row) return { error: '거래를 찾을 수 없습니다' }
+  if (!canEditDeal(user, row)) return { error: '수정 권한이 없습니다' }
+
+  const today = new Date().toISOString().slice(0, 10)
+  if (side === 'sales') {
+    const next = row.salesPaidStatus === 'completed' ? 'pending' : 'completed'
+    await db
+      .update(deal)
+      .set({
+        salesPaidStatus: next,
+        salesPaidDate: next === 'completed' ? (row.salesPaidDate ?? today) : null,
+        updatedBy: user.id,
+      })
+      .where(eq(deal.id, id))
+    revalidatePath('/deals')
+    return { ok: true, status: next }
+  }
+  const next = row.purchasePaidStatus === 'completed' ? 'pending' : 'completed'
+  await db
+    .update(deal)
+    .set({
+      purchasePaidStatus: next,
+      purchasePaidDate: next === 'completed' ? (row.purchasePaidDate ?? today) : null,
+      updatedBy: user.id,
+    })
+    .where(eq(deal.id, id))
+  revalidatePath('/deals')
+  return { ok: true, status: next }
 }
