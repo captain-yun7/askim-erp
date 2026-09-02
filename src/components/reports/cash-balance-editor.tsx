@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input'
 import { saveCashBalances } from '@/server/actions/plan'
 
 type Row = { id: number | null; label: string; amountKrw: string; amountFx: string; fxCurrency: string }
+
+const CURRENCIES = ['KRW', 'USD', 'CNY'] as const
 
 export function CashBalanceEditor({
   year,
@@ -28,13 +30,16 @@ export function CashBalanceEditor({
   const [date, setDate] = useState(asOf ?? new Date().toISOString().slice(0, 10))
   const [fx, setFx] = useState(fxRateUsd != null ? String(fxRateUsd) : '')
   const [fxLoading, setFxLoading] = useState(false)
+  // 통화별 오늘 환율 캐시 (CNY 등 USD 외 통화 자동계산용)
+  const ratesRef = useRef<Record<string, number>>({})
   const [state, setState] = useState<Row[]>(
     rows.map((r) => ({
       id: r.id,
       label: r.label,
       amountKrw: String(r.amountKrw || ''),
       amountFx: r.amountFx != null ? String(r.amountFx) : '',
-      fxCurrency: r.fxCurrency ?? '',
+      // 외화값 없이 저장된 기존 행은 원화 계좌로 취급 (2026-09-01 피드백: 기본 KRW)
+      fxCurrency: r.fxCurrency ?? (r.amountFx != null ? 'USD' : 'KRW'),
     })),
   )
 
@@ -42,6 +47,35 @@ export function CashBalanceEditor({
     setState((p) => p.map((r, idx) => (idx === i ? { ...r, ...patch } : r)))
   }
   const n = (v: string) => Number(v.replace(/,/g, ''))
+
+  async function rateFor(currency: string): Promise<number | null> {
+    if (currency === 'USD' && fx) return n(fx)
+    if (ratesRef.current[currency]) return ratesRef.current[currency]
+    try {
+      const res = await fetch(`/api/fx-rate?base=${currency}`)
+      const data = await res.json()
+      if (!res.ok || !data.krw) throw new Error()
+      ratesRef.current[currency] = data.krw
+      if (currency === 'USD' && !fx) setFx(String(data.krw))
+      return data.krw
+    } catch {
+      return null
+    }
+  }
+
+  /** 외화 금액 확정 시 KRW 자동계산 (2026-09-01 피드백) — 계산 후에도 KRW 칸 수기 수정 가능 */
+  async function fillKrwFromFx(i: number) {
+    const row = state[i]
+    if (row.fxCurrency === 'KRW' || !row.amountFx) return
+    const amount = n(row.amountFx)
+    if (!Number.isFinite(amount) || !amount) return
+    const rate = await rateFor(row.fxCurrency)
+    if (rate == null) {
+      toast.error(`${row.fxCurrency} 환율 조회 실패 — KRW 금액을 직접 입력해 주세요`)
+      return
+    }
+    set(i, { amountKrw: String(Math.round(amount * rate)) })
+  }
 
   return (
     <form
@@ -57,8 +91,8 @@ export function CashBalanceEditor({
               id: r.id,
               label: r.label,
               amountKrw: n(r.amountKrw) || 0,
-              amountFx: r.amountFx ? n(r.amountFx) : null,
-              fxCurrency: r.fxCurrency || null,
+              amountFx: r.fxCurrency !== 'KRW' && r.amountFx ? n(r.amountFx) : null,
+              fxCurrency: r.fxCurrency !== 'KRW' ? r.fxCurrency : null,
             })),
           })
           if ('error' in res) toast.error(res.error)
@@ -98,6 +132,7 @@ export function CashBalanceEditor({
               const data = await res.json()
               if (!res.ok || !data.krw) throw new Error(data.error)
               setFx(String(data.krw))
+              ratesRef.current.USD = data.krw
               toast.success(`오늘 환율 ${data.krw.toLocaleString()}원 적용`)
             } catch {
               toast.error('환율 조회 실패 — 수기로 입력해 주세요')
@@ -115,9 +150,9 @@ export function CashBalanceEditor({
         <thead>
           <tr className="border-b text-[12px] text-muted-foreground">
             <th className="px-2 py-1.5 text-left font-medium">계좌</th>
-            <th className="w-44 px-2 py-1.5 text-right font-medium">금액 (KRW, VAT 포함)</th>
+            <th className="w-24 px-2 py-1.5 text-left font-medium">통화</th>
             <th className="w-36 px-2 py-1.5 text-right font-medium">외화 금액</th>
-            <th className="w-20 px-2 py-1.5 text-left font-medium">통화</th>
+            <th className="w-44 px-2 py-1.5 text-right font-medium">금액 (KRW, VAT 포함)</th>
             <th className="w-10" />
           </tr>
         </thead>
@@ -128,28 +163,38 @@ export function CashBalanceEditor({
                 <Input className="h-8" value={r.label} onChange={(e) => set(i, { label: e.target.value })} />
               </td>
               <td className="px-2 py-1.5">
+                <select
+                  className="h-8 w-full rounded-lg border bg-background px-2 text-[12.5px]"
+                  value={r.fxCurrency}
+                  onChange={(e) => {
+                    const currency = e.target.value
+                    set(i, { fxCurrency: currency, ...(currency === 'KRW' ? { amountFx: '' } : {}) })
+                  }}
+                >
+                  {CURRENCIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </td>
+              <td className="px-2 py-1.5">
+                <Input
+                  className="h-8 text-right font-mono tabular-nums disabled:bg-muted/50"
+                  inputMode="decimal"
+                  disabled={r.fxCurrency === 'KRW'}
+                  placeholder={r.fxCurrency === 'KRW' ? '' : '외화 입력 → KRW 자동'}
+                  value={r.amountFx}
+                  onChange={(e) => set(i, { amountFx: e.target.value })}
+                  onBlur={() => fillKrwFromFx(i)}
+                />
+              </td>
+              <td className="px-2 py-1.5">
                 <Input
                   className="h-8 text-right font-mono tabular-nums"
                   inputMode="numeric"
                   value={r.amountKrw}
                   onChange={(e) => set(i, { amountKrw: e.target.value })}
-                />
-              </td>
-              <td className="px-2 py-1.5">
-                <Input
-                  className="h-8 text-right font-mono tabular-nums"
-                  inputMode="decimal"
-                  value={r.amountFx}
-                  onChange={(e) => set(i, { amountFx: e.target.value })}
-                />
-              </td>
-              <td className="px-2 py-1.5">
-                <Input
-                  className="h-8 uppercase"
-                  maxLength={3}
-                  value={r.fxCurrency}
-                  onChange={(e) => set(i, { fxCurrency: e.target.value.toUpperCase() })}
-                  placeholder="USD"
                 />
               </td>
               <td className="px-1 py-1.5 text-right">
@@ -175,7 +220,7 @@ export function CashBalanceEditor({
           size="sm"
           className="gap-1"
           onClick={() =>
-            setState((p) => [...p, { id: null, label: '', amountKrw: '', amountFx: '', fxCurrency: '' }])
+            setState((p) => [...p, { id: null, label: '', amountKrw: '', amountFx: '', fxCurrency: 'KRW' }])
           }
         >
           <Plus className="size-3.5" />
