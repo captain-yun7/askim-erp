@@ -10,6 +10,10 @@ import {
 
 export type DealListFilters = {
   q?: string
+  /** 컬럼별 검색 (2026-09-01 피드백) */
+  fCode?: string
+  fIssuer?: string
+  fSupplier?: string
   year?: number
   month?: number
   categoryId?: number
@@ -45,6 +49,21 @@ export async function listDeals(f: DealListFilters = {}) {
   if (f.paidStatus === 'unpaid') conds.push(eq(deal.salesPaidStatus, 'pending'))
   if (f.paidStatus === 'unsettled')
     conds.push(eq(deal.purchasePaidStatus, 'pending'))
+
+  if (f.fCode) conds.push(ilike(deal.dealCode, `%${f.fCode.trim()}%`))
+  if (f.fIssuer) {
+    const like = `%${f.fIssuer.trim()}%`
+    conds.push(
+      or(
+        sql`exists (select 1 from counterparty c where c.id = ${deal.issuerCounterpartyId} and c.name ilike ${like})`,
+        sql`exists (select 1 from counterparty c where c.id = ${deal.advertiserCounterpartyId} and c.name ilike ${like})`,
+      )!,
+    )
+  }
+  if (f.fSupplier)
+    conds.push(
+      sql`exists (select 1 from counterparty c where c.id = ${deal.supplierCounterpartyId} and c.name ilike ${`%${f.fSupplier.trim()}%`})`,
+    )
 
   if (f.q) {
     const like = `%${f.q}%`

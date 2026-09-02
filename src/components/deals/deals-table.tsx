@@ -233,8 +233,50 @@ function StatusPill({ done, doneLabel, todoLabel }: { done: boolean; doneLabel: 
   )
 }
 
-export function DealsTable({ rows }: { rows: Row[] }) {
-  if (rows.length === 0) {
+export type ColumnFilters = { fCode?: string; fIssuer?: string; fSupplier?: string }
+
+/** 컬럼별 검색 입력 (엑셀 자동필터처럼 헤더 아래 행) — Enter 로 적용, 비우면 해제 */
+function ColumnFilterInput({ param, value, placeholder }: { param: string; value?: string; placeholder: string }) {
+  const router = useRouter()
+  return (
+    <input
+      defaultValue={value ?? ''}
+      placeholder={placeholder}
+      className="h-6 w-full min-w-16 rounded border bg-background px-1.5 text-[11px] font-normal placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+      onKeyDown={(e) => {
+        if (e.key !== 'Enter') return
+        const next = new URLSearchParams(window.location.search)
+        const v = (e.target as HTMLInputElement).value.trim()
+        if (v) next.set(param, v)
+        else next.delete(param)
+        next.delete('page')
+        router.push(`/deals?${next.toString()}`)
+      }}
+    />
+  )
+}
+
+function FilterHeaderRow({ filters }: { filters: ColumnFilters }) {
+  return (
+    <TableRow className="hover:bg-transparent">
+      <TableHead className="py-1">
+        <ColumnFilterInput param="fCode" value={filters.fCode} placeholder="검색" />
+      </TableHead>
+      <TableHead colSpan={3} />
+      <TableHead className="py-1">
+        <ColumnFilterInput param="fIssuer" value={filters.fIssuer} placeholder="발행처/광고주 검색" />
+      </TableHead>
+      <TableHead className="py-1">
+        <ColumnFilterInput param="fSupplier" value={filters.fSupplier} placeholder="매체사 검색" />
+      </TableHead>
+      <TableHead colSpan={10} />
+    </TableRow>
+  )
+}
+
+export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFilters?: ColumnFilters }) {
+  const hasFilter = Boolean(columnFilters.fCode || columnFilters.fIssuer || columnFilters.fSupplier)
+  if (rows.length === 0 && !hasFilter) {
     return (
       <div className="px-6 py-20 text-center text-sm text-muted-foreground">
         거래가 없습니다. 필터를 조정하거나 [+ 새 거래]를 눌러보세요.
@@ -263,8 +305,16 @@ export function DealsTable({ rows }: { rows: Row[] }) {
             <TableHead>입금예정일<br />입금일</TableHead>
             <TableHead>결산예정일<br />결산일</TableHead>
           </TableRow>
+          <FilterHeaderRow filters={columnFilters} />
         </TableHeader>
         <TableBody>
+          {rows.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={16} className="py-14 text-center text-sm text-muted-foreground">
+                검색 결과가 없습니다. 필터 입력을 비우고 Enter 를 누르면 해제됩니다.
+              </TableCell>
+            </TableRow>
+          )}
           {rows.map((r) => {
             const owner = r.ownerName ?? '-'
             const loss = parseFloat(r.profit ?? '0') < 0

@@ -32,6 +32,9 @@ export default async function DealsPage({
   const sp = await searchParams
   const filters = {
     q: typeof sp.q === 'string' ? sp.q : undefined,
+    fCode: typeof sp.fCode === 'string' ? sp.fCode : undefined,
+    fIssuer: typeof sp.fIssuer === 'string' ? sp.fIssuer : undefined,
+    fSupplier: typeof sp.fSupplier === 'string' ? sp.fSupplier : undefined,
     year: sp.year ? parseInt(String(sp.year), 10) : undefined,
     month: sp.month ? parseInt(String(sp.month), 10) : undefined,
     categoryId: sp.categoryId ? parseInt(String(sp.categoryId), 10) : undefined,
@@ -157,6 +160,11 @@ export default async function DealsPage({
         </div>
 
         <DealsTable
+          columnFilters={{
+            fCode: filters.fCode,
+            fIssuer: filters.fIssuer,
+            fSupplier: filters.fSupplier,
+          }}
           rows={rows.map((r) => ({
             ...r,
             canTogglePaid:
