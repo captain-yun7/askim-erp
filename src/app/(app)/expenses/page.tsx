@@ -15,10 +15,12 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { ExpensesFilters } from '@/components/expenses/expenses-filters'
+import { ExpenseRowActions } from '@/components/expenses/expense-row-actions'
 import { getAllLookups } from '@/server/queries/lookups'
 import { cn } from '@/lib/utils'
 import { formatKRW } from '@/lib/format'
 import { requireBackoffice } from '@/server/auth/require-backoffice'
+import { canCreateExpense, canDeleteExpense, canEditExpense } from '@/server/auth/guards'
 
 const PAYMENT_LABEL: Record<string, string> = {
   corporate_card: '법인카드',
@@ -39,7 +41,7 @@ export default async function ExpensesPage({
 }: {
   searchParams: Promise<SP>
 }) {
-  await requireBackoffice()
+  const me = await requireBackoffice()
 
   const sp = await searchParams
   const filters = {
@@ -74,7 +76,11 @@ export default async function ExpensesPage({
         amount: expense.amount,
         counterpartyText: expense.counterpartyText,
         paymentMethod: expense.paymentMethod,
+        expenseCategoryId: expense.expenseCategoryId,
         category: expenseCategory.nameKo,
+        createdBy: expense.createdBy,
+        payerUserId: expense.payerUserId,
+        createdAt: expense.createdAt,
       })
       .from(expense)
       .leftJoin(expenseCategory, eq(expenseCategory.id, expense.expenseCategoryId))
@@ -100,9 +106,11 @@ export default async function ExpensesPage({
         </div>
         <div className="flex items-center gap-2">
           <CsvExportButton action={exportExpensesCsv} filters={filters} />
-          <Link href="/expenses/new" className={cn(buttonVariants(), 'gap-1.5')}>
-            <Plus className="size-4" />판관비 입력
-          </Link>
+          {me && canCreateExpense(me.role) && (
+            <Link href="/expenses/new" className={cn(buttonVariants(), 'gap-1.5')}>
+              <Plus className="size-4" />판관비 입력
+            </Link>
+          )}
         </div>
       </div>
 
@@ -153,6 +161,7 @@ export default async function ExpensesPage({
                 <TableHead>항목</TableHead>
                 <TableHead>수단</TableHead>
                 <TableHead className="text-right">금액</TableHead>
+                <TableHead className="w-16" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -179,6 +188,22 @@ export default async function ExpensesPage({
                   </TableCell>
                   <TableCell className="text-right font-mono text-xs tabular-nums">
                     {formatKRW(r.amount)}
+                  </TableCell>
+                  <TableCell className="py-1">
+                    <ExpenseRowActions
+                      row={{
+                        id: r.id,
+                        date: r.date,
+                        itemName: r.itemName,
+                        counterpartyText: r.counterpartyText,
+                        amount: r.amount,
+                        expenseCategoryId: r.expenseCategoryId,
+                        paymentMethod: r.paymentMethod,
+                      }}
+                      categories={lookups.expenseCategories}
+                      canEdit={me != null && canEditExpense(me, r)}
+                      canDelete={me != null && canDeleteExpense(me, r)}
+                    />
                   </TableCell>
                 </TableRow>
               ))}

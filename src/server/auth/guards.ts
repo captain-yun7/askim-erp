@@ -148,6 +148,13 @@ export function canEditExpense(user: SessionUser, exp: ExpenseRef): boolean {
   )
 }
 
+/** 판관비 soft delete: 회계/admin 전체, 영업은 본인 입력건 + 등록 7일 이내 */
+export function canDeleteExpense(user: SessionUser, exp: ExpenseRef & { createdAt: Date }): boolean {
+  if (isStaff(user.role)) return true
+  if (!canEditExpense(user, exp)) return false
+  return Date.now() - exp.createdAt.getTime() <= 7 * 24 * 60 * 60 * 1000
+}
+
 // ── Plan (매출목표·현금흐름·연 목표) ─────────────────────
 /** 목표/계좌잔액 수기 입력: 회계/admin만 */
 export function canEditPlan(role: Role): boolean {
