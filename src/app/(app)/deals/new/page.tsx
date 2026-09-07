@@ -2,8 +2,10 @@ import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import { DealForm } from '@/components/deals/deal-form'
 import { getAllLookups } from '@/server/queries/lookups'
+import { requireWriter } from '@/server/auth/require-backoffice'
 
 export default async function NewDealPage() {
+  await requireWriter('/deals')
   const lookups = await getAllLookups()
   return (
     <div>

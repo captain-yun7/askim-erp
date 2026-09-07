@@ -17,8 +17,14 @@ import {
 
 export function CounterpartyForm({
   initial,
+  readOnly = false,
+  canDelete = true,
 }: {
   initial?: Partial<CounterpartyInput> & { id?: string }
+  /** 조회 전용(viewer, 남의 등록건 영업) */
+  readOnly?: boolean
+  /** 비활성화 버튼 노출 (회계/admin) */
+  canDelete?: boolean
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -79,6 +85,10 @@ export function CounterpartyForm({
 
   return (
     <div className="px-8 py-6">
+      {readOnly && (
+        <p className="mb-3 text-[12.5px] text-muted-foreground">조회 전용 — 수정 권한이 없습니다</p>
+      )}
+      <fieldset disabled={readOnly} className="contents">
       <Card>
         <CardContent className="grid gap-4 pt-6 md:grid-cols-2">
           <div className="grid gap-1.5 md:col-span-2">
@@ -203,10 +213,11 @@ export function CounterpartyForm({
           </div>
         </CardContent>
       </Card>
+      </fieldset>
 
       <div className="mt-6 flex items-center justify-between">
         <div>
-          {initial?.id && (
+          {initial?.id && canDelete && !readOnly && (
             <Button variant="destructive" onClick={handleDelete} disabled={pending}>
               비활성화
             </Button>
@@ -214,11 +225,13 @@ export function CounterpartyForm({
         </div>
         <div className="flex gap-2">
           <Button variant="ghost" onClick={() => router.push('/counterparties')}>
-            취소
+            {readOnly ? '목록으로' : '취소'}
           </Button>
-          <Button disabled={pending || !form.name.trim()} onClick={submit}>
-            {pending ? '저장 중...' : '저장'}
-          </Button>
+          {!readOnly && (
+            <Button disabled={pending || !form.name.trim()} onClick={submit}>
+              {pending ? '저장 중...' : '저장'}
+            </Button>
+          )}
         </div>
       </div>
     </div>

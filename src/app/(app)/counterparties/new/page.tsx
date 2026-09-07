@@ -1,8 +1,10 @@
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import { CounterpartyForm } from '@/components/counterparties/counterparty-form'
+import { requireWriter } from '@/server/auth/require-backoffice'
 
-export default function NewCounterpartyPage() {
+export default async function NewCounterpartyPage() {
+  await requireWriter('/counterparties')
   return (
     <div>
       <div className="border-b px-8 pb-4 pt-6">

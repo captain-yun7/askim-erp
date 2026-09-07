@@ -17,7 +17,7 @@ import { DealsTable } from '@/components/deals/deals-table'
 import { DealsFilters } from '@/components/deals/deals-filters'
 import { DealQuickAdd } from '@/components/deals/deal-quick-add'
 import { listDeals } from '@/server/queries/deals'
-import { canEditDeal, getDealScope, getSessionUser } from '@/server/auth/guards'
+import { canCreateDeal, canEditDeal, getDealScope, getSessionUser } from '@/server/auth/guards'
 import { getAllLookups } from '@/server/queries/lookups'
 import { cn } from '@/lib/utils'
 import { formatKRW, formatKRWShort } from '@/lib/format'
@@ -87,9 +87,11 @@ export default async function DealsPage({
         </div>
         <div className="flex items-center gap-2">
           <CsvExportButton action={exportDealsCsv} filters={filters} />
-          <Link href="/deals/new" className={cn(buttonVariants(), 'gap-1.5')}>
-            <Plus className="size-4" />새 거래
-          </Link>
+          {me && canCreateDeal(me.role) && (
+            <Link href="/deals/new" className={cn(buttonVariants(), 'gap-1.5')}>
+              <Plus className="size-4" />새 거래
+            </Link>
+          )}
         </div>
       </div>
 

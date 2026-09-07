@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/table'
 import { CounterpartiesFilters } from '@/components/counterparties/counterparties-filters'
 import { cn } from '@/lib/utils'
-import { canViewBankInfo, getSessionUser } from '@/server/auth/guards'
+import { canCreateCounterparty, canViewBankInfo, getSessionUser } from '@/server/auth/guards'
 
 const ROLE_LABEL: Record<string, string> = {
   media: '매체사',
@@ -89,12 +89,14 @@ export default async function CounterpartiesPage({
             action={exportCounterpartiesCsv}
             filters={{ q, role, noBiz: Boolean(noBiz) }}
           />
-          <Link
-            href="/counterparties/new"
-            className={cn(buttonVariants(), 'gap-1.5')}
-          >
-            <Plus className="size-4" />새 거래처
-          </Link>
+          {user && canCreateCounterparty(user.role) && (
+            <Link
+              href="/counterparties/new"
+              className={cn(buttonVariants(), 'gap-1.5')}
+            >
+              <Plus className="size-4" />새 거래처
+            </Link>
+          )}
         </div>
       </div>
 

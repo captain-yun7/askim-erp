@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import { CounterpartyForm } from '@/components/counterparties/counterparty-form'
 import { getCounterpartyById } from '@/server/queries/counterparties'
+import { canDeleteCounterparty, canEditCounterparty, getSessionUser } from '@/server/auth/guards'
 
 export default async function EditCounterpartyPage({
   params,
@@ -10,8 +11,9 @@ export default async function EditCounterpartyPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const cp = await getCounterpartyById(id)
+  const [cp, me] = await Promise.all([getCounterpartyById(id), getSessionUser()])
   if (!cp) notFound()
+  const readOnly = !me || !canEditCounterparty(me, cp)
   return (
     <div>
       <div className="border-b px-8 pb-4 pt-6">
@@ -21,10 +23,12 @@ export default async function EditCounterpartyPage({
         >
           <ChevronLeft className="size-3.5" />거래처 목록
         </Link>
-        <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">거래처 수정</h1>
+        <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">{readOnly ? '거래처 상세' : '거래처 수정'}</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">{cp.name}</p>
       </div>
       <CounterpartyForm
+        readOnly={readOnly}
+        canDelete={me != null && canDeleteCounterparty(me.role)}
         initial={{
           id: cp.id,
           name: cp.name,
