@@ -17,6 +17,7 @@ import {
   canCreateExpense,
 } from '@/server/auth/guards'
 import { toCsv } from '@/lib/csv'
+import { parseDateFilter, parseNumberFilter } from '@/lib/column-filter'
 
 let pass = 0
 let fail = 0
@@ -42,6 +43,12 @@ async function main() {
   check('통장 매출 합계 > 0', sumLine('sales_cash') > 0, `cash sales=${sumLine('sales_cash')}`)
   check('판관비 = 고정비 + 변동비', Math.abs(sumLine('sgna') - sumLine('fixed') - sumLine('variable')) < 1)
   check('과목 행에 세금 포함', lines.some((l) => l.label === '(세금)'))
+  const order = lines.slice(0, 6).map((l) => l.key).join(',')
+  check(
+    '행 순서: 총매출(통장)·총매출(귀속월)·(매출원가)_통장·(매출원가)_귀속월·손익(통장)·손익(귀속월)',
+    order === 'sales_cash,sales_accrual,cogs_cash,cogs_accrual,gross_cash,gross_accrual',
+    order,
+  )
 
   console.log('\n[2] 리포트 — 월별손익 + 십일조')
   const pnl = await getMonthlyPnl({ year: YEAR })
@@ -61,6 +68,45 @@ async function main() {
   check('행 반환 + 집계', dl.rows.length > 0 && dl.total > 0, `total=${dl.total}, 합계손익=${dl.aggregate.profit}`)
   const dlUnpaid = await listDeals({ year: YEAR, paidStatus: 'unpaid', pageSize: 5 })
   check('미입금 필터 실행', dlUnpaid.total >= 0, `미입금 total=${dlUnpaid.total}`)
+
+  console.log('\n[4-1] 거래 목록 — 컬럼별 검색식 파서 (2026-09-07 피드백)')
+  check('금액 정확히', JSON.stringify(parseNumberFilter('800,000')) === JSON.stringify({ kind: 'cmp', op: '=', value: 800000 }))
+  check('금액 비교 >=', JSON.stringify(parseNumberFilter('>= 1000000')) === JSON.stringify({ kind: 'cmp', op: '>=', value: 1000000 }))
+  check('금액 음수 비교 <', JSON.stringify(parseNumberFilter('<-100')) === JSON.stringify({ kind: 'cmp', op: '<', value: -100 }))
+  check('금액 범위 ~ (역순 정렬)', JSON.stringify(parseNumberFilter('500000~100000')) === JSON.stringify({ kind: 'range', min: 100000, max: 500000 }))
+  check('금액 비어있음 -', parseNumberFilter('-')?.kind === 'empty')
+  check('금액 잘못된 식 무시', parseNumberFilter('abc') === null && parseNumberFilter('') === null)
+  check('날짜 연도', JSON.stringify(parseDateFilter('2026')) === JSON.stringify({ kind: 'range', from: '2026-01-01', toExclusive: '2027-01-01' }))
+  check('날짜 연월 (12월 롤오버)', JSON.stringify(parseDateFilter('2026-12')) === JSON.stringify({ kind: 'range', from: '2026-12-01', toExclusive: '2027-01-01' }))
+  check('날짜 일 (구분자 없음)', JSON.stringify(parseDateFilter('20260905')) === JSON.stringify({ kind: 'range', from: '2026-09-05', toExclusive: '2026-09-06' }))
+  check('날짜 일 (점 구분자, 월말 롤오버)', JSON.stringify(parseDateFilter('2026.09.30')) === JSON.stringify({ kind: 'range', from: '2026-09-30', toExclusive: '2026-10-01' }))
+  check('날짜 범위 ~', JSON.stringify(parseDateFilter('2026-09-01~2026-09')) === JSON.stringify({ kind: 'range', from: '2026-09-01', toExclusive: '2026-10-01' }))
+  check('날짜 잘못된 값 무시', parseDateFilter('2026-13') === null && parseDateFilter('2026-02-30') === null && parseDateFilter('abc') === null)
+
+  console.log('\n[4-2] 거래 목록 — 컬럼별 검색 쿼리')
+  const lossRows = await listDeals({ year: YEAR, fProfit: '<0', pageSize: 200 })
+  check('손익 <0 → 모두 음수', lossRows.rows.length > 0 && lossRows.rows.every((r) => Number(r.profit) < 0), `${lossRows.total}건`)
+  const rangeRows = await listDeals({ year: YEAR, fSales: '100000~1000000', pageSize: 200 })
+  check('매출 범위 → 모두 구간 안', rangeRows.rows.every((r) => { const v = Number(r.salesAmountNet); return v >= 100000 && v <= 1000000 }), `${rangeRows.total}건`)
+  const firstSales = lossRows.rows.find((r) => r.purchaseAmountNet != null)
+  if (firstSales) {
+    const exact = await listDeals({ year: YEAR, fPurchase: String(Math.round(Number(firstSales.purchaseAmountNet))), pageSize: 200 })
+    check('매입 정확히 → 해당 금액만', exact.rows.length > 0 && exact.rows.every((r) => Math.round(Number(r.purchaseAmountNet)) === Math.round(Number(firstSales.purchaseAmountNet))), `${exact.total}건`)
+  }
+  const emptySales = await listDeals({ year: YEAR, fSales: '-', pageSize: 200 })
+  check('매출 비어있음(-) → salesAmountNet null', emptySales.rows.every((r) => r.salesAmountNet == null), `${emptySales.total}건`)
+  const unpaid = await listDeals({ year: YEAR, fPaid: 'unpaid', fSettled: 'settled', pageSize: 200 })
+  check('미입금 + 결산 AND', unpaid.rows.every((r) => r.salesPaidStatus !== 'completed' && r.purchasePaidStatus === 'completed'), `${unpaid.total}건`)
+  const paid = await listDeals({ year: YEAR, fPaid: 'paid', pageSize: 200 })
+  check('입금 → 모두 completed', paid.rows.length > 0 && paid.rows.every((r) => r.salesPaidStatus === 'completed'), `${paid.total}건`)
+  const invMonth = await listDeals({ fSalesInvoice: `${YEAR}-06`, pageSize: 500 })
+  check('매출계산서 발행일 2026-06 → 모두 6월', invMonth.rows.every((r) => r.salesInvoiceDate?.startsWith(`${YEAR}-06`)), `${invMonth.total}건`)
+  const payDate = await listDeals({ fSalesDate: `${YEAR}-06`, pageSize: 500 })
+  check('입금예정일/입금일 2026-06 → 둘 중 하나 6월', payDate.rows.every((r) => r.salesDueDate?.startsWith(`${YEAR}-06`) || r.salesPaidDate?.startsWith(`${YEAR}-06`)), `${payDate.total}건`)
+  const noInv = await listDeals({ year: YEAR, fPurchaseInvoice: '-', pageSize: 500 })
+  check('매입계산서 비어있음(-) → null', noInv.rows.every((r) => r.purchaseInvoiceDate == null), `${noInv.total}건`)
+  const junk = await listDeals({ year: YEAR, fSales: 'abc', pageSize: 5 })
+  check('잘못된 식은 무시(전체 반환)', junk.total === dl.total, `${junk.total} vs ${dl.total}`)
 
   console.log('\n[5] 거래처 목록 — 역할 필터')
   const cpMedia = await listCounterparties({ role: 'media', limit: 100 })
