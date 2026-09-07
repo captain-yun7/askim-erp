@@ -7,13 +7,13 @@ import { toast } from 'sonner'
 import { toggleDealPaid, updateDealInline } from '@/server/actions/deals'
 import { Badge } from '@/components/ui/badge'
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { StickyHScroll } from '@/components/ui/sticky-h-scroll'
 import { cn } from '@/lib/utils'
 import { formatDate, formatKRW } from '@/lib/format'
 
@@ -284,8 +284,8 @@ export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFi
     )
   }
   return (
-    <div className="overflow-x-auto">
-      <Table>
+    <StickyHScroll>
+      <table className="w-full caption-bottom text-sm">
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             <TableHead>거래코드</TableHead>
@@ -425,7 +425,7 @@ export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFi
             )
           })}
         </TableBody>
-      </Table>
-    </div>
+      </table>
+    </StickyHScroll>
   )
 }

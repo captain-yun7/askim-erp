@@ -181,7 +181,8 @@ export function AppShell({
           </DropdownMenu>
         </div>
       </aside>
-      <main className="flex-1 overflow-x-auto bg-background">{children}</main>
+      {/* overflow-x-auto 대신 min-w-0: main 이 스크롤 컨테이너가 되면 표 하단 고정 스크롤바(sticky)가 viewport 를 못 따라감 */}
+      <main className="min-w-0 flex-1 bg-background">{children}</main>
     </div>
   )
 }

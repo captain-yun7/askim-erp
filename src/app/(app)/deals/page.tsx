@@ -130,7 +130,7 @@ export default async function DealsPage({
         />
       </section>
 
-      <section className="mt-5 overflow-hidden rounded-2xl border bg-card">
+      <section className="mt-5 overflow-clip rounded-2xl border bg-card">
         <div className="border-b p-4">
           <DealsFilters
             categories={lookups.categories}
