@@ -12,14 +12,15 @@ export function StickyHScroll({ children, className }: { children: React.ReactNo
   const contentRef = useRef<HTMLDivElement>(null)
   const barRef = useRef<HTMLDivElement>(null)
   const [scrollWidth, setScrollWidth] = useState(0)
-  const [clientWidth, setClientWidth] = useState(0)
+  // 하이드레이션 전에는 측정값이 없으므로 일단 보이게 두고, 실측 후 표가 다 들어오면 숨김
+  const [fits, setFits] = useState(false)
 
   useEffect(() => {
     const el = contentRef.current
     if (!el) return
     const update = () => {
       setScrollWidth(el.scrollWidth)
-      setClientWidth(el.clientWidth)
+      setFits(el.scrollWidth <= el.clientWidth)
     }
     update()
     const ro = new ResizeObserver(update)
@@ -46,10 +47,10 @@ export function StickyHScroll({ children, className }: { children: React.ReactNo
       <div
         ref={barRef}
         data-slot="sticky-h-scroll-bar"
-        hidden={scrollWidth <= clientWidth}
+        hidden={fits}
         className={cn(
           'sticky bottom-0 z-20 overflow-x-auto overflow-y-hidden border-t bg-card',
-          '[scrollbar-width:thin] [scrollbar-color:var(--muted-foreground)_transparent]',
+          // scrollbar-width 를 함께 지정하면 Chrome 121+ 가 ::-webkit-scrollbar 를 무시해 macOS 에서 오버레이(안 보임)가 됨
           '[&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-track]:bg-muted/60',
           '[&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/50',
         )}

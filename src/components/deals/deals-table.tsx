@@ -299,18 +299,21 @@ function ColumnFilterInput({
 function ColumnFilterSelect({
   param,
   value,
+  title,
   options,
 }: {
   param: string
   value?: string
+  title: string
   options: { value: string; label: string }[]
 }) {
   const router = useRouter()
   return (
     <select
       aria-label={`${param} 검색`}
+      title={title}
       value={value ?? ''}
-      className={cn(filterInputClass, 'min-w-0 px-0.5', !value && 'text-muted-foreground/70')}
+      className={cn(filterInputClass, 'w-16 min-w-0 px-0.5', !value && 'text-muted-foreground/70')}
       onChange={(e) => applyColumnFilter(router, param, e.target.value)}
     >
       {options.map((o) => (
@@ -355,8 +358,9 @@ function FilterHeaderRow({ filters }: { filters: ColumnFilters }) {
           <ColumnFilterSelect
             param="fPaid"
             value={filters.fPaid}
+            title="입금 상태"
             options={[
-              { value: '', label: '입금·전체' },
+              { value: '', label: '전체' },
               { value: 'paid', label: '입금' },
               { value: 'unpaid', label: '미입금' },
             ]}
@@ -364,8 +368,9 @@ function FilterHeaderRow({ filters }: { filters: ColumnFilters }) {
           <ColumnFilterSelect
             param="fSettled"
             value={filters.fSettled}
+            title="결산 상태"
             options={[
-              { value: '', label: '결산·전체' },
+              { value: '', label: '전체' },
               { value: 'settled', label: '결산' },
               { value: 'unsettled', label: '미결산' },
             ]}
