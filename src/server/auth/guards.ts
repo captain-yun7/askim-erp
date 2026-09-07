@@ -1,3 +1,4 @@
+import type { Session } from 'next-auth'
 import { auth } from '@/auth'
 
 /**
@@ -19,9 +20,16 @@ export type SessionUser = {
   isTeamLead?: boolean
 }
 
-/** 현재 로그인 유저 (없으면 null) */
+/** 현재 로그인 유저 (없으면 null). 요청 컨텍스트 밖(scripts/qa.ts 등)에서도 null */
 export async function getSessionUser(): Promise<SessionUser | null> {
-  const session = await auth()
+  let session: Session | null
+  try {
+    session = await auth()
+  } catch (e) {
+    // auth() 가 headers() 를 동기 호출하므로 .catch 로는 못 잡음
+    if (e instanceof Error && e.message.includes('outside a request scope')) return null
+    throw e
+  }
   if (!session?.user?.id) return null
   return {
     id: session.user.id,
