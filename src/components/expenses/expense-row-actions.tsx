@@ -108,26 +108,27 @@ export function ExpenseRowActions({
           <div className="grid gap-3 py-1">
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1.5">
-                <Label>지출일 *</Label>
-                <Input type="date" value={form.expenseDate} onChange={(e) => set('expenseDate', e.target.value)} />
+                <Label htmlFor="exp-date">지출일 *</Label>
+                <Input id="exp-date" type="date" value={form.expenseDate} onChange={(e) => set('expenseDate', e.target.value)} />
               </div>
               <div className="grid gap-1.5">
-                <Label>금액 *</Label>
-                <Input inputMode="numeric" className="text-right" value={form.amount} onChange={(e) => set('amount', e.target.value)} />
+                <Label htmlFor="exp-amount">금액 *</Label>
+                <Input id="exp-amount" inputMode="numeric" className="text-right" value={form.amount} onChange={(e) => set('amount', e.target.value)} />
               </div>
             </div>
             <div className="grid gap-1.5">
-              <Label>품목</Label>
-              <Input value={form.itemName} onChange={(e) => set('itemName', e.target.value)} />
+              <Label htmlFor="exp-item">품목</Label>
+              <Input id="exp-item" value={form.itemName} onChange={(e) => set('itemName', e.target.value)} />
             </div>
             <div className="grid gap-1.5">
-              <Label>거래처</Label>
-              <Input value={form.counterpartyText} onChange={(e) => set('counterpartyText', e.target.value)} />
+              <Label htmlFor="exp-cp">거래처</Label>
+              <Input id="exp-cp" value={form.counterpartyText} onChange={(e) => set('counterpartyText', e.target.value)} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1.5">
-                <Label>항목</Label>
+                <Label htmlFor="exp-cat">항목</Label>
                 <select
+                  id="exp-cat"
                   className={selectClass}
                   value={form.expenseCategoryId ?? ''}
                   onChange={(e) => set('expenseCategoryId', e.target.value ? Number(e.target.value) : null)}
@@ -141,8 +142,8 @@ export function ExpenseRowActions({
                 </select>
               </div>
               <div className="grid gap-1.5">
-                <Label>수단</Label>
-                <select className={selectClass} value={form.paymentMethod} onChange={(e) => set('paymentMethod', e.target.value)}>
+                <Label htmlFor="exp-method">수단</Label>
+                <select id="exp-method" className={selectClass} value={form.paymentMethod} onChange={(e) => set('paymentMethod', e.target.value)}>
                   {PAYMENT_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
