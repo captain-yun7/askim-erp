@@ -24,6 +24,23 @@ import { formatKRW, formatKRWShort } from '@/lib/format'
 
 type SP = { [k: string]: string | string[] | undefined }
 
+const TEXT_COLUMN_FILTERS = [
+  'fSales', 'fSalesVat', 'fPurchase', 'fPurchaseVat', 'fProfit',
+  'fSalesInvoice', 'fPurchaseInvoice', 'fSalesDate', 'fPurchaseDate',
+] as const
+
+/** 금액·날짜·상태 컬럼 검색 파라미터 (2026-09-07 피드백) */
+function pickColumnFilters(sp: SP) {
+  const out: Partial<Record<(typeof TEXT_COLUMN_FILTERS)[number], string>> & {
+    fPaid?: 'paid' | 'unpaid'
+    fSettled?: 'settled' | 'unsettled'
+  } = {}
+  for (const k of TEXT_COLUMN_FILTERS) if (typeof sp[k] === 'string' && sp[k]) out[k] = sp[k]
+  if (sp.fPaid === 'paid' || sp.fPaid === 'unpaid') out.fPaid = sp.fPaid
+  if (sp.fSettled === 'settled' || sp.fSettled === 'unsettled') out.fSettled = sp.fSettled
+  return out
+}
+
 export default async function DealsPage({
   searchParams,
 }: {
@@ -35,6 +52,7 @@ export default async function DealsPage({
     fCode: typeof sp.fCode === 'string' ? sp.fCode : undefined,
     fIssuer: typeof sp.fIssuer === 'string' ? sp.fIssuer : undefined,
     fSupplier: typeof sp.fSupplier === 'string' ? sp.fSupplier : undefined,
+    ...pickColumnFilters(sp),
     year: sp.year ? parseInt(String(sp.year), 10) : undefined,
     month: sp.month ? parseInt(String(sp.month), 10) : undefined,
     categoryId: sp.categoryId ? parseInt(String(sp.categoryId), 10) : undefined,
@@ -164,6 +182,7 @@ export default async function DealsPage({
             fCode: filters.fCode,
             fIssuer: filters.fIssuer,
             fSupplier: filters.fSupplier,
+            ...pickColumnFilters(sp),
           }}
           rows={rows.map((r) => ({
             ...r,

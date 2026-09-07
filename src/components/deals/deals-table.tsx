@@ -233,30 +233,106 @@ function StatusPill({ done, doneLabel, todoLabel }: { done: boolean; doneLabel: 
   )
 }
 
-export type ColumnFilters = { fCode?: string; fIssuer?: string; fSupplier?: string }
+export type ColumnFilters = {
+  fCode?: string
+  fIssuer?: string
+  fSupplier?: string
+  fSales?: string
+  fSalesVat?: string
+  fPurchase?: string
+  fPurchaseVat?: string
+  fProfit?: string
+  fPaid?: 'paid' | 'unpaid'
+  fSettled?: 'settled' | 'unsettled'
+  fSalesInvoice?: string
+  fPurchaseInvoice?: string
+  fSalesDate?: string
+  fPurchaseDate?: string
+}
+
+const AMOUNT_HINT = '금액 검색: 800000 정확히 · >1000000 · <=500000 · 100000~500000 범위 · - 비어있음'
+const DATE_HINT = '날짜 검색: 2026 · 2026-09 · 2026-09-05 · 2026-09-01~2026-09-15 범위 · - 비어있음'
+
+function applyColumnFilter(router: ReturnType<typeof useRouter>, param: string, value: string) {
+  const next = new URLSearchParams(window.location.search)
+  const v = value.trim()
+  if (v) next.set(param, v)
+  else next.delete(param)
+  next.delete('page')
+  router.push(`/deals?${next.toString()}`)
+}
+
+const filterInputClass =
+  'h-6 w-full min-w-16 rounded border bg-background px-1.5 text-[11px] font-normal placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none'
 
 /** 컬럼별 검색 입력 (엑셀 자동필터처럼 헤더 아래 행) — Enter 로 적용, 비우면 해제 */
-function ColumnFilterInput({ param, value, placeholder }: { param: string; value?: string; placeholder: string }) {
+function ColumnFilterInput({
+  param,
+  value,
+  placeholder,
+  title,
+  align,
+}: {
+  param: string
+  value?: string
+  placeholder: string
+  title?: string
+  align?: 'right'
+}) {
   const router = useRouter()
   return (
     <input
+      aria-label={`${param} 검색`}
       defaultValue={value ?? ''}
       placeholder={placeholder}
-      className="h-6 w-full min-w-16 rounded border bg-background px-1.5 text-[11px] font-normal placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+      title={title}
+      className={cn(filterInputClass, align === 'right' && 'text-right')}
       onKeyDown={(e) => {
         if (e.key !== 'Enter') return
-        const next = new URLSearchParams(window.location.search)
-        const v = (e.target as HTMLInputElement).value.trim()
-        if (v) next.set(param, v)
-        else next.delete(param)
-        next.delete('page')
-        router.push(`/deals?${next.toString()}`)
+        applyColumnFilter(router, param, (e.target as HTMLInputElement).value)
       }}
     />
   )
 }
 
+/** 입금/결산 상태 셀렉트 — 선택 즉시 적용 */
+function ColumnFilterSelect({
+  param,
+  value,
+  options,
+}: {
+  param: string
+  value?: string
+  options: { value: string; label: string }[]
+}) {
+  const router = useRouter()
+  return (
+    <select
+      aria-label={`${param} 검색`}
+      value={value ?? ''}
+      className={cn(filterInputClass, 'min-w-0 px-0.5', !value && 'text-muted-foreground/70')}
+      onChange={(e) => applyColumnFilter(router, param, e.target.value)}
+    >
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
+  )
+}
+
 function FilterHeaderRow({ filters }: { filters: ColumnFilters }) {
+  const amount = (param: keyof ColumnFilters) => (
+    <TableHead className="py-1">
+      <ColumnFilterInput param={param} value={filters[param]} placeholder="금액" title={AMOUNT_HINT} align="right" />
+    </TableHead>
+  )
+  const date = (param: keyof ColumnFilters) => (
+    <TableHead className="py-1">
+      <ColumnFilterInput param={param} value={filters[param]} placeholder="YYYY-MM" title={DATE_HINT} />
+    </TableHead>
+  )
   return (
     <TableRow className="hover:bg-transparent">
       <TableHead className="py-1">
@@ -269,13 +345,43 @@ function FilterHeaderRow({ filters }: { filters: ColumnFilters }) {
       <TableHead className="py-1">
         <ColumnFilterInput param="fSupplier" value={filters.fSupplier} placeholder="매체사 검색" />
       </TableHead>
-      <TableHead colSpan={10} />
+      {amount('fSales')}
+      {amount('fSalesVat')}
+      {amount('fPurchase')}
+      {amount('fPurchaseVat')}
+      {amount('fProfit')}
+      <TableHead className="py-1">
+        <div className="flex gap-1">
+          <ColumnFilterSelect
+            param="fPaid"
+            value={filters.fPaid}
+            options={[
+              { value: '', label: '입금·전체' },
+              { value: 'paid', label: '입금' },
+              { value: 'unpaid', label: '미입금' },
+            ]}
+          />
+          <ColumnFilterSelect
+            param="fSettled"
+            value={filters.fSettled}
+            options={[
+              { value: '', label: '결산·전체' },
+              { value: 'settled', label: '결산' },
+              { value: 'unsettled', label: '미결산' },
+            ]}
+          />
+        </div>
+      </TableHead>
+      {date('fSalesInvoice')}
+      {date('fPurchaseInvoice')}
+      {date('fSalesDate')}
+      {date('fPurchaseDate')}
     </TableRow>
   )
 }
 
 export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFilters?: ColumnFilters }) {
-  const hasFilter = Boolean(columnFilters.fCode || columnFilters.fIssuer || columnFilters.fSupplier)
+  const hasFilter = Object.values(columnFilters).some(Boolean)
   if (rows.length === 0 && !hasFilter) {
     return (
       <div className="px-6 py-20 text-center text-sm text-muted-foreground">

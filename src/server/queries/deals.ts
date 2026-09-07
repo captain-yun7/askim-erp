@@ -1,5 +1,7 @@
-import { and, desc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-orm'
+import { and, desc, eq, ilike, inArray, isNull, or, sql, type SQL } from 'drizzle-orm'
+import type { PgColumn } from 'drizzle-orm/pg-core'
 import { db } from '@/lib/db/client'
+import { parseDateFilter, parseNumberFilter } from '@/lib/column-filter'
 import { getDealScope, getSessionUser } from '@/server/auth/guards'
 import {
   counterparty,
@@ -14,6 +16,20 @@ export type DealListFilters = {
   fCode?: string
   fIssuer?: string
   fSupplier?: string
+  /** 금액·날짜·상태 컬럼 검색 (2026-09-07 피드백) — 검색식은 lib/column-filter 참고 */
+  fSales?: string
+  fSalesVat?: string
+  fPurchase?: string
+  fPurchaseVat?: string
+  fProfit?: string
+  fPaid?: 'paid' | 'unpaid'
+  fSettled?: 'settled' | 'unsettled'
+  fSalesInvoice?: string
+  fPurchaseInvoice?: string
+  /** 입금예정일 또는 입금일 */
+  fSalesDate?: string
+  /** 결산예정일 또는 결산일 */
+  fPurchaseDate?: string
   year?: number
   month?: number
   categoryId?: number
@@ -22,6 +38,29 @@ export type DealListFilters = {
   paidStatus?: 'pending' | 'completed' | 'partial' | 'unpaid' | 'unsettled' | 'all'
   page?: number
   pageSize?: number
+}
+
+/** 금액 컬럼 검색식 → 조건. 잘못된 식은 무시 */
+function numberCond(col: PgColumn, raw: string | undefined): SQL | undefined {
+  const f = parseNumberFilter(raw)
+  if (!f) return undefined
+  if (f.kind === 'empty') return isNull(col)
+  if (f.kind === 'range') return sql`${col} between ${f.min} and ${f.max}`
+  // 정확히 일치는 원 단위 반올림 비교 (소수 자리 무시)
+  if (f.op === '=') return sql`round(${col}) = ${Math.round(f.value)}`
+  return sql`${col} ${sql.raw(f.op)} ${f.value}`
+}
+
+/** 날짜 컬럼 검색식 → 조건. 컬럼이 여러 개면 하나라도 맞으면 매칭 */
+function dateCond(cols: PgColumn[], raw: string | undefined): SQL | undefined {
+  const f = parseDateFilter(raw)
+  if (!f) return undefined
+  const per = cols.map((col) =>
+    f.kind === 'empty'
+      ? isNull(col)
+      : sql`${col} >= ${f.from}::date and ${col} < ${f.toExclusive}::date`,
+  )
+  return f.kind === 'empty' ? and(...per) : or(...per)
 }
 
 /** 세션 기준 행 단위 범위 조건 (팀장=자기팀, 팀원=본인) */
@@ -64,6 +103,23 @@ export async function listDeals(f: DealListFilters = {}) {
     conds.push(
       sql`exists (select 1 from counterparty c where c.id = ${deal.supplierCounterpartyId} and c.name ilike ${`%${f.fSupplier.trim()}%`})`,
     )
+
+  const columnConds = [
+    numberCond(deal.salesAmountNet, f.fSales),
+    numberCond(deal.salesVat, f.fSalesVat),
+    numberCond(deal.purchaseAmountNet, f.fPurchase),
+    numberCond(deal.purchaseVat, f.fPurchaseVat),
+    numberCond(deal.profit, f.fProfit),
+    dateCond([deal.salesInvoiceDate], f.fSalesInvoice),
+    dateCond([deal.purchaseInvoiceDate], f.fPurchaseInvoice),
+    dateCond([deal.salesDueDate, deal.salesPaidDate], f.fSalesDate),
+    dateCond([deal.purchaseDueDate, deal.purchasePaidDate], f.fPurchaseDate),
+  ]
+  for (const c of columnConds) if (c) conds.push(c)
+  if (f.fPaid === 'paid') conds.push(eq(deal.salesPaidStatus, 'completed'))
+  if (f.fPaid === 'unpaid') conds.push(sql`${deal.salesPaidStatus} <> 'completed'`)
+  if (f.fSettled === 'settled') conds.push(eq(deal.purchasePaidStatus, 'completed'))
+  if (f.fSettled === 'unsettled') conds.push(sql`${deal.purchasePaidStatus} <> 'completed'`)
 
   if (f.q) {
     const like = `%${f.q}%`
