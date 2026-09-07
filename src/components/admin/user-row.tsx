@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -13,7 +13,21 @@ import {
 } from '@/components/ui/select'
 import { TableCell, TableRow } from '@/components/ui/table'
 import { Checkbox } from '@/components/ui/checkbox'
-import { toggleUserActive, toggleUserTeamLead, updateUserRole, updateUserTeam } from '@/server/actions/users'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  resetUserPassword,
+  toggleUserActive,
+  toggleUserTeamLead,
+  updateUserRole,
+  updateUserTeam,
+} from '@/server/actions/users'
 import { TEAMS } from '@/lib/teams'
 
 export type AdminUser = {
@@ -37,6 +51,19 @@ const ROLE_OPTIONS: { value: AdminUser['role']; label: string }[] = [
 export function UserRow({ user }: { user: AdminUser }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
+  const [tempPassword, setTempPassword] = useState<string | null>(null)
+
+  function resetPassword() {
+    if (!window.confirm(`${user.name} 님의 비밀번호를 초기화할까요? 기존 비밀번호는 즉시 무효화됩니다.`)) return
+    startTransition(async () => {
+      const res = await resetUserPassword(user.id)
+      if ('error' in res) {
+        toast.error(res.error)
+        return
+      }
+      setTempPassword(res.tempPassword)
+    })
+  }
 
   function changeRole(role: string | null) {
     if (!role || role === user.role) return
@@ -147,7 +174,16 @@ export function UserRow({ user }: { user: AdminUser }) {
           {user.isActive ? '활성' : '비활성'}
         </span>
       </TableCell>
-      <TableCell className="text-right">
+      <TableCell className="text-right whitespace-nowrap">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 text-xs"
+          disabled={pending}
+          onClick={resetPassword}
+        >
+          비번 초기화
+        </Button>
         <Button
           variant="ghost"
           size="sm"
@@ -157,6 +193,39 @@ export function UserRow({ user }: { user: AdminUser }) {
         >
           {user.isActive ? '비활성화' : '활성화'}
         </Button>
+        <Dialog open={tempPassword != null} onOpenChange={(o) => !o && setTempPassword(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>임시 비밀번호 발급</DialogTitle>
+              <DialogDescription>
+                {user.name} 님에게 아래 임시 비밀번호를 전달하세요. 이 창을 닫으면 다시 볼 수 없습니다.
+                로그인 후 프로필에서 비밀번호를 변경하도록 안내해 주세요.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2">
+              <code data-testid="temp-password" className="flex-1 select-all font-mono text-base tracking-wider">
+                {tempPassword}
+              </code>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(tempPassword ?? '')
+                    toast.success('복사되었습니다')
+                  } catch {
+                    toast.error('복사 실패 — 직접 선택해서 복사하세요')
+                  }
+                }}
+              >
+                복사
+              </Button>
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setTempPassword(null)}>닫기</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </TableCell>
     </TableRow>
   )

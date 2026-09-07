@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { eq } from 'drizzle-orm'
+import { randomInt } from 'node:crypto'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 import { db } from '@/lib/db/client'
@@ -116,4 +117,28 @@ export async function toggleUserActive(id: string, active: unknown) {
     .where(eq(users.id, id))
   revalidatePath('/admin/users')
   return { ok: true }
+}
+
+// 헷갈리는 글자(0/O, 1/l/I) 제외
+const TEMP_CHARS = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789'
+function generateTempPassword(len = 10) {
+  let out = ''
+  for (let i = 0; i < len; i++) out += TEMP_CHARS[randomInt(TEMP_CHARS.length)]
+  return out
+}
+
+/** admin 이 임시 비밀번호를 발급 — 사용자는 프로필에서 본인 비밀번호로 변경 */
+export async function resetUserPassword(id: string) {
+  const guard = await requireAdmin()
+  if ('error' in guard) return { error: guard.error }
+
+  const [target] = await db.select({ id: users.id }).from(users).where(eq(users.id, id)).limit(1)
+  if (!target) return { error: '사용자를 찾을 수 없습니다' }
+
+  const tempPassword = generateTempPassword()
+  await db
+    .update(users)
+    .set({ passwordHash: await bcrypt.hash(tempPassword, 10) })
+    .where(eq(users.id, id))
+  return { ok: true, tempPassword }
 }
