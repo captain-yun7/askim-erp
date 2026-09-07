@@ -203,11 +203,11 @@ export function buildLedgerLines(report: LedgerReport): LedgerLine[] {
   const lines: LedgerLine[] = [
     { key: 'sales_cash', label: '총매출(통장)', level: 0, tone: 'sales', values: salesCash },
     { key: 'sales_accrual', label: '총매출(귀속월)', level: 0, tone: 'sales', values: salesAccrual, editableField: 'sales_accrual', overridden: salesOv },
-    // 수기 입력 대상이라 총매출(귀속월) 바로 아래 배치 (2026-08-25 회의)
+    // 매출원가 2행은 총매출(귀속월) 바로 아래 통장→귀속월 순으로 묶음 (2026-09-07 피드백)
+    { key: 'cogs_cash', label: '(매출원가)_통장', level: 2, tone: 'muted', values: cogsCash, pctBase: salesCash },
     { key: 'cogs_accrual', label: '(매출원가)_귀속월', level: 2, tone: 'muted', values: cogsAccrual, pctBase: salesAccrual, editableField: 'cogs_accrual', overridden: cogsOv },
     { key: 'gross_cash', label: '손익(통장)', level: 0, tone: 'profit', values: grossCash, pctBase: salesCash },
     { key: 'gross_accrual', label: '손익(귀속월)', level: 0, tone: 'profit', values: grossAccrual, pctBase: salesAccrual },
-    { key: 'cogs_cash', label: '(매출원가)_통장', level: 2, tone: 'muted', values: cogsCash, pctBase: salesCash },
     { key: 'op_cash', label: '영업이익(통장)', level: 0, tone: 'operating', values: opCash, pctBase: salesCash },
     { key: 'op_accrual', label: '영업이익(귀속월)', level: 0, tone: 'operating', values: opAccrual, pctBase: salesAccrual },
     { key: 'sgna', label: '판매비와관리비', level: 0, values: sgna, pctBase: salesCash },
