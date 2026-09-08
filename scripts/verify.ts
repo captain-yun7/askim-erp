@@ -6,22 +6,23 @@ import { db } from '../src/lib/db/client'
  * 엑셀 분석 결과 vs DB 합계·건수 비교
  * 기대치는 _docs/specs/05_migration_mapping.md §6 참조
  */
+// 기준: 회계용_2026.09.01 엑셀 (2026-09-08 재적재)
 const EXPECTED = {
   deal: {
-    count: 612, // 원화 563 + 외화 12 + IP 37
-    salesNet: 4_800_891_278, // 원화 매출 합계 (외화·IP 포함시 더 큼)
-    purchaseNet: 3_620_342_895,
-    profit: 1_191_742_680,
+    count: 888, // 원화 839 + 외화 12 + IP 37
+    salesNet: 8_085_783_077.74,
+    purchaseNet: 5_906_574_014.25,
+    profit: 2_179_209_063.49,
   },
   expense: {
-    count: 2027,
-    amount: 955_488_980,
+    count: 4002,
+    amount: 1_722_117_831,
   },
   counterparty: {
-    minCount: 600, // 287 마스터 + 자동생성 350+ = ~640
+    minCount: 770, // 304 마스터 + 자동생성 475 = 779
   },
   users: {
-    count: 14,
+    minCount: 14, // 시드 15 + 고객 구성원 반영 후 운영 22
   },
 }
 
@@ -47,7 +48,7 @@ async function main() {
   tables.push({
     name: 'users',
     count: userCount,
-    extra: userCount === EXPECTED.users.count ? '✓' : `✗ (기대 ${EXPECTED.users.count})`,
+    extra: userCount >= EXPECTED.users.minCount ? '✓' : `✗ (기대 ${EXPECTED.users.minCount}+)`,
   })
 
   // lookups

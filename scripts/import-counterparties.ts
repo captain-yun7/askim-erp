@@ -103,8 +103,12 @@ async function autoCreateFromDeals(wb: ReturnType<typeof loadWorkbook>) {
 
 async function main() {
   // 기존 데이터 제거 (재실행 가능)
-  await db.execute(sql`TRUNCATE TABLE counterparty CASCADE`)
-  console.log('🧹 counterparty truncated')
+  // TRUNCATE ... CASCADE 는 counterparty 를 참조하는 deposit 까지 비우므로(2026-09-08 발견) 보증금은 링크만 끊고 보존.
+  // deal/expense 는 바로 이어서 각자 재적재됨.
+  await db.execute(sql`UPDATE deposit SET counterparty_id = NULL`)
+  await db.execute(sql`TRUNCATE TABLE deal, expense`)
+  await db.execute(sql`DELETE FROM counterparty`)
+  console.log('🧹 counterparty cleared (deposit 보존)')
 
   const wb = loadWorkbook()
 
@@ -115,6 +119,9 @@ async function main() {
   console.log('📥 Step 2: 거래시트에서 누락 거래처 자동 생성')
   const autoCount = await autoCreateFromDeals(wb)
   console.log(`   ✓ ${autoCount}건 자동 생성`)
+
+  // 보증금 ↔ 거래처 재연결 (이름 일치분)
+  await db.execute(sql`UPDATE deposit d SET counterparty_id = c.id FROM counterparty c WHERE d.counterparty_name = c.name`)
 
   // 최종 카운트
   const total = await db.select({ c: sql<number>`count(*)::int` }).from(counterparty)
