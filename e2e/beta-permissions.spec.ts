@@ -79,6 +79,21 @@ test.describe.serial('② 회계 판관비 수정·삭제', () => {
   })
 })
 
+test.describe('④ 로그아웃 후 다른 계정 로그인', () => {
+  test('메뉴 로그아웃 → 세션 해제 → 다른 계정으로 로그인', async ({ page, context }) => {
+    await login(page, ACCT)
+    await page.locator('aside button').last().click()
+    await page.getByRole('menuitem', { name: '로그아웃' }).click()
+    await page.waitForURL((u) => u.pathname === '/login')
+    expect((await context.cookies()).some((c) => c.name.includes('session-token'))).toBe(false)
+    // 로그인 페이지가 홈으로 튕기지 않아야 함
+    await page.goto('/login')
+    await expect(page.locator('#email')).toBeVisible()
+    await login(page, ADMIN)
+    await expect(page.getByText('사용자·설정')).toBeVisible()
+  })
+})
+
 test.describe('③ viewer 화면 정리', () => {
   // ① 에서 비밀번호가 바뀌므로 픽스처를 다시 맞춤
   test.beforeAll(() => {

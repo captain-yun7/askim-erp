@@ -1,5 +1,6 @@
 'use server'
 
+import { redirect } from 'next/navigation'
 import { AuthError } from 'next-auth'
 import { signIn, signOut } from '@/auth'
 
@@ -23,5 +24,7 @@ export async function loginAction(formData: FormData) {
 }
 
 export async function logoutAction() {
-  await signOut({ redirectTo: '/login' })
+  await signOut({ redirect: false })
+  // 쿠키 삭제는 미들웨어를 타지 않는 /logout 라우트에서 확정 (app/logout/route.ts 참고)
+  redirect('/logout')
 }
