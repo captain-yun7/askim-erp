@@ -47,9 +47,9 @@ export const isStaff = (role: Role) => STAFF.includes(role)
 export const isAdmin = (role: Role) => role === 'admin'
 export const isViewer = (role: Role) => role === 'viewer'
 
-// ── 메뉴/데이터 범위 (2026-08-25 회의 권한 체계) ─────────
+// ── 메뉴/데이터 범위 (2026-08-25 회의 → 2026-09-07 고객 구성원 명단 기준) ─────────
 // 관리자(회계+대표): 전체. 영업(sales): 거래·거래처·보증금 메뉴만,
-// 팀장은 자기 팀 전체, 팀원은 본인 것만.
+// 팀장은 모든 거래 조회(수정은 본인 것만), 팀원은 본인 것만.
 
 /** 판관비·리포트·대시보드 등 백오피스 메뉴 접근 */
 export function canAccessBackoffice(role: Role): boolean {
@@ -61,10 +61,10 @@ export type DealScope =
   | { kind: 'team'; team: string }
   | { kind: 'own'; userId: string }
 
-/** 거래 행 단위 조회 범위 */
+/** 거래 행 단위 조회 범위 — 팀장은 전체 조회 (고객 정의 2026-09-07: "팀장: 모든 거래내역 조회가능") */
 export function getDealScope(user: SessionUser): DealScope {
   if (isStaff(user.role) || user.role === 'viewer') return { kind: 'all' }
-  if (user.isTeamLead && user.team) return { kind: 'team', team: user.team }
+  if (user.isTeamLead) return { kind: 'all' }
   return { kind: 'own', userId: user.id }
 }
 
