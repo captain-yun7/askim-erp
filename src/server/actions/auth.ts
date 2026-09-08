@@ -1,8 +1,10 @@
 'use server'
 
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { AuthError } from 'next-auth'
 import { signIn, signOut } from '@/auth'
+import { LOGGED_OUT_COOKIE } from '@/lib/auth-cookies'
 
 export async function loginAction(formData: FormData) {
   try {
@@ -11,6 +13,7 @@ export async function loginAction(formData: FormData) {
       password: formData.get('password'),
       redirect: false,
     })
+    ;(await cookies()).delete(LOGGED_OUT_COOKIE)
     return { ok: true }
   } catch (e) {
     if (e instanceof AuthError) {
