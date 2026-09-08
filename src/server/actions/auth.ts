@@ -23,8 +23,8 @@ export async function loginAction(formData: FormData) {
   }
 }
 
+/** 화면에서는 window.location.assign('/logout') 을 쓴다 — 서버 액션 redirect 는 RSC fetch 라 쿠키 삭제가 안 먹음 */
 export async function logoutAction() {
   await signOut({ redirect: false })
-  // 쿠키 삭제는 미들웨어를 타지 않는 /logout 라우트에서 확정 (app/logout/route.ts 참고)
   redirect('/logout')
 }

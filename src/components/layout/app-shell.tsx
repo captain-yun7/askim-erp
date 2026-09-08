@@ -16,7 +16,6 @@ import {
   Landmark,
   Target,
 } from 'lucide-react'
-import { logoutAction } from '@/server/actions/auth'
 import { cn } from '@/lib/utils'
 import { avatarInitials } from '@/lib/format'
 import {
@@ -174,7 +173,8 @@ export function AppShell({
               <DropdownMenuItem render={<Link href="/profile">내 프로필</Link>} />
               <DropdownMenuItem render={<Link href="/profile">글자 크기</Link>} />
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => logoutAction()}>
+              {/* 서버 액션 redirect 는 RSC fetch 로 처리돼 /logout 의 Set-Cookie 가 적용되지 않음(Vercel) → 전체 페이지 이동 */}
+              <DropdownMenuItem onClick={() => window.location.assign('/logout')}>
                 로그아웃
               </DropdownMenuItem>
             </DropdownMenuContent>
