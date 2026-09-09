@@ -3,52 +3,13 @@
  * — 날짜 파싱, 텍스트 정규화, lookup 매칭
  */
 import * as XLSX from 'xlsx'
+export { cleanText, parseDate, parseNumber, EXPENSE_CAT_MAP, mapExpenseCategory } from '../src/lib/excel-import'
+import { cleanText } from '../src/lib/excel-import'
 
 /** 기본 원본 파일 — 환경변수 XLSX_FILE 로 덮어쓸 수 있음 */
 export const XLSX_FILE =
   process.env.XLSX_FILE ??
   '2026 에스킴 컴퍼니 거래처 매출·매입 통합프로그램 - 회계용_2026.08.19.xlsx'
-
-/** TRIM + 공백 정규화 + 빈문자열 → null */
-export function cleanText(v: unknown): string | null {
-  if (v === null || v === undefined) return null
-  const s = String(v).trim().replace(/\t/g, '').replace(/\s+/g, ' ')
-  return s === '' || s === '-' ? null : s
-}
-
-/** 엑셀 날짜 셀 → ISO date string (YYYY-MM-DD) or null */
-export function parseDate(v: unknown): string | null {
-  if (v === null || v === undefined || v === '') return null
-  if (v === '-') return null
-
-  // Excel serial number
-  if (typeof v === 'number') {
-    const d = XLSX.SSF.parse_date_code(v)
-    if (!d) return null
-    return `${d.y.toString().padStart(4, '0')}-${d.m.toString().padStart(2, '0')}-${d.d.toString().padStart(2, '0')}`
-  }
-
-  // Date object (xlsx with cellDates: true)
-  if (v instanceof Date) {
-    const y = v.getFullYear()
-    const m = (v.getMonth() + 1).toString().padStart(2, '0')
-    const d = v.getDate().toString().padStart(2, '0')
-    return `${y}-${m}-${d}`
-  }
-
-  // String
-  const s = String(v).trim()
-  if (s === '' || s === '-') return null
-
-  // ISO 형식 (2024-01-15, 2024-01-15 00:00:00)
-  const isoMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/)
-  if (isoMatch) {
-    return `${isoMatch[1]}-${isoMatch[2].padStart(2, '0')}-${isoMatch[3].padStart(2, '0')}`
-  }
-
-  // '3월' 같은 텍스트는 null (별도 메모로 보존하는 책임은 호출자)
-  return null
-}
 
 /** '1월' / '3월' / '23년12월' / 숫자 → month int (1~12) or null */
 export function parseMonth(v: unknown): number | null {
@@ -80,16 +41,6 @@ export function parseYear(v: unknown): number | null {
   const n = parseInt(s, 10)
   if (!isNaN(n) && n >= 2000 && n <= 2100) return n
   return null
-}
-
-/** 수치 셀 → number or null (음수도 허용) */
-export function parseNumber(v: unknown): number | null {
-  if (v === null || v === undefined || v === '') return null
-  if (typeof v === 'number') return v
-  const s = String(v).trim().replace(/,/g, '')
-  if (s === '' || s === '-') return null
-  const n = parseFloat(s)
-  return isNaN(n) ? null : n
 }
 
 /** 숫자를 string으로 (numeric 컬럼용) */
@@ -139,54 +90,6 @@ export function sheetToRows(wb: XLSX.WorkBook, sheetName: string): unknown[][] {
   const ws = wb.Sheets[sheetName]
   if (!ws) throw new Error(`Sheet not found: ${sheetName}`)
   return XLSX.utils.sheet_to_json(ws, { header: 1, defval: null }) as unknown[][]
-}
-
-/** 거래항목 텍스트 → expense_category code 매핑 */
-export const EXPENSE_CAT_MAP: Record<string, string> = {
-  '식대비': 'meals',
-  '교통비': 'transport',
-  '지급수수료': 'commission_fee',
-  '복리후생비': 'welfare',
-  '기부금': 'donation',
-  '도서인쇄비': 'books_print',
-  '출장비': 'travel',
-  '마케팅비': 'marketing',
-  '사무용품비': 'office_supplies',
-  '접대비': 'entertainment',
-  '외부인건비': 'external_labor',
-  '우편요금': 'postage',
-  '외주용역비': 'outsourcing',
-  '운반비': 'cargo',
-  '교육비': 'education',
-  '인건비': 'labor',
-  '인건비/4대보험료': 'labor',
-  '4대보험료': 'labor',
-  '일반소모품비': 'general_supplies',
-  '주유비': 'fuel',
-  '차량유지비': 'vehicle',
-  '차량운반구': 'vehicle_asset',
-  '보험비': 'insurance',
-  '기타운영비': 'other_ops',
-  '세금': 'tax',
-  '지급임차료': 'office_rent',
-  '건물관리비': 'utility',
-  '통신비': 'communication',
-  '대출이자': 'loan_interest',
-}
-
-/** '(식대비)' / '(교' / '식대비' 등을 정규화해서 code로 매핑 */
-export function mapExpenseCategory(raw: unknown): string {
-  const s = cleanText(raw)
-  if (!s) return 'other_var'
-  // 괄호 제거
-  const inner = s.replace(/^[(\(]/, '').replace(/[)\)]$/, '')
-  // 정확 매칭
-  if (EXPENSE_CAT_MAP[inner]) return EXPENSE_CAT_MAP[inner]
-  // prefix 매칭 ('(교' → 교통비)
-  for (const [ko, code] of Object.entries(EXPENSE_CAT_MAP)) {
-    if (ko.startsWith(inner) && inner.length >= 1) return code
-  }
-  return 'other_var'
 }
 
 /** "100-000-424857 (신한)" / "신한은행 100-…" / "110-… 신한 공동주" → { bankName, accountNo } */

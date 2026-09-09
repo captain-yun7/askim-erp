@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { and, desc, eq, ilike, isNull, or, sql } from 'drizzle-orm'
-import { Plus, Receipt, Wallet } from 'lucide-react'
+import { Plus, Receipt, Upload, Wallet } from 'lucide-react'
 import { db } from '@/lib/db/client'
 import { expense, expenseCategory } from '@/lib/db/schema'
 import { buttonVariants } from '@/components/ui/button'
@@ -107,9 +107,14 @@ export default async function ExpensesPage({
         <div className="flex items-center gap-2">
           <CsvExportButton action={exportExpensesCsv} filters={filters} />
           {me && canCreateExpense(me.role) && (
-            <Link href="/expenses/new" className={cn(buttonVariants(), 'gap-1.5')}>
-              <Plus className="size-4" />판관비 입력
-            </Link>
+            <>
+              <Link href="/expenses/upload" className={cn(buttonVariants({ variant: 'outline' }), 'gap-1.5')}>
+                <Upload className="size-4" />엑셀 업로드
+              </Link>
+              <Link href="/expenses/new" className={cn(buttonVariants(), 'gap-1.5')}>
+                <Plus className="size-4" />판관비 입력
+              </Link>
+            </>
           )}
         </div>
       </div>
