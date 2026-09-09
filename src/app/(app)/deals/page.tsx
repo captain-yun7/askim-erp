@@ -1,7 +1,5 @@
 import Link from 'next/link'
 import {
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Database,
   Minus,
@@ -58,10 +56,12 @@ export default async function DealsPage({
     categoryId: sp.categoryId ? parseInt(String(sp.categoryId), 10) : undefined,
     ownerUserIds: typeof sp.owner === 'string' && sp.owner ? sp.owner.split(',').filter(Boolean) : undefined,
     paidStatus: sp.paid as 'unpaid' | 'unsettled' | undefined,
-    page: sp.page ? parseInt(String(sp.page), 10) : 1,
+    // 50건 페이지 대신 전체 세로 스크롤 (2026-09-09 피드백) — 상한 5,000
+    page: 1,
+    pageSize: 5000,
   }
 
-  const [{ rows, total, page, pageSize, aggregate, prevAggregate }, lookups, me] =
+  const [{ rows, total, aggregate, prevAggregate }, lookups, me] =
     await Promise.all([listDeals(filters), getAllLookups(), getSessionUser()])
 
   // 담당자 필터 옵션도 조회 범위에 맞춤 (팀장=팀원, 팀원=본인)
@@ -73,7 +73,6 @@ export default async function DealsPage({
         ? lookups.users.filter((u) => u.id === scope.userId)
         : lookups.users
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const margin = aggregate.sales > 0 ? (aggregate.profit / aggregate.sales) * 100 : 0
 
   return (
@@ -206,30 +205,10 @@ export default async function DealsPage({
           />
         )}
 
-        <div className="flex items-center justify-between px-4 py-3 text-xs text-muted-foreground">
-          <span>
-            {total.toLocaleString()}건 중 {(page - 1) * pageSize + 1}–
-            {Math.min(page * pageSize, total)} 표시
-          </span>
-          <div className="flex gap-1">
-            <PageBtn page={page - 1} filters={sp} disabled={page <= 1}>
-              <ChevronLeft className="size-3.5" />
-            </PageBtn>
-            {pageItems(page, totalPages).map((p, i) =>
-              p === 'gap' ? (
-                <span key={`gap-${i}`} className="grid size-7 place-items-center">
-                  …
-                </span>
-              ) : (
-                <PageBtn key={p} page={p} filters={sp} active={p === page}>
-                  {p}
-                </PageBtn>
-              ),
-            )}
-            <PageBtn page={page + 1} filters={sp} disabled={page >= totalPages}>
-              <ChevronRight className="size-3.5" />
-            </PageBtn>
-          </div>
+        <div className="px-4 py-3 text-xs text-muted-foreground">
+          {rows.length < total
+            ? `${total.toLocaleString()}건 중 ${rows.length.toLocaleString()}건 표시 — 필터로 범위를 좁혀 주세요`
+            : `${total.toLocaleString()}건 전체 표시`}
         </div>
       </section>
     </div>
@@ -316,57 +295,5 @@ function Delta({ current, prev }: { current: number; prev: number }) {
       </span>
       <span className="text-muted-foreground">전월 대비</span>
     </span>
-  )
-}
-
-function pageItems(page: number, total: number): (number | 'gap')[] {
-  const set = new Set([1, total, page, page - 1, page + 1])
-  const nums = [...set].filter((n) => n >= 1 && n <= total).sort((a, b) => a - b)
-  const out: (number | 'gap')[] = []
-  let prev = 0
-  for (const n of nums) {
-    if (n - prev > 1) out.push('gap')
-    out.push(n)
-    prev = n
-  }
-  return out
-}
-
-function PageBtn({
-  page,
-  filters,
-  children,
-  active,
-  disabled,
-}: {
-  page: number
-  filters: SP
-  children: React.ReactNode
-  active?: boolean
-  disabled?: boolean
-}) {
-  const base = 'grid size-7 place-items-center rounded-md border bg-card text-xs'
-  if (disabled) {
-    return (
-      <span className={cn(base, 'text-muted-foreground/40')}>{children}</span>
-    )
-  }
-  const qs = new URLSearchParams()
-  for (const [k, v] of Object.entries(filters)) {
-    if (k === 'page') continue
-    if (typeof v === 'string' && v) qs.set(k, v)
-  }
-  qs.set('page', String(page))
-  return (
-    <Link
-      href={`/deals?${qs.toString()}`}
-      className={cn(
-        base,
-        'transition-colors hover:bg-accent',
-        active && 'border-primary bg-primary text-primary-foreground hover:bg-primary',
-      )}
-    >
-      {children}
-    </Link>
   )
 }

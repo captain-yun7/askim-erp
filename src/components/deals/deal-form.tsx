@@ -103,8 +103,6 @@ export function DealForm({
   // 자동 계산: VAT, 총액, 손익, 성과급
   const salesNet = parseFloat(String(form.salesAmountNet ?? 0)) || 0
   const purchaseNet = parseFloat(String(form.purchaseAmountNet ?? 0)) || 0
-  const salesVat = form.salesVat ? parseFloat(String(form.salesVat)) : Math.round(salesNet * 0.1)
-  const purchaseVat = form.purchaseVat ? parseFloat(String(form.purchaseVat)) : Math.round(purchaseNet * 0.1)
   const profit = salesNet - purchaseNet
 
   // 금액 입력 → 부가세 10% 자동, 총액 = 금액 + 부가세 자동 (2026-09-09 피드백). 부가세를 고치면 총액만 재계산
