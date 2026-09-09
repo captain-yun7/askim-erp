@@ -7,7 +7,8 @@ import { getCounterpartyById } from '@/server/queries/counterparties'
 import { getAllLookups } from '@/server/queries/lookups'
 import { canEditDeal, getSessionUser } from '@/server/auth/guards'
 import { getRecentChanges } from '@/server/deal-changes'
-import { CHANGE_HIGHLIGHT_DAYS, changeTitle } from '@/lib/change-highlight'
+import { changeTitle } from '@/lib/change-highlight'
+import { getChangeHighlightDays } from '@/server/queries/app-settings'
 
 export default async function EditDealPage({
   params,
@@ -26,7 +27,8 @@ export default async function EditDealPage({
   ])
 
   const readOnly = !user || !canEditDeal(user, d)
-  const recent = (await getRecentChanges([d.id]))[d.id] ?? {}
+  const [recentAll, highlightDays] = await Promise.all([getRecentChanges([d.id]), getChangeHighlightDays()])
+  const recent = recentAll[d.id] ?? {}
   const recentList = Object.entries(recent).sort((a, b) => (a[1].changedAt < b[1].changedAt ? 1 : -1))
 
   return (
@@ -47,7 +49,7 @@ export default async function EditDealPage({
       </div>
       {recentList.length > 0 && (
         <div className="mx-8 mt-4 flex flex-wrap items-center gap-1.5 rounded-md bg-yellow-100/70 px-3 py-2 text-xs dark:bg-yellow-900/30">
-          <span className="mr-1 font-medium">최근 {CHANGE_HIGHLIGHT_DAYS}일 수정</span>
+          <span className="mr-1 font-medium">최근 {highlightDays}일 수정</span>
           {recentList.map(([field, c]) => (
             <span key={field} className="rounded-full border border-yellow-300/70 bg-background px-2 py-0.5" title={changeTitle(c)}>
               {FIELD_LABEL[field] ?? field} · {changeTitle(c)}

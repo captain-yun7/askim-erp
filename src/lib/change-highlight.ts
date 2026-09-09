@@ -1,7 +1,7 @@
 /**
- * 최근 수정 칸 음영 (2026-09-09 피드백) — 기간은 고객 확정 전까지 30일, 1주로 바꾸려면 이 값만 수정
+ * 최근 수정 칸 음영 (2026-09-09 피드백) — 기간은 관리자 설정(app_setting.change_highlight_days), 없으면 이 기본값
  */
-export const CHANGE_HIGHLIGHT_DAYS = 30
+export const CHANGE_HIGHLIGHT_DAYS_DEFAULT = 30
 
 /** 거래 목록 컬럼 ↔ 추적 필드 매핑 */
 export const LIST_COLUMN_FIELDS = {

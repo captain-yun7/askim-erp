@@ -85,6 +85,13 @@
       "when": 1788925400262,
       "tag": "0011_deal_field_change",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1788930841231,
+      "tag": "0012_app_setting",
+      "breakpoints": true
     }
   ]
 }

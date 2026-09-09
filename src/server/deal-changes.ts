@@ -1,7 +1,8 @@
 import { and, gte, inArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
 import { dealFieldChange, users } from '@/lib/db/schema'
-import { CHANGE_HIGHLIGHT_DAYS, type RecentChanges } from '@/lib/change-highlight'
+import type { RecentChanges } from '@/lib/change-highlight'
+import { getChangeHighlightDays } from '@/server/queries/app-settings'
 
 /** 변경 전/후를 비교해 바뀐 필드만 이력으로 남긴다 (numeric 은 원 단위 반올림 비교) */
 export async function recordDealChanges(
@@ -26,7 +27,7 @@ export async function recordDealChanges(
 /** 거래별 최근 N일 변경 (field → 최신 1건) */
 export async function getRecentChanges(dealIds: string[]): Promise<Record<string, RecentChanges>> {
   if (dealIds.length === 0) return {}
-  const since = new Date(Date.now() - CHANGE_HIGHLIGHT_DAYS * 86_400_000)
+  const since = new Date(Date.now() - (await getChangeHighlightDays()) * 86_400_000)
   const rows = await db
     .select({
       dealId: dealFieldChange.dealId,

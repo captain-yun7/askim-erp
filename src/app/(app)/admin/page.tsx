@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Database, Users } from 'lucide-react'
 import { canManageUsers, getSessionUser } from '@/server/auth/guards'
+import { getChangeHighlightDays } from '@/server/queries/app-settings'
+import { HighlightDaysSetting } from '@/components/admin/highlight-days-setting'
 
 const CARDS = [
   {
@@ -21,6 +23,7 @@ const CARDS = [
 export default async function AdminHomePage() {
   const user = await getSessionUser()
   if (!user || !canManageUsers(user.role)) redirect('/')
+  const highlightDays = await getChangeHighlightDays()
 
   return (
     <div className="flex flex-col px-8 pb-8 pt-6">
@@ -51,6 +54,11 @@ export default async function AdminHomePage() {
             </span>
           </Link>
         ))}
+      </div>
+
+      <h2 className="mt-8 text-base font-medium">설정</h2>
+      <div className="mt-3 grid gap-4 sm:grid-cols-2">
+        <HighlightDaysSetting current={highlightDays} />
       </div>
     </div>
   )
