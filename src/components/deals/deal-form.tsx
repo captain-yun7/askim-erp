@@ -156,7 +156,7 @@ export function DealForm({
     <div className="px-8 py-6">
       {readOnly && (
         <div className="mb-4 rounded-md border border-accent-foreground/30 bg-accent px-4 py-2.5 text-sm text-accent-foreground">
-          🔒 완료(closed) 거래는 읽기 전용입니다. 수정은 회계 담당자에게 요청하세요.
+          🔒 다른 담당자의 거래는 읽기 전용입니다. 수정은 담당자 또는 회계에 요청하세요.
         </div>
       )}
       <fieldset disabled={readOnly} className="contents">

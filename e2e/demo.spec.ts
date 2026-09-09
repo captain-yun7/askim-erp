@@ -108,13 +108,12 @@ test.describe.serial('회계 vs 영업 — 민감필드 권한', () => {
     expect(cpId).not.toBe('')
   })
 
-  test('⑦ 영업: 본인 거래처라도 사업자번호(민감) 변경은 차단', async ({ page }) => {
+  test('⑦ 영업: 사업자번호(민감) 변경 가능 (2026-09-09 전원 동일 권한)', async ({ page }) => {
     await login(page, SALES)
     await page.goto(`/counterparties/${cpId}`)
     await page.locator(bizInput).fill('222-22-22222')
     await page.getByRole('button', { name: '저장' }).click()
-    await expect(page.getByText(/회계 담당자만/)).toBeVisible()
-    await expect(page).toHaveURL(new RegExp(`/counterparties/${cpId}`)) // 이동 안 함
+    await page.waitForURL((u) => u.pathname === '/counterparties')
   })
 
   test('⑧ 영업: 일반필드(메모)는 본인 거래처 수정 가능', async ({ page }) => {

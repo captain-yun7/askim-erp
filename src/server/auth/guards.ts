@@ -75,20 +75,16 @@ export function canCreateDeal(role: Role): boolean {
   return role !== 'viewer'
 }
 
-/** 거래 일반 수정: 회계/admin 전체, 영업은 본인+closed 아님 */
+/** 거래 수정: 회계/admin 전체, 영업은 본인 거래(상태 무관 — 2026-09-09 피드백) */
 export function canEditDeal(user: SessionUser, deal: DealRef): boolean {
   if (isStaff(user.role)) return true
-  if (user.role === 'sales')
-    return deal.ownerUserId === user.id && deal.status !== 'closed'
+  if (user.role === 'sales') return deal.ownerUserId === user.id
   return false
 }
 
-/** 금액(매출/매입/VAT) 변경: 회계/admin 전체, 영업은 본인+draft만 */
+/** 금액(매출/매입/VAT) 변경: 수정 권한과 동일 (2026-09-09 피드백: 초안이 아니어도 모든 항목) */
 export function canEditDealAmounts(user: SessionUser, deal: DealRef): boolean {
-  if (isStaff(user.role)) return true
-  if (user.role === 'sales')
-    return deal.ownerUserId === user.id && deal.status === 'draft'
-  return false
+  return canEditDeal(user, deal)
 }
 
 /** 거래 soft delete: 회계/admin 전체, 영업은 본인+draft만 */
@@ -112,24 +108,25 @@ export function canCreateCounterparty(role: Role): boolean {
   return role !== 'viewer'
 }
 
-/** 일반 필드(주소/메일/메모) 수정: 회계/admin 전체, 영업은 본인 등록건 */
-export function canEditCounterparty(user: SessionUser, cp: CounterpartyRef): boolean {
-  if (isStaff(user.role)) return true
-  return user.role === 'sales' && cp.createdBy === user.id
+// 거래처는 모든 구성원 권한 동일 (2026-09-09 피드백: 계좌정보 전원 입력/조회). viewer 만 읽기 전용.
+
+/** 일반 필드(주소/메일/메모) 수정 */
+export function canEditCounterparty(user: SessionUser, _cp: CounterpartyRef): boolean {
+  return !isViewer(user.role)
 }
 
-/** 계좌정보(은행/계좌번호/예금주) 목록·CSV 노출: 회계/admin만 */
-export function canViewBankInfo(role: Role): boolean {
-  return isStaff(role)
+/** 계좌정보(은행/계좌번호/예금주) 목록·CSV 노출 */
+export function canViewBankInfo(_role: Role): boolean {
+  return true
 }
 
-/** 민감 필드(사업자번호/계좌/수수료) 수정: 회계/admin만 */
+/** 민감 필드(사업자번호/계좌/수수료) 수정 */
 export function canEditCounterpartySensitive(role: Role): boolean {
-  return isStaff(role)
+  return !isViewer(role)
 }
 
 export function canDeleteCounterparty(role: Role): boolean {
-  return isStaff(role)
+  return !isViewer(role)
 }
 
 // ── Expense ─────────────────────────────────────────────

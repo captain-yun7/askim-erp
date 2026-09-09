@@ -125,13 +125,14 @@ async function main() {
   const ownClosed = { status: 'closed' as const, ownerUserId: 'u-sales' }
   const otherDraft = { status: 'draft' as const, ownerUserId: 'u-other' }
   check('영업: 본인 draft 수정 가능', canEditDeal(sales, ownDraft) === true)
-  check('영업: 본인 closed 수정 불가', canEditDeal(sales, ownClosed) === false)
+  check('영업: 본인 closed 도 수정 가능 (2026-09-09)', canEditDeal(sales, ownClosed) === true)
   check('영업: 남의 거래 수정 불가', canEditDeal(sales, otherDraft) === false)
-  check('영업: 금액변경 draft만', canEditDealAmounts(sales, ownDraft) === true && canEditDealAmounts(sales, { status: 'confirmed', ownerUserId: 'u-sales' }) === false)
+  check('영업: 본인 거래 금액변경 상태 무관', canEditDealAmounts(sales, ownDraft) === true && canEditDealAmounts(sales, { status: 'confirmed', ownerUserId: 'u-sales' }) === true)
+  check('영업: 남의 거래 금액변경 불가', canEditDealAmounts(sales, otherDraft) === false)
   check('회계: closed도 수정 가능', canEditDeal(acct, ownClosed) === true)
   check('영업: 본인 draft 삭제 가능', canDeleteDeal(sales, ownDraft) === true)
-  check('영업: 민감필드 수정 불가', canEditCounterpartySensitive('sales') === false)
-  check('회계: 민감필드 수정 가능', canEditCounterpartySensitive('accountant') === true)
+  check('영업: 거래처 민감필드 수정 가능 (2026-09-09)', canEditCounterpartySensitive('sales') === true)
+  check('viewer: 거래처 민감필드 수정 불가', canEditCounterpartySensitive('viewer') === false)
   check('영업: admin 관리 불가', canManageUsers('sales') === false)
   check('admin: 사용자 관리 가능', canManageUsers('admin') === true)
   check('viewer: 판관비 등록 불가', canCreateExpense('viewer') === false)

@@ -172,21 +172,14 @@ export async function updateDeal(id: string, raw: unknown) {
     .limit(1)
   if (!existing) return { error: '거래를 찾을 수 없습니다' }
 
-  if (!canEditDeal(user, existing)) {
-    return {
-      error:
-        existing.status === 'closed'
-          ? '완료(closed) 거래는 회계만 수정할 수 있습니다'
-          : '이 거래를 수정할 권한이 없습니다',
-    }
-  }
+  if (!canEditDeal(user, existing)) return { error: '이 거래를 수정할 권한이 없습니다' }
 
   // 금액 변경 권한 확인
   const amountChanged = AMOUNT_FIELDS.some(
     (f) => !numEq(parsed.data[f], existing[f]),
   )
   if (amountChanged && !canEditDealAmounts(user, existing)) {
-    return { error: '금액은 draft 상태의 본인 거래에서만 변경할 수 있습니다' }
+    return { error: '금액을 변경할 권한이 없습니다' }
   }
 
   // 영업은 본인 거래를 closed 로 전이 불가
@@ -322,7 +315,7 @@ export async function updateDealInline(
   const { field, value } = parsed.data
   if (field === 'salesAmountNet' || field === 'purchaseAmountNet') {
     if (!canEditDealAmounts(user, existing))
-      return { error: '금액은 회계/admin(영업은 본인 draft)만 수정할 수 있습니다' }
+      return { error: '금액을 변경할 권한이 없습니다' }
     const net = value as number | null
     const vat = net != null && existing.currency === 'KRW' ? Math.round(net * 0.1) : 0
     const patch =
