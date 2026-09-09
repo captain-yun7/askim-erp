@@ -2,6 +2,7 @@ import { and, desc, eq, ilike, inArray, isNull, or, sql, type SQL } from 'drizzl
 import type { PgColumn } from 'drizzle-orm/pg-core'
 import { db } from '@/lib/db/client'
 import { parseDateFilter, parseNumberFilter } from '@/lib/column-filter'
+import { getRecentChanges } from '@/server/deal-changes'
 import { getDealScope, getSessionUser } from '@/server/auth/guards'
 import {
   counterparty,
@@ -218,8 +219,11 @@ export async function listDeals(f: DealListFilters = {}) {
     .limit(pageSize)
     .offset((page - 1) * pageSize)
 
+  // 최근 수정 칸 음영 (2026-09-09 피드백)
+  const changes = await getRecentChanges(rows.map((r) => r.id))
+
   return {
-    rows,
+    rows: rows.map((r) => ({ ...r, recentChanges: changes[r.id] })),
     total,
     page,
     pageSize,

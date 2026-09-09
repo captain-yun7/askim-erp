@@ -13,6 +13,7 @@ import {
   canEditDealAmounts,
   getSessionUser,
 } from '@/server/auth/guards'
+import { recordDealChanges } from '@/server/deal-changes'
 
 const AMOUNT_FIELDS = [
   'salesAmountNet',
@@ -157,20 +158,7 @@ export async function updateDeal(id: string, raw: unknown) {
     return { error: parsed.error.issues[0]?.message ?? '검증 실패' }
   }
 
-  const [existing] = await db
-    .select({
-      status: deal.status,
-      ownerUserId: deal.ownerUserId,
-      salesAmountNet: deal.salesAmountNet,
-      salesVat: deal.salesVat,
-      salesAmountGross: deal.salesAmountGross,
-      purchaseAmountNet: deal.purchaseAmountNet,
-      purchaseVat: deal.purchaseVat,
-      purchaseAmountGross: deal.purchaseAmountGross,
-    })
-    .from(deal)
-    .where(eq(deal.id, id))
-    .limit(1)
+  const [existing] = await db.select().from(deal).where(eq(deal.id, id)).limit(1)
   if (!existing) return { error: '거래를 찾을 수 없습니다' }
 
   if (!canEditDeal(user, existing)) return { error: '이 거래를 수정할 권한이 없습니다' }
@@ -192,6 +180,7 @@ export async function updateDeal(id: string, raw: unknown) {
     .update(deal)
     .set({ ...parsed.data, updatedBy: user.id })
     .where(eq(deal.id, id))
+  await recordDealChanges(id, existing, parsed.data, user.id)
   revalidatePath('/deals')
   revalidatePath(`/deals/${id}`)
   return { ok: true }
@@ -245,27 +234,17 @@ export async function toggleDealPaid(
 
   const today = new Date().toISOString().slice(0, 10)
   if (side === 'sales') {
-    const next = row.salesPaidStatus === 'completed' ? 'pending' : 'completed'
-    await db
-      .update(deal)
-      .set({
-        salesPaidStatus: next,
-        salesPaidDate: next === 'completed' ? (row.salesPaidDate ?? today) : null,
-        updatedBy: user.id,
-      })
-      .where(eq(deal.id, id))
+    const next = (row.salesPaidStatus === 'completed' ? 'pending' : 'completed') as 'pending' | 'completed'
+    const patch = { salesPaidStatus: next, salesPaidDate: next === 'completed' ? (row.salesPaidDate ?? today) : null }
+    await db.update(deal).set({ ...patch, updatedBy: user.id }).where(eq(deal.id, id))
+    await recordDealChanges(id, row, patch, user.id)
     revalidatePath('/deals')
     return { ok: true, status: next }
   }
-  const next = row.purchasePaidStatus === 'completed' ? 'pending' : 'completed'
-  await db
-    .update(deal)
-    .set({
-      purchasePaidStatus: next,
-      purchasePaidDate: next === 'completed' ? (row.purchasePaidDate ?? today) : null,
-      updatedBy: user.id,
-    })
-    .where(eq(deal.id, id))
+  const next = (row.purchasePaidStatus === 'completed' ? 'pending' : 'completed') as 'pending' | 'completed'
+  const patch = { purchasePaidStatus: next, purchasePaidDate: next === 'completed' ? (row.purchasePaidDate ?? today) : null }
+  await db.update(deal).set({ ...patch, updatedBy: user.id }).where(eq(deal.id, id))
+  await recordDealChanges(id, row, patch, user.id)
   revalidatePath('/deals')
   return { ok: true, status: next }
 }
@@ -301,15 +280,7 @@ export async function updateDealInline(
   const parsed = inlineSchema.safeParse(raw)
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? '검증 실패' }
 
-  const [existing] = await db
-    .select({
-      status: deal.status,
-      ownerUserId: deal.ownerUserId,
-      currency: deal.currency,
-    })
-    .from(deal)
-    .where(and(eq(deal.id, id), isNull(deal.deletedAt)))
-    .limit(1)
+  const [existing] = await db.select().from(deal).where(and(eq(deal.id, id), isNull(deal.deletedAt))).limit(1)
   if (!existing) return { error: '거래를 찾을 수 없습니다' }
   if (!canEditDeal(user, existing)) return { error: '이 거래를 수정할 권한이 없습니다' }
 
@@ -332,11 +303,13 @@ export async function updateDealInline(
             purchaseAmountGross: net != null ? String(net + vat) : null,
           }
     await db.update(deal).set({ ...patch, updatedBy: user.id }).where(eq(deal.id, id))
+    await recordDealChanges(id, existing, patch, user.id)
   } else {
     await db
       .update(deal)
       .set({ [field]: value, updatedBy: user.id })
       .where(eq(deal.id, id))
+    await recordDealChanges(id, existing, { [field]: value }, user.id)
   }
   revalidatePath('/deals')
   return { ok: true }

@@ -78,6 +78,13 @@
       "when": 1788924741032,
       "tag": "0010_deal_advertiser_name",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788925400262,
+      "tag": "0011_deal_field_change",
+      "breakpoints": true
     }
   ]
 }

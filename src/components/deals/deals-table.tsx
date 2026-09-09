@@ -16,6 +16,7 @@ import {
 import { StickyHScroll } from '@/components/ui/sticky-h-scroll'
 import { cn } from '@/lib/utils'
 import { formatDate, formatKRW } from '@/lib/format'
+import { changeTitle, columnChange, type LIST_COLUMN_FIELDS, type RecentChanges } from '@/lib/change-highlight'
 
 type Row = {
   id: string
@@ -40,6 +41,7 @@ type Row = {
   purchaseInvoiceDate: string | null
   ownerUserId: string | null
   canTogglePaid: boolean
+  recentChanges?: RecentChanges
   categoryName: string | null
   ownerName: string | null
   issuerName: string | null
@@ -429,9 +431,18 @@ export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFi
           {rows.map((r) => {
             const owner = r.ownerName ?? '-'
             const loss = parseFloat(r.profit ?? '0') < 0
+            /** 최근 수정된 칸 음영 + 툴팁 */
+            const hl = (col: keyof typeof LIST_COLUMN_FIELDS) => {
+              const c = columnChange(r.recentChanges, col)
+              return c ? { className: 'bg-yellow-100/80 dark:bg-yellow-900/30', title: changeTitle(c), 'data-changed': '1' as const } : {}
+            }
+            const cell = (col: keyof typeof LIST_COLUMN_FIELDS, className?: string) => {
+              const h = hl(col)
+              return { ...h, className: cn(className, h.className) }
+            }
             return (
               <TableRow key={r.id} className="hover:bg-muted/60">
-                <TableCell>
+                <TableCell {...cell('code')}>
                   <Link
                     href={`/deals/${r.id}`}
                     className="text-[13px] font-medium tabular-nums text-foreground hover:text-brand"
@@ -444,10 +455,10 @@ export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFi
                     </Badge>
                   )}
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
+                <TableCell {...cell('accrual', 'text-xs text-muted-foreground')}>
                   {String(r.accrualYear).slice(2)}/{r.accrualMonth}
                 </TableCell>
-                <TableCell>
+                <TableCell {...cell('category')}>
                   {r.categoryName ? (
                     <span className="inline-flex h-[22px] items-center rounded-full bg-info px-2.5 text-[12px] text-info-foreground">
                       {r.categoryName}
@@ -456,26 +467,26 @@ export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFi
                     <span className="text-xs text-muted-foreground">-</span>
                   )}
                 </TableCell>
-                <TableCell>
+                <TableCell {...cell('owner')}>
                   <span className="text-[13px]">{owner}</span>
                 </TableCell>
-                <TableCell className="text-[13px]">
+                <TableCell {...cell('issuer', 'text-[13px]')}>
                   <div>{r.issuerName ?? '-'}</div>
                   {r.advertiserName && r.advertiserName !== r.issuerName && (
                     <div className="text-muted-foreground">→ {r.advertiserName}</div>
                   )}
                 </TableCell>
-                <TableCell className="text-[13px] text-muted-foreground">{r.supplierName ?? '-'}</TableCell>
-                <TableCell className="text-right text-[13px] tabular-nums">
+                <TableCell {...cell('supplier', 'text-[13px] text-muted-foreground')}>{r.supplierName ?? '-'}</TableCell>
+                <TableCell {...cell('salesNet', 'text-right text-[13px] tabular-nums')}>
                   <InlineAmount dealId={r.id} field="salesAmountNet" value={r.salesAmountNet} enabled={r.canTogglePaid} />
                 </TableCell>
-                <TableCell className="text-right text-[13px] text-muted-foreground tabular-nums">
+                <TableCell {...cell('salesVat', 'text-right text-[13px] text-muted-foreground tabular-nums')}>
                   {formatKRW(r.salesVat)}
                 </TableCell>
-                <TableCell className="text-right text-[13px] tabular-nums">
+                <TableCell {...cell('purchaseNet', 'text-right text-[13px] tabular-nums')}>
                   <InlineAmount dealId={r.id} field="purchaseAmountNet" value={r.purchaseAmountNet} enabled={r.canTogglePaid} />
                 </TableCell>
-                <TableCell className="text-right text-[13px] text-muted-foreground tabular-nums">
+                <TableCell {...cell('purchaseVat', 'text-right text-[13px] text-muted-foreground tabular-nums')}>
                   {formatKRW(r.purchaseVat)}
                 </TableCell>
                 <TableCell
@@ -486,7 +497,7 @@ export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFi
                 >
                   {formatKRW(r.profit)}
                 </TableCell>
-                <TableCell>
+                <TableCell {...cell('paid')}>
                   <div className="flex justify-center gap-3">
                     <PaidToggle
                       dealId={r.id}
@@ -506,13 +517,13 @@ export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFi
                     />
                   </div>
                 </TableCell>
-                <TableCell className="text-[12px] tabular-nums">
+                <TableCell {...cell('salesInvoice', 'text-[12px] tabular-nums')}>
                   <InlineDate dealId={r.id} field="salesInvoiceDate" value={r.salesInvoiceDate} enabled={r.canTogglePaid} muted />
                 </TableCell>
-                <TableCell className="text-[12px] tabular-nums">
+                <TableCell {...cell('purchaseInvoice', 'text-[12px] tabular-nums')}>
                   <InlineDate dealId={r.id} field="purchaseInvoiceDate" value={r.purchaseInvoiceDate} enabled={r.canTogglePaid} muted />
                 </TableCell>
-                <TableCell>
+                <TableCell {...cell('salesDates')}>
                   <div className="text-[12px] leading-tight tabular-nums">
                     <div>
                       <InlineDate dealId={r.id} field="salesDueDate" value={r.salesDueDate} enabled={r.canTogglePaid} muted />
@@ -522,7 +533,7 @@ export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFi
                     </div>
                   </div>
                 </TableCell>
-                <TableCell>
+                <TableCell {...cell('purchaseDates')}>
                   <div className="text-[12px] leading-tight tabular-nums">
                     <div>
                       <InlineDate dealId={r.id} field="purchaseDueDate" value={r.purchaseDueDate} enabled={r.canTogglePaid} muted />
