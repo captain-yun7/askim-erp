@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useState, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { Coins, Package } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -31,7 +31,6 @@ type Lookups = {
 type Initial = Partial<DealInput> & {
   id?: string
   issuerLabel?: string | null
-  advertiserLabel?: string | null
   supplierLabel?: string | null
 }
 
@@ -47,7 +46,7 @@ export function DealForm({
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [createState, setCreateState] = useState<{
-    field: 'issuer' | 'advertiser' | 'supplier'
+    field: 'issuer' | 'supplier'
     name: string
   } | null>(null)
 
@@ -64,6 +63,7 @@ export function DealForm({
     salesMethodId: initial?.salesMethodId ?? null,
     issuerCounterpartyId: initial?.issuerCounterpartyId ?? null,
     advertiserCounterpartyId: initial?.advertiserCounterpartyId ?? null,
+    advertiserName: initial?.advertiserName ?? null,
     itemName: initial?.itemName ?? '',
     adStart: initial?.adStart ?? null,
     adEnd: initial?.adEnd ?? null,
@@ -93,7 +93,6 @@ export function DealForm({
 
   const [labels, setLabels] = useState({
     issuer: initial?.issuerLabel ?? '',
-    advertiser: initial?.advertiserLabel ?? '',
     supplier: initial?.supplierLabel ?? '',
   })
 
@@ -107,34 +106,20 @@ export function DealForm({
   const salesVat = form.salesVat ? parseFloat(String(form.salesVat)) : Math.round(salesNet * 0.1)
   const purchaseVat = form.purchaseVat ? parseFloat(String(form.purchaseVat)) : Math.round(purchaseNet * 0.1)
   const profit = salesNet - purchaseNet
-  const cat = lookups.categories.find((c) => c.id === form.categoryId)
-  const commissionRate = cat?.commissionRate ? parseFloat(cat.commissionRate) : 0
-  const computedCommission = Math.round(profit * commissionRate)
 
-  // 매출/매입금 변경시 VAT, Gross 자동 채우기
-  useEffect(() => {
-    if (form.salesAmountNet && !form.salesVat) {
-      const vat = Math.round(salesNet * 0.1)
-      setForm((p) => ({
-        ...p,
-        salesVat: vat.toString(),
-        salesAmountGross: (salesNet + vat).toString(),
-      }))
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.salesAmountNet])
-
-  useEffect(() => {
-    if (form.purchaseAmountNet && !form.purchaseVat) {
-      const vat = Math.round(purchaseNet * 0.1)
-      setForm((p) => ({
-        ...p,
-        purchaseVat: vat.toString(),
-        purchaseAmountGross: (purchaseNet + vat).toString(),
-      }))
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.purchaseAmountNet])
+  // 금액 입력 → 부가세 10% 자동, 총액 = 금액 + 부가세 자동 (2026-09-09 피드백). 부가세를 고치면 총액만 재계산
+  const num = (v: string | null | undefined) => parseFloat(String(v ?? '').replace(/,/g, '')) || 0
+  function setMoney(side: 'sales' | 'purchase', field: 'net' | 'vat', v: string | null) {
+    const netKey = side === 'sales' ? 'salesAmountNet' : 'purchaseAmountNet'
+    const vatKey = side === 'sales' ? 'salesVat' : 'purchaseVat'
+    const grossKey = side === 'sales' ? 'salesAmountGross' : 'purchaseAmountGross'
+    setForm((p) => {
+      const net = field === 'net' ? v : p[netKey]
+      const vat = field === 'net' ? (v ? Math.round(num(v) * 0.1).toString() : null) : v
+      const gross = net ? (num(net) + num(vat)).toString() : null
+      return { ...p, [netKey]: net, [vatKey]: vat, [grossKey]: gross }
+    })
+  }
 
   function handleSubmit(status: 'draft' | 'confirmed') {
     const payload = { ...form, status }
@@ -291,15 +276,10 @@ export function DealForm({
               </div>
               <div className="grid gap-1.5">
                 <Label>실광고주</Label>
-                <CounterpartyCombobox
-                  value={form.advertiserCounterpartyId ?? null}
-                  initialLabel={labels.advertiser}
-                  onChange={(id, label) => {
-                    set('advertiserCounterpartyId', id)
-                    setLabels((p) => ({ ...p, advertiser: label ?? '' }))
-                  }}
-                  onCreateRequest={(name) => setCreateState({ field: 'advertiser', name })}
-                  placeholder="실광고주 (대행시만)"
+                <Input
+                  value={form.advertiserName ?? ''}
+                  onChange={(e) => set('advertiserName', e.target.value || null)}
+                  placeholder="실광고주 (대행시만) — 직접 입력"
                 />
               </div>
               <div className="grid gap-1.5">
@@ -352,9 +332,8 @@ export function DealForm({
                 net={form.salesAmountNet}
                 vat={form.salesVat}
                 gross={form.salesAmountGross}
-                onNet={(v) => set('salesAmountNet', v)}
-                onVat={(v) => set('salesVat', v)}
-                onGross={(v) => set('salesAmountGross', v)}
+                onNet={(v) => setMoney('sales', 'net', v)}
+                onVat={(v) => setMoney('sales', 'vat', v)}
               />
               <div className="grid grid-cols-2 gap-2">
                 <div className="grid gap-1.5">
@@ -474,9 +453,8 @@ export function DealForm({
                 net={form.purchaseAmountNet}
                 vat={form.purchaseVat}
                 gross={form.purchaseAmountGross}
-                onNet={(v) => set('purchaseAmountNet', v)}
-                onVat={(v) => set('purchaseVat', v)}
-                onGross={(v) => set('purchaseAmountGross', v)}
+                onNet={(v) => setMoney('purchase', 'net', v)}
+                onVat={(v) => setMoney('purchase', 'vat', v)}
               />
               <div className="grid grid-cols-2 gap-2">
                 <div className="grid gap-1.5">
@@ -553,15 +531,6 @@ export function DealForm({
               </span>
             )}
           </div>
-          <div>
-            <span className="text-muted-foreground">성과급</span>{' '}
-            <b>{formatKRW(computedCommission)}</b>
-            {cat && (
-              <span className="ml-1 text-xs text-muted-foreground">
-                ({(commissionRate * 100).toFixed(0)}% — {cat.nameKo})
-              </span>
-            )}
-          </div>
         </CardContent>
       </Card>
 
@@ -593,9 +562,6 @@ export function DealForm({
             if (field === 'issuer') {
               set('issuerCounterpartyId', id)
               setLabels((p) => ({ ...p, issuer: name }))
-            } else if (field === 'advertiser') {
-              set('advertiserCounterpartyId', id)
-              setLabels((p) => ({ ...p, advertiser: name }))
             } else {
               set('supplierCounterpartyId', id)
               setLabels((p) => ({ ...p, supplier: name }))
@@ -618,7 +584,6 @@ function MoneyRow({
   gross,
   onNet,
   onVat,
-  onGross,
 }: {
   netLabel: string
   vatLabel: string
@@ -628,7 +593,6 @@ function MoneyRow({
   gross: string | null | undefined
   onNet: (v: string | null) => void
   onVat: (v: string | null) => void
-  onGross: (v: string | null) => void
 }) {
   return (
     <div className="grid grid-cols-3 gap-2">
@@ -658,8 +622,10 @@ function MoneyRow({
           type="text"
           inputMode="numeric"
           value={gross ?? ''}
-          onChange={(e) => onGross(e.target.value || null)}
-          className="text-right font-mono"
+          readOnly
+          tabIndex={-1}
+          title="금액 + 부가세 자동 계산"
+          className="bg-muted/40 text-right font-mono text-muted-foreground"
         />
       </div>
     </div>

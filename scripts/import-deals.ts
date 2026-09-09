@@ -167,6 +167,7 @@ function parseDealRow(
     salesMethodId: salesMethodCode ? maps.salesMethodCodeToId.get(salesMethodCode) ?? null : null,
     issuerCounterpartyId: issuer,
     advertiserCounterpartyId: advertiser,
+    advertiserName: cleanText(r[20]),
     itemName,
     adStart,
     adEnd,

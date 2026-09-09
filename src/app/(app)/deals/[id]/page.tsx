@@ -16,10 +16,9 @@ export default async function EditDealPage({
   const d = await getDealById(id)
   if (!d) notFound()
 
-  const [lookups, issuer, advertiser, supplier, user] = await Promise.all([
+  const [lookups, issuer, supplier, user] = await Promise.all([
     getAllLookups(),
     d.issuerCounterpartyId ? getCounterpartyById(d.issuerCounterpartyId) : null,
-    d.advertiserCounterpartyId ? getCounterpartyById(d.advertiserCounterpartyId) : null,
     d.supplierCounterpartyId ? getCounterpartyById(d.supplierCounterpartyId) : null,
     getSessionUser(),
   ])
@@ -50,7 +49,6 @@ export default async function EditDealPage({
             ...d,
             id: d.id,
             issuerLabel: issuer?.name ?? null,
-            advertiserLabel: advertiser?.name ?? null,
             supplierLabel: supplier?.name ?? null,
           } as unknown as Parameters<typeof DealForm>[0]['initial']
         }

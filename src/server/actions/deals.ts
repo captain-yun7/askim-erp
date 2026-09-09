@@ -61,6 +61,7 @@ const dealSchema = z.object({
   salesMethodId: z.coerce.number().int().nullable().optional(),
   issuerCounterpartyId: z.string().uuid().nullable().optional(),
   advertiserCounterpartyId: z.string().uuid().nullable().optional(),
+  advertiserName: z.string().trim().optional().nullable(),
   itemName: z.string().trim().optional().nullable(),
   adStart: dateSchema.optional(),
   adEnd: dateSchema.optional(),

@@ -95,6 +95,7 @@ export async function listDeals(f: DealListFilters = {}) {
     conds.push(
       or(
         sql`exists (select 1 from counterparty c where c.id = ${deal.issuerCounterpartyId} and c.name ilike ${like})`,
+        ilike(deal.advertiserName, like),
         sql`exists (select 1 from counterparty c where c.id = ${deal.advertiserCounterpartyId} and c.name ilike ${like})`,
       )!,
     )
@@ -127,6 +128,7 @@ export async function listDeals(f: DealListFilters = {}) {
       or(
         ilike(deal.dealCode, like),
         ilike(deal.itemName, like),
+        ilike(deal.advertiserName, like),
         sql`exists (select 1 from counterparty c where c.id in (${deal.issuerCounterpartyId}, ${deal.advertiserCounterpartyId}, ${deal.supplierCounterpartyId}) and c.name ilike ${like})`,
       )!,
     )
@@ -205,7 +207,7 @@ export async function listDeals(f: DealListFilters = {}) {
       categoryName: dealCategory.nameKo,
       ownerName: users.name,
       issuerName: sql<string | null>`(select name from counterparty where id = ${deal.issuerCounterpartyId})`,
-      advertiserName: sql<string | null>`(select name from counterparty where id = ${deal.advertiserCounterpartyId})`,
+      advertiserName: sql<string | null>`coalesce(${deal.advertiserName}, (select name from counterparty where id = ${deal.advertiserCounterpartyId}))`,
       supplierName: sql<string | null>`(select name from counterparty where id = ${deal.supplierCounterpartyId})`,
     })
     .from(deal)

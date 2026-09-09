@@ -44,9 +44,12 @@ export const deal = pgTable(
     issuerCounterpartyId: uuid('issuer_counterparty_id').references(
       () => counterparty.id,
     ),
+    /** @deprecated 2026-09-09 부터 advertiserName 자유 입력 사용. 기존 데이터 참조용으로만 유지 */
     advertiserCounterpartyId: uuid('advertiser_counterparty_id').references(
       () => counterparty.id,
     ),
+    /** 실광고주 — 자유 텍스트 (2026-09-09 피드백: 검색 대신 수기 입력) */
+    advertiserName: text('advertiser_name'),
     itemName: text('item_name'),
     adStart: date('ad_start'),
     adEnd: date('ad_end'),
