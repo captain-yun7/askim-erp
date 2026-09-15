@@ -34,10 +34,15 @@ export type DealListFilters = {
   fPurchaseDate?: string
   year?: number
   month?: number
+  /** 월 다중 선택 (2026-09-09) — month 와 함께 오면 둘 다 적용 */
+  months?: number[]
   categoryId?: number
+  categoryIds?: number[]
   /** 담당자 다중 선택 */
   ownerUserIds?: string[]
   paidStatus?: 'pending' | 'completed' | 'partial' | 'unpaid' | 'unsettled' | 'all'
+  /** 상태 다중 선택 — 미입금 OR 미결산 */
+  paidStatuses?: ('unpaid' | 'unsettled')[]
   page?: number
   pageSize?: number
 }
@@ -89,7 +94,15 @@ export async function listDeals(f: DealListFilters = {}) {
   const conds = [isNull(deal.deletedAt), ...(await scopeConds())]
   if (f.year) conds.push(eq(deal.accrualYear, f.year))
   if (f.month) conds.push(eq(deal.accrualMonth, f.month))
+  if (f.months?.length) conds.push(inArray(deal.accrualMonth, f.months))
   if (f.categoryId) conds.push(eq(deal.categoryId, f.categoryId))
+  if (f.categoryIds?.length) conds.push(inArray(deal.categoryId, f.categoryIds))
+  if (f.paidStatuses?.length) {
+    const parts = []
+    if (f.paidStatuses.includes('unpaid')) parts.push(and(eq(deal.salesPaidStatus, 'pending'), hasSales)!)
+    if (f.paidStatuses.includes('unsettled')) parts.push(and(eq(deal.purchasePaidStatus, 'pending'), hasPurchase)!)
+    conds.push(or(...parts)!)
+  }
   if (f.ownerUserIds?.length) conds.push(inArray(deal.ownerUserId, f.ownerUserIds))
   // 매출/매입 금액이 없는 건은 미입금/미결산으로 치지 않음 (2026-09-09 피드백)
   if (f.paidStatus === 'unpaid') conds.push(eq(deal.salesPaidStatus, 'pending'), hasSales)
@@ -145,9 +158,10 @@ export async function listDeals(f: DealListFilters = {}) {
 
   // 전월 대비: 귀속연월(year+month)이 모두 지정됐을 때만 직전 달과 비교
   let prev: { sales: number; purchase: number } | null = null
-  if (f.year && f.month) {
-    const prevYear = f.month === 1 ? f.year - 1 : f.year
-    const prevMonth = f.month === 1 ? 12 : f.month - 1
+  const singleMonth = f.month ?? (f.months?.length === 1 ? f.months[0] : undefined)
+  if (f.year && singleMonth) {
+    const prevYear = singleMonth === 1 ? f.year - 1 : f.year
+    const prevMonth = singleMonth === 1 ? 12 : singleMonth - 1
     const prevConds = [
       isNull(deal.deletedAt),
       ...(await scopeConds()),
@@ -155,6 +169,7 @@ export async function listDeals(f: DealListFilters = {}) {
       eq(deal.accrualMonth, prevMonth),
     ]
     if (f.categoryId) prevConds.push(eq(deal.categoryId, f.categoryId))
+    if (f.categoryIds?.length) prevConds.push(inArray(deal.categoryId, f.categoryIds))
     if (f.ownerUserIds?.length) prevConds.push(inArray(deal.ownerUserId, f.ownerUserIds))
     const [prevAggr] = await db
       .select({

@@ -5,11 +5,8 @@ import { listDeposits, listExclusiveContracts } from '@/server/queries/deposits'
 import { formatKRW } from '@/lib/format'
 
 export default async function DepositsPage() {
-  const [deposits, contracts, user] = await Promise.all([
-    listDeposits(),
-    listExclusiveContracts(),
-    getSessionUser(),
-  ])
+  const user = await getSessionUser()
+  const [deposits, contracts] = await Promise.all([listDeposits(user), listExclusiveContracts(user)])
   const editable = user != null && user.role !== 'viewer'
 
   return (
@@ -19,6 +16,7 @@ export default async function DepositsPage() {
           <h1 className="text-[22px] font-bold tracking-tight">보증금·전속계약</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             영업 보증금 관리 · 국내 전속매체 계약사항
+            {user?.role === 'sales' && !user.isTeamLead && ' · 본인 담당 건만 표시'}
           </p>
         </div>
         <div className="flex gap-6 rounded-xl border bg-card px-5 py-3 text-[12.5px]">

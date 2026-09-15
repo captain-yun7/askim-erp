@@ -10,6 +10,7 @@ import {
   Settings,
   TrendingUp,
   Trophy,
+  HeartHandshake,
   Users,
   Wallet,
   CalendarCheck,
@@ -58,6 +59,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
       { href: '/reports/plan', label: '매출목표·현금흐름', icon: Target },
       { href: '/reports/pnl', label: '월별 손익', icon: TrendingUp },
       { href: '/reports/top-counterparties', label: 'TOP 거래처', icon: Trophy },
+      { href: '/reports/donations', label: '기부금', icon: HeartHandshake },
     ],
   },
 ]

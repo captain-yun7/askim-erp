@@ -44,7 +44,8 @@ export async function saveDeposit(id: number | null, raw: unknown): Promise<Resu
   if (id != null) {
     await db.update(deposit).set(values).where(eq(deposit.id, id))
   } else {
-    await db.insert(deposit).values(values)
+    // 등록자를 담당자로 (팀원 본인 것만 조회 기준)
+    await db.insert(deposit).values({ ...values, ownerUserId: guard.user.id, ownerName: values.ownerName ?? guard.user.name ?? null })
   }
   revalidatePath('/deposits')
   return { ok: true }
@@ -86,7 +87,7 @@ export async function saveExclusiveContract(id: number | null, raw: unknown): Pr
   if (id != null) {
     await db.update(exclusiveContract).set(values).where(eq(exclusiveContract.id, id))
   } else {
-    await db.insert(exclusiveContract).values(values)
+    await db.insert(exclusiveContract).values({ ...values, ownerUserId: guard.user.id, ownerName: values.ownerName ?? guard.user.name ?? null })
   }
   revalidatePath('/deposits')
   return { ok: true }

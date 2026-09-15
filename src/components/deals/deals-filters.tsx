@@ -30,10 +30,10 @@ export function DealsFilters({
   initial: {
     q?: string
     year?: number
-    month?: number
-    categoryId?: number
+    months?: number[]
+    categoryIds?: number[]
     ownerUserIds?: string[]
-    paid?: string
+    paid?: string[]
   }
 }) {
   const router = useRouter()
@@ -82,65 +82,37 @@ export function DealsFilters({
         </SelectContent>
       </Select>
 
-      <Select
-        defaultValue={initial.month ? String(initial.month) : 'all'}
-        onValueChange={(v) => update({ month: v ?? undefined })}
-      >
-        <SelectTrigger className={chip} data-active={Boolean(initial.month)}>
-          <SelectValue />
-          <span className="text-muted-foreground">월</span>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">전체</SelectItem>
-          {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-            <SelectItem key={m} value={String(m)}>
-              {m}월
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <Select
-        defaultValue={initial.categoryId ? String(initial.categoryId) : 'all'}
-        onValueChange={(v) => update({ categoryId: v ?? undefined })}
-      >
-        <SelectTrigger className={chip} data-active={Boolean(initial.categoryId)}>
-          <SelectValue />
-          <span className="text-muted-foreground">상품구분</span>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">전체</SelectItem>
-          {categories.map((c) => (
-            <SelectItem key={c.id} value={String(c.id)}>
-              {c.nameKo}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <OwnerMultiSelect
-        users={users}
-        selected={initial.ownerUserIds ?? []}
-        onChange={(ids) => update({ owner: ids.length ? ids.join(',') : undefined })}
+      <MultiSelect
+        label="월"
+        options={Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}월` }))}
+        selected={(initial.months ?? []).map(String)}
+        onChange={(v) => update({ month: v.length ? v.join(',') : undefined })}
+      />
+      <MultiSelect
+        label="상품구분"
+        options={categories.map((c) => ({ value: String(c.id), label: c.nameKo }))}
+        selected={(initial.categoryIds ?? []).map(String)}
+        onChange={(v) => update({ categoryId: v.length ? v.join(',') : undefined })}
       />
 
-      <Select
-        defaultValue={initial.paid ?? 'all'}
-        onValueChange={(v) => update({ paid: v ?? undefined })}
-      >
-        <SelectTrigger
-          className={cn(chip)}
-          data-active={Boolean(initial.paid && initial.paid !== 'all')}
-        >
-          <SelectValue />
-          <span className="text-muted-foreground">상태</span>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">전체</SelectItem>
-          <SelectItem value="unpaid">미입금만</SelectItem>
-          <SelectItem value="unsettled">미결산만</SelectItem>
-        </SelectContent>
-      </Select>
+      <MultiSelect
+        label="담당자"
+        options={users.map((u) => ({ value: u.id, label: u.name }))}
+        selected={initial.ownerUserIds ?? []}
+        onChange={(ids) => update({ owner: ids.length ? ids.join(',') : undefined })}
+        width="w-56"
+      />
+
+      <MultiSelect
+        label="상태"
+        options={[
+          { value: 'unpaid', label: '미입금' },
+          { value: 'unsettled', label: '미결산' },
+        ]}
+        selected={initial.paid ?? []}
+        onChange={(v) => update({ paid: v.length ? v.join(',') : undefined })}
+        summaryUnit=""
+      />
 
       <button
         type="button"
@@ -153,15 +125,21 @@ export function DealsFilters({
   )
 }
 
-/** 담당자 다중 선택 — 체크박스 팝오버, URL 은 owner=id1,id2 */
-function OwnerMultiSelect({
-  users,
+/** 다중 선택 칩 — 체크박스 인라인 드롭다운, URL 은 key=a,b (2026-09-09 피드백: 월·상품구분·상태도 다중) */
+function MultiSelect({
+  label,
+  options,
   selected,
   onChange,
+  width = 'w-48',
+  summaryUnit = '개',
 }: {
-  users: User[]
+  label: string
+  options: { value: string; label: string }[]
   selected: string[]
-  onChange: (ids: string[]) => void
+  onChange: (values: string[]) => void
+  width?: string
+  summaryUnit?: string
 }) {
   // 연속 클릭 시 URL 반영 전 stale prop 으로 덮어쓰지 않도록 로컬 상태 유지, prop 바뀌면 동기화
   const propKey = selected.join(',')
@@ -172,16 +150,16 @@ function OwnerMultiSelect({
     setLocal(selected)
   }
 
-  const names = users.filter((u) => local.includes(u.id)).map((u) => u.name)
+  const names = options.filter((o) => local.includes(o.value)).map((o) => o.label)
   const summary =
-    names.length === 0 ? '전체' : names.length <= 2 ? names.join(', ') : `${names[0]} 외 ${names.length - 1}명`
+    names.length === 0 ? '전체' : names.length <= 2 ? names.join(', ') : `${names[0]} 외 ${names.length - 1}${summaryUnit}`
 
-  function apply(ids: string[]) {
-    setLocal(ids)
-    onChange(ids)
+  function apply(values: string[]) {
+    setLocal(values)
+    onChange(values)
   }
-  function toggle(id: string) {
-    apply(local.includes(id) ? local.filter((x) => x !== id) : [...local, id])
+  function toggle(v: string) {
+    apply(local.includes(v) ? local.filter((x) => x !== v) : [...local, v])
   }
 
   // 포털 팝오버는 body zoom(화면 크기 설정)과 위치가 어긋나서 인라인 드롭다운 사용
@@ -203,14 +181,15 @@ function OwnerMultiSelect({
         className={cn(chip, 'inline-flex items-center')}
         data-active={local.length > 0}
         aria-expanded={open}
+        aria-label={`${label} 필터`}
         onClick={() => setOpen((v) => !v)}
       >
         <span className="max-w-40 truncate">{summary}</span>
-        <span className="text-muted-foreground">담당자</span>
+        <span className="text-muted-foreground">{label}</span>
         <ChevronDown className="size-3.5 text-muted-foreground" />
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-56 rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10">
+        <div className={cn('absolute left-0 top-full z-50 mt-1 rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10', width)}>
           <button
             type="button"
             className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-[12.5px] hover:bg-accent"
@@ -221,13 +200,13 @@ function OwnerMultiSelect({
           </button>
           <div className="my-1 h-px bg-border" />
           <div className="max-h-72 overflow-y-auto">
-            {users.map((u) => (
+            {options.map((o) => (
               <label
-                key={u.id}
+                key={o.value}
                 className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[12.5px] hover:bg-accent"
               >
-                <Checkbox checked={local.includes(u.id)} onCheckedChange={() => toggle(u.id)} />
-                {u.name}
+                <Checkbox checked={local.includes(o.value)} onCheckedChange={() => toggle(o.value)} />
+                {o.label}
               </label>
             ))}
           </div>

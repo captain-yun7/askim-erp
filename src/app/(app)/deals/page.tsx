@@ -27,6 +27,12 @@ const TEXT_COLUMN_FILTERS = [
   'fSalesInvoice', 'fPurchaseInvoice', 'fSalesDate', 'fPurchaseDate',
 ] as const
 
+const intList = (v: string | string[] | undefined) => {
+  if (typeof v !== 'string' || !v) return undefined
+  const out = v.split(',').map((x) => parseInt(x, 10)).filter((n) => Number.isFinite(n))
+  return out.length ? out : undefined
+}
+
 /** 금액·날짜·상태 컬럼 검색 파라미터 (2026-09-07 피드백) */
 function pickColumnFilters(sp: SP) {
   const out: Partial<Record<(typeof TEXT_COLUMN_FILTERS)[number], string>> & {
@@ -52,10 +58,11 @@ export default async function DealsPage({
     fSupplier: typeof sp.fSupplier === 'string' ? sp.fSupplier : undefined,
     ...pickColumnFilters(sp),
     year: sp.year ? parseInt(String(sp.year), 10) : undefined,
-    month: sp.month ? parseInt(String(sp.month), 10) : undefined,
-    categoryId: sp.categoryId ? parseInt(String(sp.categoryId), 10) : undefined,
+    // 월·상품구분·상태 다중 선택 (2026-09-09 피드백) — 쉼표 구분
+    months: intList(sp.month),
+    categoryIds: intList(sp.categoryId),
     ownerUserIds: typeof sp.owner === 'string' && sp.owner ? sp.owner.split(',').filter(Boolean) : undefined,
-    paidStatus: sp.paid as 'unpaid' | 'unsettled' | undefined,
+    paidStatuses: typeof sp.paid === 'string' && sp.paid ? (sp.paid.split(',').filter((v): v is 'unpaid' | 'unsettled' => v === 'unpaid' || v === 'unsettled')) : undefined,
     // 50건 페이지 대신 전체 세로 스크롤 (2026-09-09 피드백) — 상한 5,000
     page: 1,
     pageSize: 5000,
@@ -157,10 +164,10 @@ export default async function DealsPage({
             initial={{
               q: filters.q,
               year: filters.year,
-              month: filters.month,
-              categoryId: filters.categoryId,
+              months: filters.months,
+              categoryIds: filters.categoryIds,
               ownerUserIds: filters.ownerUserIds,
-              paid: filters.paidStatus,
+              paid: filters.paidStatuses,
             }}
           />
         </div>
@@ -201,7 +208,7 @@ export default async function DealsPage({
             users={filterUsers}
             meId={me.id}
             defaultYear={filters.year ?? new Date().getFullYear()}
-            defaultMonth={filters.month ?? new Date().getMonth() + 1}
+            defaultMonth={filters.months?.length === 1 ? filters.months[0] : new Date().getMonth() + 1}
           />
         )}
 
