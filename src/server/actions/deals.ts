@@ -163,6 +163,11 @@ export async function updateDeal(id: string, raw: unknown) {
 
   if (!canEditDeal(user, existing)) return { error: '이 거래를 수정할 권한이 없습니다' }
 
+  if (parsed.data.dealCode && parsed.data.dealCode !== existing.dealCode) {
+    const [dup] = await db.select({ id: deal.id }).from(deal).where(and(eq(deal.dealCode, parsed.data.dealCode), isNull(deal.deletedAt))).limit(1)
+    if (dup && dup.id !== id) return { error: `거래코드 중복: ${parsed.data.dealCode} 은(는) 이미 있는 코드입니다` }
+  }
+
   // 금액 변경 권한 확인
   const amountChanged = AMOUNT_FIELDS.some(
     (f) => !numEq(parsed.data[f], existing[f]),
@@ -325,4 +330,13 @@ export async function updateDealInline(
   }
   revalidatePath('/deals')
   return { ok: true }
+}
+
+/** 거래코드 중복 검사 — 폼 입력 시 즉시 안내 (2026-09-09 피드백) */
+export async function checkDealCode(code: unknown, excludeId?: unknown): Promise<{ duplicate: boolean }> {
+  const c = typeof code === 'string' ? code.trim() : ''
+  if (!c) return { duplicate: false }
+  const rows = await db.select({ id: deal.id }).from(deal).where(and(eq(deal.dealCode, c), isNull(deal.deletedAt))).limit(1)
+  const other = rows.find((r) => r.id !== excludeId)
+  return { duplicate: Boolean(other) }
 }

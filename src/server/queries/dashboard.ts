@@ -1,5 +1,6 @@
 import { and, desc, eq, isNull, lt, sql } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
+import { hasPurchase, hasSales } from '@/server/queries/deals'
 import { deal, dealCategory, users } from '@/lib/db/schema'
 
 function num(v: string | null) {
@@ -47,6 +48,7 @@ export async function getDashboard() {
           and(
             notDeleted,
             eq(deal.salesPaidStatus, 'pending'),
+            hasSales,
             lt(deal.salesDueDate, today),
           ),
         ),
@@ -61,6 +63,7 @@ export async function getDashboard() {
           and(
             notDeleted,
             eq(deal.purchasePaidStatus, 'pending'),
+            hasPurchase,
             lt(deal.purchaseDueDate, today),
           ),
         ),

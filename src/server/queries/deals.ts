@@ -65,6 +65,10 @@ function dateCond(cols: PgColumn[], raw: string | undefined): SQL | undefined {
   return f.kind === 'empty' ? and(...per) : or(...per)
 }
 
+/** 매출/매입 금액이 있는 건만 입금/결산 대상 (2026-09-09 피드백) */
+export const hasSales = sql`coalesce(${deal.salesAmountNet}, 0) > 0`
+export const hasPurchase = sql`coalesce(${deal.purchaseAmountNet}, 0) > 0`
+
 /** 세션 기준 행 단위 범위 조건 (팀장=자기팀, 팀원=본인) */
 async function scopeConds() {
   const user = await getSessionUser()
@@ -87,9 +91,9 @@ export async function listDeals(f: DealListFilters = {}) {
   if (f.month) conds.push(eq(deal.accrualMonth, f.month))
   if (f.categoryId) conds.push(eq(deal.categoryId, f.categoryId))
   if (f.ownerUserIds?.length) conds.push(inArray(deal.ownerUserId, f.ownerUserIds))
-  if (f.paidStatus === 'unpaid') conds.push(eq(deal.salesPaidStatus, 'pending'))
-  if (f.paidStatus === 'unsettled')
-    conds.push(eq(deal.purchasePaidStatus, 'pending'))
+  // 매출/매입 금액이 없는 건은 미입금/미결산으로 치지 않음 (2026-09-09 피드백)
+  if (f.paidStatus === 'unpaid') conds.push(eq(deal.salesPaidStatus, 'pending'), hasSales)
+  if (f.paidStatus === 'unsettled') conds.push(eq(deal.purchasePaidStatus, 'pending'), hasPurchase)
 
   if (f.fCode) conds.push(ilike(deal.dealCode, `%${f.fCode.trim()}%`))
   if (f.fIssuer) {
@@ -121,9 +125,9 @@ export async function listDeals(f: DealListFilters = {}) {
   ]
   for (const c of columnConds) if (c) conds.push(c)
   if (f.fPaid === 'paid') conds.push(eq(deal.salesPaidStatus, 'completed'))
-  if (f.fPaid === 'unpaid') conds.push(sql`${deal.salesPaidStatus} <> 'completed'`)
+  if (f.fPaid === 'unpaid') conds.push(sql`${deal.salesPaidStatus} <> 'completed'`, hasSales)
   if (f.fSettled === 'settled') conds.push(eq(deal.purchasePaidStatus, 'completed'))
-  if (f.fSettled === 'unsettled') conds.push(sql`${deal.purchasePaidStatus} <> 'completed'`)
+  if (f.fSettled === 'unsettled') conds.push(sql`${deal.purchasePaidStatus} <> 'completed'`, hasPurchase)
 
   if (f.q) {
     const like = `%${f.q}%`
@@ -177,8 +181,8 @@ export async function listDeals(f: DealListFilters = {}) {
       sales: sql<string>`coalesce(sum(${deal.salesAmountNet}), 0)::text`,
       purchase: sql<string>`coalesce(sum(${deal.purchaseAmountNet}), 0)::text`,
       profit: sql<string>`coalesce(sum(${deal.profit}), 0)::text`,
-      unpaidCount: sql<number>`(count(*) filter (where ${deal.salesPaidStatus} = 'pending'))::int`,
-      unpaidAmount: sql<string>`coalesce(sum(${deal.salesAmountNet}) filter (where ${deal.salesPaidStatus} = 'pending'), 0)::text`,
+      unpaidCount: sql<number>`(count(*) filter (where ${deal.salesPaidStatus} = 'pending' and ${hasSales}))::int`,
+      unpaidAmount: sql<string>`coalesce(sum(${deal.salesAmountNet}) filter (where ${deal.salesPaidStatus} = 'pending' and ${hasSales}), 0)::text`,
     })
     .from(deal)
     .where(where)

@@ -556,22 +556,31 @@ export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFi
                 </TableCell>
                 <TableCell {...cell('paid')}>
                   <div className="flex justify-center gap-3">
-                    <PaidToggle
-                      dealId={r.id}
-                      side="sales"
-                      done={r.salesPaidStatus === 'completed'}
-                      doneLabel="입금"
-                      todoLabel="미입금"
-                      enabled={r.canTogglePaid}
-                    />
-                    <PaidToggle
-                      dealId={r.id}
-                      side="purchase"
-                      done={r.purchasePaidStatus === 'completed'}
-                      doneLabel="결산"
-                      todoLabel="미결산"
-                      enabled={r.canTogglePaid}
-                    />
+                    {/* 금액 없는 쪽은 입금/결산 표시 안 함 (2026-09-09 피드백) */}
+                    {parseFloat(r.salesAmountNet ?? '0') > 0 ? (
+                      <PaidToggle
+                        dealId={r.id}
+                        side="sales"
+                        done={r.salesPaidStatus === 'completed'}
+                        doneLabel="입금"
+                        todoLabel="미입금"
+                        enabled={r.canTogglePaid}
+                      />
+                    ) : (
+                      <span className="w-12 text-center text-[12px] text-muted-foreground/50">-</span>
+                    )}
+                    {parseFloat(r.purchaseAmountNet ?? '0') > 0 ? (
+                      <PaidToggle
+                        dealId={r.id}
+                        side="purchase"
+                        done={r.purchasePaidStatus === 'completed'}
+                        doneLabel="결산"
+                        todoLabel="미결산"
+                        enabled={r.canTogglePaid}
+                      />
+                    ) : (
+                      <span className="w-12 text-center text-[12px] text-muted-foreground/50">-</span>
+                    )}
                   </div>
                 </TableCell>
                 <TableCell {...cell('salesInvoice', 'text-[12px] tabular-nums')}>

@@ -16,10 +16,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { createDeal, deleteDeal, updateDeal, type DealInput } from '@/server/actions/deals'
+import { checkDealCode, createDeal, deleteDeal, updateDeal, type DealInput } from '@/server/actions/deals'
 import { CounterpartyCombobox } from './counterparty-combobox'
 import { CounterpartyQuickCreate } from '../counterparties/counterparty-quick-create'
 import { formatKRW } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
 type Lookups = {
   categories: { id: number; nameKo: string; commissionRate: string | null }[]
@@ -55,6 +56,7 @@ export function DealForm({
     name: string
   } | null>(null)
 
+  const [codeDup, setCodeDup] = useState(false)
   const now = new Date()
   const [form, setForm] = useState<DealInput>({
     dealCode: initial?.dealCode ?? '',
@@ -125,6 +127,10 @@ export function DealForm({
   }
 
   function handleSubmit(status: 'draft' | 'confirmed') {
+    if (codeDup) {
+      toast.error('거래코드가 중복됩니다. 다른 코드를 입력하세요.')
+      return
+    }
     const payload = { ...form, status }
     startTransition(async () => {
       const res = initial?.id
@@ -155,10 +161,22 @@ export function DealForm({
             <Label>거래코드</Label>
             <Input
               value={form.dealCode ?? ''}
-              onChange={(e) => set('dealCode', e.target.value)}
+              onChange={(e) => {
+                set('dealCode', e.target.value)
+                setCodeDup(false)
+              }}
+              onBlur={async (e) => {
+                const code = e.target.value.trim()
+                if (!code || code === initial?.dealCode) return
+                const res = await checkDealCode(code, initial?.id)
+                setCodeDup(res.duplicate)
+                if (res.duplicate) toast.error(`거래코드 중복: ${code} 은(는) 이미 등록된 코드입니다`)
+              }}
+              aria-invalid={codeDup || undefined}
               placeholder={initial?.id ? '' : '비우면 자동 채번'}
-              className="font-mono"
+              className={cn('font-mono', codeDup && 'border-destructive')}
             />
+            {codeDup && <p className="text-xs text-destructive">이미 등록된 거래코드입니다. 다른 코드를 입력하세요.</p>}
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="grid gap-1.5">
