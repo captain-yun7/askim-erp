@@ -3,6 +3,7 @@ import type { PgColumn } from 'drizzle-orm/pg-core'
 import { db } from '@/lib/db/client'
 import { parseDateFilter, parseNumberFilter } from '@/lib/column-filter'
 import { getRecentChanges } from '@/server/deal-changes'
+import type { DealSort } from '@/lib/deal-sort'
 import { getDealScope, getSessionUser } from '@/server/auth/guards'
 import {
   counterparty,
@@ -50,17 +51,6 @@ export type DealListFilters = {
   dir?: 'asc' | 'desc'
 }
 
-export type DealSort = 'created' | 'accrual' | 'salesPaid' | 'salesDue' | 'purchasePaid' | 'code' | 'sales' | 'profit'
-export const DEAL_SORT_LABEL: Record<DealSort, string> = {
-  created: '작성순',
-  accrual: '귀속월순',
-  salesPaid: '입금일순',
-  salesDue: '입금예정일순',
-  purchasePaid: '결산일순',
-  code: '거래코드순',
-  sales: '매출순',
-  profit: '손익순',
-}
 
 /** 금액 컬럼 검색식 → 조건. 잘못된 식은 무시 */
 function numberCond(col: PgColumn, raw: string | undefined): SQL | undefined {

@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, Check, ChevronDown, Download, Search } from 'lucide-react'
-import { DEAL_SORT_LABEL, type DealSort } from '@/server/queries/deals'
+import { DEAL_SORT_LABEL, type DealSort } from '@/lib/deal-sort'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import {
