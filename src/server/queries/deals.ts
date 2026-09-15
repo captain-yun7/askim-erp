@@ -3,6 +3,7 @@ import type { PgColumn } from 'drizzle-orm/pg-core'
 import { db } from '@/lib/db/client'
 import { parseDateFilter, parseNumberFilter } from '@/lib/column-filter'
 import { getRecentChanges } from '@/server/deal-changes'
+import { getAttachmentCounts } from '@/server/actions/attachments'
 import type { DealSort } from '@/lib/deal-sort'
 import { getDealScope, getSessionUser } from '@/server/auth/guards'
 import {
@@ -264,11 +265,12 @@ export async function listDeals(f: DealListFilters = {}) {
     .limit(pageSize)
     .offset((page - 1) * pageSize)
 
-  // 최근 수정 칸 음영 (2026-09-09 피드백)
-  const changes = await getRecentChanges(rows.map((r) => r.id))
+  // 최근 수정 칸 음영 (2026-09-09 피드백) + 첨부 개수 (2026-09-15)
+  const ids = rows.map((r) => r.id)
+  const [changes, attachments] = await Promise.all([getRecentChanges(ids), getAttachmentCounts('deal', ids)])
 
   return {
-    rows: rows.map((r) => ({ ...r, recentChanges: changes[r.id] })),
+    rows: rows.map((r) => ({ ...r, recentChanges: changes[r.id], attachmentCount: attachments[r.id] ?? 0 })),
     total,
     page,
     pageSize,

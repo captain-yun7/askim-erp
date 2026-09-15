@@ -14,6 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { StickyHScroll } from '@/components/ui/sticky-h-scroll'
+import { AttachmentButton } from '@/components/attachments/attachment-button'
 import { cn } from '@/lib/utils'
 import { formatDate, formatKRW } from '@/lib/format'
 import { changeTitle, columnChange, type LIST_COLUMN_FIELDS, type RecentChanges } from '@/lib/change-highlight'
@@ -44,6 +45,7 @@ type Row = {
   ownerUserId: string | null
   canTogglePaid: boolean
   recentChanges?: RecentChanges
+  attachmentCount?: number
   categoryName: string | null
   ownerName: string | null
   ownerEmail?: string | null
@@ -409,7 +411,7 @@ function FilterHeaderRow({ filters }: { filters: ColumnFilters }) {
       <TableHead className="py-1">
         <ColumnFilterInput param="fCode" value={filters.fCode} placeholder="검색" />
       </TableHead>
-      <TableHead colSpan={3} />
+      <TableHead colSpan={4} />
       <TableHead className="py-1">
         <ColumnFilterInput param="fIssuer" value={filters.fIssuer} placeholder="발행처/광고주 검색" />
       </TableHead>
@@ -474,6 +476,7 @@ export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFi
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             <TableHead>거래코드</TableHead>
+            <TableHead className="w-12 text-center" title="첨부파일">📎</TableHead>
             <TableHead>귀속</TableHead>
             <TableHead>상품구분</TableHead>
             <TableHead>담당</TableHead>
@@ -496,7 +499,7 @@ export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFi
         <TableBody>
           {rows.length === 0 && (
             <TableRow>
-              <TableCell colSpan={17} className="py-14 text-center text-sm text-muted-foreground">
+              <TableCell colSpan={18} className="py-14 text-center text-sm text-muted-foreground">
                 검색 결과가 없습니다. 필터 입력을 비우고 Enter 를 누르면 해제됩니다.
               </TableCell>
             </TableRow>
@@ -527,6 +530,15 @@ export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFi
                       {r.currency}
                     </Badge>
                   )}
+                </TableCell>
+                <TableCell className="text-center">
+                  <AttachmentButton
+                    targetType="deal"
+                    targetId={r.id}
+                    title={`${r.dealCode} · ${r.issuerName ?? ''}${r.itemName ? ` · ${r.itemName}` : ''}`}
+                    count={r.attachmentCount ?? 0}
+                    canEdit={r.canTogglePaid}
+                  />
                 </TableCell>
                 <TableCell {...cell('accrual', 'text-xs text-muted-foreground')}>
                   <InlineAccrual dealId={r.id} year={r.accrualYear} month={r.accrualMonth} enabled={r.canTogglePaid} />
