@@ -92,6 +92,13 @@
       "when": 1788930841231,
       "tag": "0012_app_setting",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789452643036,
+      "tag": "0013_contract_kind",
+      "breakpoints": true
     }
   ]
 }

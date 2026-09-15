@@ -60,6 +60,7 @@ export async function deleteDeposit(id: number): Promise<Result> {
 }
 
 const contractSchema = z.object({
+  kind: z.enum(['exclusive', 'asset']).default('exclusive'),
   mediaName: z.string().trim().min(1, '매체명 필수'),
   mediaType: z.string().trim().optional().nullable(),
   ownerName: z.string().trim().optional().nullable(),

@@ -2,7 +2,8 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
-import { Check, ChevronDown, Download, Search } from 'lucide-react'
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, Check, ChevronDown, Download, Search } from 'lucide-react'
+import { DEAL_SORT_LABEL, type DealSort } from '@/server/queries/deals'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import {
@@ -34,6 +35,8 @@ export function DealsFilters({
     categoryIds?: number[]
     ownerUserIds?: string[]
     paid?: string[]
+    sort?: DealSort
+    dir?: 'asc' | 'desc'
   }
 }) {
   const router = useRouter()
@@ -113,6 +116,32 @@ export function DealsFilters({
         onChange={(v) => update({ paid: v.length ? v.join(',') : undefined })}
         summaryUnit=""
       />
+
+      {/* 정렬 (2026-09-15): 기본 작성순, 기준·방향 선택 */}
+      <Select
+        defaultValue={initial.sort ?? 'created'}
+        onValueChange={(v) => update({ sort: v === 'created' ? undefined : (v ?? undefined) })}
+      >
+        <SelectTrigger className={chip} data-active={Boolean(initial.sort && initial.sort !== 'created')} aria-label="정렬 기준">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {(Object.keys(DEAL_SORT_LABEL) as DealSort[]).map((k) => (
+            <SelectItem key={k} value={k}>
+              {DEAL_SORT_LABEL[k]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <button
+        type="button"
+        aria-label={initial.dir === 'asc' ? '오름차순 (클릭하면 내림차순)' : '내림차순 (클릭하면 오름차순)'}
+        title={initial.dir === 'asc' ? '오름차순' : '내림차순'}
+        className="grid size-9 shrink-0 place-items-center rounded-full border bg-background text-muted-foreground transition-colors hover:bg-muted"
+        onClick={() => update({ dir: initial.dir === 'asc' ? undefined : 'asc' })}
+      >
+        {initial.dir === 'asc' ? <ArrowUpNarrowWide className="size-4" /> : <ArrowDownWideNarrow className="size-4" />}
+      </button>
 
       <button
         type="button"

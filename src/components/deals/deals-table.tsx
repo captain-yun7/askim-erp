@@ -46,6 +46,7 @@ type Row = {
   recentChanges?: RecentChanges
   categoryName: string | null
   ownerName: string | null
+  ownerEmail?: string | null
   issuerName: string | null
   advertiserName: string | null
   supplierName: string | null
@@ -279,6 +280,24 @@ function StatusPill({ done, doneLabel, todoLabel }: { done: boolean; doneLabel: 
       {done ? doneLabel : todoLabel}
     </span>
   )
+}
+
+/** 담당자 이름 클릭 → 메일 작성 창 (2026-09-15 확정). 본문은 발신자가 수정 가능 */
+function mailtoHref(r: Row): string {
+  const won = (v: string | null) => (v ? formatKRW(v) + '원' : '-')
+  const lines = [
+    `거래코드: ${r.dealCode}`,
+    `귀속: ${r.accrualYear}년 ${r.accrualMonth}월`,
+    `발행처/광고주: ${r.issuerName ?? '-'}${r.advertiserName && r.advertiserName !== r.issuerName ? ` → ${r.advertiserName}` : ''}`,
+    `매체사: ${r.supplierName ?? '-'}`,
+    `품목: ${r.itemName ?? '-'}`,
+    `매출: ${won(r.salesAmountNet)} (부가세 ${won(r.salesVat)})`,
+    `매입: ${won(r.purchaseAmountNet)} (부가세 ${won(r.purchaseVat)})`,
+    `손익: ${won(r.profit)}`,
+    `입금: ${r.salesPaidStatus === 'completed' ? '완료' : '미입금'} / 결산: ${r.purchasePaidStatus === 'completed' ? '완료' : '미결산'}`,
+  ]
+  const subject = `[ASKIM ERP] ${r.dealCode} ${r.issuerName ?? ''} 거래 문의`
+  return `mailto:${r.ownerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(lines.join('\n') + '\n\n')}`
 }
 
 export type ColumnFilters = {
@@ -522,7 +541,17 @@ export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFi
                   )}
                 </TableCell>
                 <TableCell {...cell('owner')}>
-                  <span className="text-[13px]">{owner}</span>
+                  {r.ownerEmail ? (
+                    <a
+                      href={mailtoHref(r)}
+                      title={`${owner}에게 메일 보내기 — 거래 정보가 본문에 채워집니다`}
+                      className="text-[13px] underline decoration-dotted underline-offset-4 hover:text-brand"
+                    >
+                      {owner}
+                    </a>
+                  ) : (
+                    <span className="text-[13px]">{owner}</span>
+                  )}
                 </TableCell>
                 <TableCell {...cell('issuer', 'text-[13px]')}>
                   <div>{r.issuerName ?? '-'}</div>

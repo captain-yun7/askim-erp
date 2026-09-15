@@ -6,16 +6,16 @@ import { formatKRW } from '@/lib/format'
 
 export default async function DepositsPage() {
   const user = await getSessionUser()
-  const [deposits, contracts] = await Promise.all([listDeposits(user), listExclusiveContracts(user)])
+  const [deposits, contracts, assets] = await Promise.all([listDeposits(user), listExclusiveContracts(user), listExclusiveContracts(user, 'asset')])
   const editable = user != null && user.role !== 'viewer'
 
   return (
     <div className="flex flex-col px-8 pb-8 pt-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[22px] font-bold tracking-tight">보증금·전속계약</h1>
+          <h1 className="text-[22px] font-bold tracking-tight">보증금·전속계약·보유자산</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            영업 보증금 관리 · 국내 전속매체 계약사항
+            영업 보증금 관리 · 국내 전속매체 계약사항 · 보유자산 현황
             {user?.role === 'sales' && !user.isTeamLead && ' · 본인 담당 건만 표시'}
           </p>
         </div>
@@ -42,6 +42,7 @@ export default async function DepositsPage() {
         <TabsList>
           <TabsTrigger value="deposits">보증금현황 ({deposits.count})</TabsTrigger>
           <TabsTrigger value="contracts">전속매체 계약사항 ({contracts.length})</TabsTrigger>
+          <TabsTrigger value="assets">보유자산 현황 ({assets.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="deposits">
           <section className="overflow-hidden rounded-xl border bg-card">
@@ -51,6 +52,11 @@ export default async function DepositsPage() {
         <TabsContent value="contracts">
           <section className="overflow-hidden rounded-xl border bg-card">
             <ContractTable rows={contracts} editable={editable} />
+          </section>
+        </TabsContent>
+        <TabsContent value="assets">
+          <section className="overflow-hidden rounded-xl border bg-card">
+            <ContractTable rows={assets} editable={editable} kind="asset" />
           </section>
         </TabsContent>
       </Tabs>

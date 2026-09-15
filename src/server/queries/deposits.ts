@@ -44,11 +44,13 @@ export async function listDeposits(user: SessionUser | null = null) {
   }
 }
 
-export async function listExclusiveContracts(user: SessionUser | null = null) {
+export type ContractKind = 'exclusive' | 'asset'
+
+export async function listExclusiveContracts(user: SessionUser | null = null, kind: ContractKind = 'exclusive') {
   return db
     .select()
     .from(exclusiveContract)
-    .where(and(isNull(exclusiveContract.deletedAt), ownScope(user, exclusiveContract.ownerUserId, exclusiveContract.ownerName)))
+    .where(and(isNull(exclusiveContract.deletedAt), eq(exclusiveContract.kind, kind), ownScope(user, exclusiveContract.ownerUserId, exclusiveContract.ownerName)))
     .orderBy(asc(exclusiveContract.displayOrder), asc(exclusiveContract.id))
 }
 

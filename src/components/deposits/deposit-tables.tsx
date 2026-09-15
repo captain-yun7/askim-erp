@@ -297,7 +297,11 @@ const emptyContract: ContractDraft = {
   memo: '',
 }
 
-export function ContractTable({ rows, editable }: { rows: ExclusiveContract[]; editable: boolean }) {
+/** 전속매체 계약사항 / 보유자산 현황 — 같은 서식, kind 로 구분 */
+export function ContractTable({ rows, editable, kind = 'exclusive' }: { rows: ExclusiveContract[]; editable: boolean; kind?: 'exclusive' | 'asset' }) {
+  const noun = kind === 'asset' ? '자산' : '계약'
+  const nameLabel = kind === 'asset' ? '자산명' : '매체명'
+  const typeLabel = kind === 'asset' ? '자산종류' : '매체종류'
   const { pending, run } = useSave()
   const [editing, setEditing] = useState<{ id: number | null; draft: ContractDraft } | null>(null)
 
@@ -329,6 +333,7 @@ export function ContractTable({ rows, editable }: { rows: ExclusiveContract[]; e
       () =>
         saveExclusiveContract(editing.id, {
           ...d,
+          kind,
           hasMonthlyFee: d.hasMonthlyFee === 'O' || d.hasMonthlyFee === 'X' ? d.hasMonthlyFee : null,
           depositPaidDate: d.depositPaidDate || null,
           depositReturnedDate: d.depositReturnedDate || null,
@@ -346,7 +351,7 @@ export function ContractTable({ rows, editable }: { rows: ExclusiveContract[]; e
         <div className="flex justify-end px-4 pt-3">
           <Button size="sm" className="gap-1" onClick={() => openEdit()}>
             <Plus className="size-3.5" />
-            계약 추가
+            {noun} 추가
           </Button>
         </div>
       )}
@@ -355,8 +360,8 @@ export function ContractTable({ rows, editable }: { rows: ExclusiveContract[]; e
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-10">No.</TableHead>
-              <TableHead>매체명</TableHead>
-              <TableHead>매체종류</TableHead>
+              <TableHead>{nameLabel}</TableHead>
+              <TableHead>{typeLabel}</TableHead>
               <TableHead>담당자</TableHead>
               <TableHead>계약기간</TableHead>
               <TableHead>계약내용</TableHead>
@@ -411,7 +416,7 @@ export function ContractTable({ rows, editable }: { rows: ExclusiveContract[]; e
                         className="size-7 text-muted-foreground"
                         disabled={pending}
                         onClick={() => {
-                          if (confirm(`'${r.mediaName}' 계약을 삭제할까요?`))
+                          if (confirm(`'${r.mediaName}' ${noun}을 삭제할까요?`))
                             run(() => deleteExclusiveContract(r.id))
                         }}
                       >
@@ -429,14 +434,14 @@ export function ContractTable({ rows, editable }: { rows: ExclusiveContract[]; e
       <Dialog open={editing !== null} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editing?.id != null ? '계약 수정' : '계약 추가'}</DialogTitle>
+            <DialogTitle>{editing?.id != null ? `${noun} 수정` : `${noun} 추가`}</DialogTitle>
           </DialogHeader>
           {editing && (
             <div className="grid grid-cols-2 gap-3">
-              <Field label="매체명" required>
+              <Field label={nameLabel} required>
                 <Input value={editing.draft.mediaName} onChange={(e) => set({ mediaName: e.target.value })} />
               </Field>
-              <Field label="매체종류">
+              <Field label={typeLabel}>
                 <Input
                   value={editing.draft.mediaType}
                   placeholder="외벽(성수) / 팬클럽 ..."

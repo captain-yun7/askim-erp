@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, inArray, isNull, or, sql, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, ilike, inArray, isNull, or, sql, type SQL } from 'drizzle-orm'
 import type { PgColumn } from 'drizzle-orm/pg-core'
 import { db } from '@/lib/db/client'
 import { parseDateFilter, parseNumberFilter } from '@/lib/column-filter'
@@ -45,6 +45,21 @@ export type DealListFilters = {
   paidStatuses?: ('unpaid' | 'unsettled')[]
   page?: number
   pageSize?: number
+  /** 정렬 기준 (2026-09-15 고객 확정: 기본 작성순, 귀속월·입금일·거래코드 등 선택) */
+  sort?: DealSort
+  dir?: 'asc' | 'desc'
+}
+
+export type DealSort = 'created' | 'accrual' | 'salesPaid' | 'salesDue' | 'purchasePaid' | 'code' | 'sales' | 'profit'
+export const DEAL_SORT_LABEL: Record<DealSort, string> = {
+  created: '작성순',
+  accrual: '귀속월순',
+  salesPaid: '입금일순',
+  salesDue: '입금예정일순',
+  purchasePaid: '결산일순',
+  code: '거래코드순',
+  sales: '매출순',
+  profit: '손익순',
 }
 
 /** 금액 컬럼 검색식 → 조건. 잘못된 식은 무시 */
@@ -68,6 +83,22 @@ function dateCond(cols: PgColumn[], raw: string | undefined): SQL | undefined {
       : sql`${col} >= ${f.from}::date and ${col} < ${f.toExclusive}::date`,
   )
   return f.kind === 'empty' ? and(...per) : or(...per)
+}
+
+/** 정렬 기준 → orderBy 목록. 같은 값끼리는 작성순(최신 위) */
+function orderFor(sort: DealSort, dir: 'asc' | 'desc') {
+  const d = dir === 'asc' ? asc : desc
+  const tail = [desc(deal.createdAt), desc(deal.id)]
+  switch (sort) {
+    case 'accrual': return [d(deal.accrualYear), d(deal.accrualMonth), ...tail]
+    case 'salesPaid': return [sql`${deal.salesPaidDate} ${sql.raw(dir)} nulls last`, ...tail]
+    case 'salesDue': return [sql`${deal.salesDueDate} ${sql.raw(dir)} nulls last`, ...tail]
+    case 'purchasePaid': return [sql`${deal.purchasePaidDate} ${sql.raw(dir)} nulls last`, ...tail]
+    case 'code': return [d(deal.dealCode), ...tail]
+    case 'sales': return [sql`${deal.salesAmountNet} ${sql.raw(dir)} nulls last`, ...tail]
+    case 'profit': return [sql`${deal.profit} ${sql.raw(dir)} nulls last`, ...tail]
+    default: return [d(deal.createdAt), d(deal.id)]
+  }
 }
 
 /** 매출/매입 금액이 있는 건만 입금/결산 대상 (2026-09-09 피드백) */
@@ -230,6 +261,7 @@ export async function listDeals(f: DealListFilters = {}) {
       settlementMonth: deal.settlementMonth,
       categoryName: dealCategory.nameKo,
       ownerName: users.name,
+      ownerEmail: users.email,
       issuerName: sql<string | null>`(select name from counterparty where id = ${deal.issuerCounterpartyId})`,
       advertiserName: sql<string | null>`coalesce(${deal.advertiserName}, (select name from counterparty where id = ${deal.advertiserCounterpartyId}))`,
       supplierName: sql<string | null>`(select name from counterparty where id = ${deal.supplierCounterpartyId})`,
@@ -238,7 +270,7 @@ export async function listDeals(f: DealListFilters = {}) {
     .leftJoin(dealCategory, eq(dealCategory.id, deal.categoryId))
     .leftJoin(users, eq(users.id, deal.ownerUserId))
     .where(where)
-    .orderBy(desc(deal.accrualYear), desc(deal.accrualMonth), desc(deal.dealCode))
+    .orderBy(...orderFor(f.sort ?? 'created', f.dir ?? 'desc'))
     .limit(pageSize)
     .offset((page - 1) * pageSize)
 

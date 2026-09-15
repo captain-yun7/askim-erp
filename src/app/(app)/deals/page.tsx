@@ -14,7 +14,7 @@ import { exportDealsCsv } from '@/server/actions/export'
 import { DealsTable } from '@/components/deals/deals-table'
 import { DealsFilters } from '@/components/deals/deals-filters'
 import { DealQuickAdd } from '@/components/deals/deal-quick-add'
-import { listDeals } from '@/server/queries/deals'
+import { DEAL_SORT_LABEL, listDeals, type DealSort } from '@/server/queries/deals'
 import { canCreateDeal, canEditDeal, getDealScope, getSessionUser } from '@/server/auth/guards'
 import { getAllLookups } from '@/server/queries/lookups'
 import { cn } from '@/lib/utils'
@@ -66,6 +66,8 @@ export default async function DealsPage({
     // 50건 페이지 대신 전체 세로 스크롤 (2026-09-09 피드백) — 상한 5,000
     page: 1,
     pageSize: 5000,
+    sort: (typeof sp.sort === 'string' && sp.sort in DEAL_SORT_LABEL ? sp.sort : 'created') as DealSort,
+    dir: (sp.dir === 'asc' ? 'asc' : 'desc') as 'asc' | 'desc',
   }
 
   const [{ rows, total, aggregate, prevAggregate }, lookups, me] =
@@ -168,6 +170,8 @@ export default async function DealsPage({
               categoryIds: filters.categoryIds,
               ownerUserIds: filters.ownerUserIds,
               paid: filters.paidStatuses,
+              sort: filters.sort,
+              dir: filters.dir,
             }}
           />
         </div>

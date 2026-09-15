@@ -39,6 +39,8 @@ export const deposit = pgTable('deposit', {
 // 전속매체 계약사항 — 같은 파일 '전속매체 계약사항' 시트
 export const exclusiveContract = pgTable('exclusive_contract', {
   id: serial('id').primaryKey(),
+  /** exclusive = 전속매체 계약, asset = 보유자산 현황 (2026-09-09 피드백, 같은 서식) */
+  kind: text('kind', { enum: ['exclusive', 'asset'] }).notNull().default('exclusive'),
   mediaName: text('media_name').notNull(),
   mediaType: text('media_type'),
   ownerName: text('owner_name'),

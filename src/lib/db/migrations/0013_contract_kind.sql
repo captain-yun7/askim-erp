@@ -1,0 +1,1 @@
+ALTER TABLE "exclusive_contract" ADD COLUMN "kind" text DEFAULT 'exclusive' NOT NULL;
