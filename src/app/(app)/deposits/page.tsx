@@ -2,11 +2,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ContractTable, DepositTable } from '@/components/deposits/deposit-tables'
 import { getSessionUser } from '@/server/auth/guards'
 import { listDeposits, listExclusiveContracts } from '@/server/queries/deposits'
+import { getAttachmentCounts } from '@/server/actions/attachments'
 import { formatKRW } from '@/lib/format'
 
 export default async function DepositsPage() {
   const user = await getSessionUser()
   const [deposits, contracts, assets] = await Promise.all([listDeposits(user), listExclusiveContracts(user), listExclusiveContracts(user, 'asset')])
+  const [depositAtt, contractAtt] = await Promise.all([
+    getAttachmentCounts('deposit', deposits.rows.map((r) => String(r.id))),
+    getAttachmentCounts('contract', [...contracts, ...assets].map((r) => String(r.id))),
+  ])
   const editable = user != null && user.role !== 'viewer'
 
   return (
@@ -46,17 +51,17 @@ export default async function DepositsPage() {
         </TabsList>
         <TabsContent value="deposits">
           <section className="overflow-hidden rounded-xl border bg-card">
-            <DepositTable rows={deposits.rows} editable={editable} />
+            <DepositTable rows={deposits.rows} editable={editable} attachments={depositAtt} />
           </section>
         </TabsContent>
         <TabsContent value="contracts">
           <section className="overflow-hidden rounded-xl border bg-card">
-            <ContractTable rows={contracts} editable={editable} />
+            <ContractTable rows={contracts} editable={editable} attachments={contractAtt} />
           </section>
         </TabsContent>
         <TabsContent value="assets">
           <section className="overflow-hidden rounded-xl border bg-card">
-            <ContractTable rows={assets} editable={editable} kind="asset" />
+            <ContractTable rows={assets} editable={editable} kind="asset" attachments={contractAtt} />
           </section>
         </TabsContent>
       </Tabs>

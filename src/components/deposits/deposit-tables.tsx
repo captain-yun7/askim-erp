@@ -32,6 +32,7 @@ import {
   saveExclusiveContract,
 } from '@/server/actions/deposits'
 import type { Deposit, ExclusiveContract } from '@/lib/db/schema'
+import { AttachmentButton } from '@/components/attachments/attachment-button'
 
 const STATUS_LABEL: Record<string, string> = {
   held: '보유',
@@ -86,7 +87,7 @@ const emptyDeposit: DepositDraft = {
   memo: '',
 }
 
-export function DepositTable({ rows, editable }: { rows: Deposit[]; editable: boolean }) {
+export function DepositTable({ rows, editable, attachments = {} }: { rows: Deposit[]; editable: boolean; attachments?: Record<string, number> }) {
   const { pending, run } = useSave()
   const [editing, setEditing] = useState<{ id: number | null; draft: DepositDraft } | null>(null)
 
@@ -155,6 +156,7 @@ export function DepositTable({ rows, editable }: { rows: Deposit[]; editable: bo
               <TableHead>반환일</TableHead>
               <TableHead>상태</TableHead>
               <TableHead>비고</TableHead>
+              <TableHead className="w-12">첨부</TableHead>
               {editable && <TableHead className="w-20" />}
             </TableRow>
           </TableHeader>
@@ -182,6 +184,9 @@ export function DepositTable({ rows, editable }: { rows: Deposit[]; editable: bo
                 </TableCell>
                 <TableCell className="max-w-56 truncate text-xs text-muted-foreground" title={r.memo ?? ''}>
                   {r.memo ?? ''}
+                </TableCell>
+                <TableCell>
+                  <AttachmentButton targetType="deposit" targetId={String(r.id)} title={`${r.counterpartyName} · ${r.description ?? '보증금'}`} count={attachments[String(r.id)] ?? 0} canEdit={editable} />
                 </TableCell>
                 {editable && (
                   <TableCell>
@@ -298,7 +303,7 @@ const emptyContract: ContractDraft = {
 }
 
 /** 전속매체 계약사항 / 보유자산 현황 — 같은 서식, kind 로 구분 */
-export function ContractTable({ rows, editable, kind = 'exclusive' }: { rows: ExclusiveContract[]; editable: boolean; kind?: 'exclusive' | 'asset' }) {
+export function ContractTable({ rows, editable, kind = 'exclusive', attachments = {} }: { rows: ExclusiveContract[]; editable: boolean; kind?: 'exclusive' | 'asset'; attachments?: Record<string, number> }) {
   const noun = kind === 'asset' ? '자산' : '계약'
   const nameLabel = kind === 'asset' ? '자산명' : '매체명'
   const typeLabel = kind === 'asset' ? '자산종류' : '매체종류'
@@ -369,6 +374,7 @@ export function ContractTable({ rows, editable, kind = 'exclusive' }: { rows: Ex
               <TableHead>보증금 입금일</TableHead>
               <TableHead>보증금 반환일</TableHead>
               <TableHead>비고</TableHead>
+              <TableHead className="w-12">첨부</TableHead>
               {editable && <TableHead className="w-20" />}
             </TableRow>
           </TableHeader>
@@ -403,6 +409,9 @@ export function ContractTable({ rows, editable, kind = 'exclusive' }: { rows: Ex
                 <TableCell className="font-mono text-xs tabular-nums">{formatDate(r.depositReturnedDate)}</TableCell>
                 <TableCell className="max-w-56 truncate text-xs text-muted-foreground" title={r.memo ?? ''}>
                   {r.memo ?? ''}
+                </TableCell>
+                <TableCell>
+                  <AttachmentButton targetType="contract" targetId={String(r.id)} title={`${r.mediaName}${r.contractPeriod ? ` · ${r.contractPeriod}` : ''}`} count={attachments[String(r.id)] ?? 0} canEdit={editable} />
                 </TableCell>
                 {editable && (
                   <TableCell>
