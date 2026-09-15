@@ -3,6 +3,8 @@ import { YearTabs } from '@/components/reports/year-tabs'
 import { canEditPlan, getSessionUser } from '@/server/auth/guards'
 import { getPlanReport } from '@/server/queries/reports-plan'
 import { requireBackoffice } from '@/server/auth/require-backoffice'
+import { XlsxExportButton } from '@/components/xlsx-export-button'
+import { exportPlanXlsx } from '@/server/actions/report-export'
 
 type SP = { [k: string]: string | string[] | undefined }
 
@@ -25,7 +27,10 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
             상품군별 목표 대비 달성률 · 계좌 잔액 + 미수금/미지급 기준 예상 현금흐름
           </p>
         </div>
-        <YearTabs year={year} path="/reports/plan" />
+        <div className="flex items-center gap-2">
+          <YearTabs year={year} path="/reports/plan" />
+          <XlsxExportButton action={exportPlanXlsx} filters={{ year }} />
+        </div>
       </div>
 
       <SalesTargetSection report={report} editable={editable} />

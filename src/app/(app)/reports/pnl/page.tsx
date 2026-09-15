@@ -12,6 +12,8 @@ import { getMonthlyPnl } from '@/server/queries/reports-pnl'
 import { cn } from '@/lib/utils'
 import { formatKRW } from '@/lib/format'
 import { requireBackoffice } from '@/server/auth/require-backoffice'
+import { XlsxExportButton } from '@/components/xlsx-export-button'
+import { exportPnlXlsx } from '@/server/actions/report-export'
 
 type SP = { [k: string]: string | string[] | undefined }
 
@@ -39,7 +41,10 @@ export default async function PnlReportPage({
             귀속월 기준 손익 · 영업이익 · 십일조 ({year}년)
           </p>
         </div>
-        <PnlControls year={year} />
+        <div className="flex items-center gap-2">
+          <PnlControls year={year} />
+          <XlsxExportButton action={exportPnlXlsx} filters={{ year }} />
+        </div>
       </div>
 
       <section className="mt-5 overflow-hidden rounded-2xl border bg-card">

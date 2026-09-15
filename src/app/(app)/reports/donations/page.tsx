@@ -3,6 +3,8 @@ import { YearControls } from '@/components/reports/year-controls'
 import { getDonations } from '@/server/queries/reports-donations'
 import { formatKRW } from '@/lib/format'
 import { requireBackoffice } from '@/server/auth/require-backoffice'
+import { XlsxExportButton } from '@/components/xlsx-export-button'
+import { exportDonationsXlsx } from '@/server/actions/report-export'
 
 type SP = { [k: string]: string | string[] | undefined }
 
@@ -26,7 +28,10 @@ export default async function DonationsPage({ searchParams }: { searchParams: Pr
             {year}년 월별 기부금 사용내역 · 판관비 거래항목 &apos;기부금&apos; 기준
           </p>
         </div>
-        <YearControls year={year} basePath="/reports/donations" />
+        <div className="flex items-center gap-2">
+          <YearControls year={year} basePath="/reports/donations" />
+          <XlsxExportButton action={exportDonationsXlsx} filters={{ year }} />
+        </div>
       </div>
 
       <section className="mt-5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">

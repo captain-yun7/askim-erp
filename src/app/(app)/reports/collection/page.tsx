@@ -5,6 +5,8 @@ import { getMonthlyCollection, type CollectionMonth } from '@/server/queries/rep
 import { cn } from '@/lib/utils'
 import { formatKRW as formatRaw } from '@/lib/format'
 import { requireBackoffice } from '@/server/auth/require-backoffice'
+import { XlsxExportButton } from '@/components/xlsx-export-button'
+import { exportCollectionXlsx } from '@/server/actions/report-export'
 
 const formatKRW = (v: number) => formatRaw(Math.round(v))
 
@@ -112,7 +114,10 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
             {year}년 · 예정(입금·결산예정일 기준) / 수금·결산(입금·지급일 기준) / 미수·미결산
           </p>
         </div>
-        <YearTabs year={year} path="/reports/collection" />
+        <div className="flex items-center gap-2">
+          <YearTabs year={year} path="/reports/collection" />
+          <XlsxExportButton action={exportCollectionXlsx} filters={{ year }} />
+        </div>
       </div>
 
       <section className="mt-5 overflow-hidden rounded-2xl border bg-card">

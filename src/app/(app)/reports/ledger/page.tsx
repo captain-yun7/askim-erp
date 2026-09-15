@@ -1,4 +1,6 @@
 import { LedgerControls, type LedgerHalf } from '@/components/reports/ledger-controls'
+import { XlsxExportButton } from '@/components/xlsx-export-button'
+import { exportLedgerXlsx } from '@/server/actions/report-export'
 import { buildLedgerLines, getSalesLedger, type LedgerLine } from '@/server/queries/reports-ledger'
 import { cn } from '@/lib/utils'
 import { formatKRW } from '@/lib/format'
@@ -50,7 +52,10 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
 
       <section className="mt-5 overflow-hidden rounded-2xl border bg-card">
         <div className="border-b p-4">
-          <LedgerControls year={year} half={half} />
+          <div className="flex flex-wrap items-center gap-3">
+            <LedgerControls year={year} half={half} />
+            <XlsxExportButton action={exportLedgerXlsx} filters={{ year }} />
+          </div>
         </div>
 
         <div className="overflow-x-auto">

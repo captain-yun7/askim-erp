@@ -13,6 +13,8 @@ import { getTopCounterparties, type TopSort } from '@/server/queries/reports-top
 import { cn } from '@/lib/utils'
 import { formatKRW } from '@/lib/format'
 import { requireBackoffice } from '@/server/auth/require-backoffice'
+import { XlsxExportButton } from '@/components/xlsx-export-button'
+import { exportTopXlsx } from '@/server/actions/report-export'
 
 type SP = { [k: string]: string | string[] | undefined }
 
@@ -42,6 +44,7 @@ export default async function TopCounterpartiesPage({
             {sp.year === undefined || sp.year === '' ? ' · 2026' : ` · ${year}년`}
           </p>
         </div>
+        <XlsxExportButton action={exportTopXlsx} filters={{ year, sort }} />
       </div>
 
       <section className="mt-5 overflow-hidden rounded-2xl border bg-card">
