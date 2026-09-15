@@ -6,7 +6,36 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+/** SelectItem 트리에서 value→label 을 모아 Root 의 items 로 넘긴다 — 닫힌 상태의 SelectValue 가 내부 값("created", "1") 대신 라벨을 보이도록 */
+function textOf(node: React.ReactNode): string {
+  if (node == null || typeof node === 'boolean') return ''
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(textOf).join('')
+  if (React.isValidElement<{ children?: React.ReactNode }>(node)) return textOf(node.props.children)
+  return ''
+}
+
+function collectItems(children: React.ReactNode, out: Record<string, React.ReactNode>) {
+  React.Children.forEach(children, (child) => {
+    if (!React.isValidElement<{ value?: unknown; children?: React.ReactNode }>(child)) return
+    if (child.type === SelectItem && child.props.value != null) out[String(child.props.value)] = textOf(child.props.children)
+    else if (child.props.children) collectItems(child.props.children, out)
+  })
+  return out
+}
+
+function Select<Value = string, Multiple extends boolean | undefined = false>({
+  children,
+  items,
+  ...props
+}: SelectPrimitive.Root.Props<Value, Multiple>) {
+  const derived = React.useMemo(() => items ?? collectItems(children, {}), [children, items])
+  return (
+    <SelectPrimitive.Root<Value, Multiple> items={derived} {...props}>
+      {children}
+    </SelectPrimitive.Root>
+  )
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
