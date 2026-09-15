@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { Database, Users } from 'lucide-react'
+import { Database, ScrollText, Users } from 'lucide-react'
 import { canManageUsers, getSessionUser } from '@/server/auth/guards'
 import { getChangeHighlightDays } from '@/server/queries/app-settings'
 import { HighlightDaysSetting } from '@/components/admin/highlight-days-setting'
@@ -17,6 +17,12 @@ const CARDS = [
     title: 'Lookup 마스터',
     desc: '상품구분·계정항목·매출수단·거래항목 관리',
     Icon: Database,
+  },
+  {
+    href: '/admin/audit',
+    title: '감사 로그',
+    desc: '누가 언제 무엇을 했는지 — 로그인·등록·수정·삭제·내보내기·첨부 열람',
+    Icon: ScrollText,
   },
 ]
 

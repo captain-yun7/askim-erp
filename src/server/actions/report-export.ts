@@ -8,6 +8,7 @@ import { getPlanReport } from '@/server/queries/reports-plan'
 import { getMonthlyPnl } from '@/server/queries/reports-pnl'
 import { getTopCounterparties, type TopSort } from '@/server/queries/reports-top'
 import { getDonations } from '@/server/queries/reports-donations'
+import { audit } from '@/server/audit'
 
 /** 리포트 엑셀(xlsx) 다운로드 (2026-09-09 피드백) — base64 로 전달, 클라이언트에서 저장 */
 export type XlsxResult = { ok: true; filename: string; base64: string } | { error: string }
@@ -49,7 +50,9 @@ export async function exportLedgerXlsx({ year }: { year: number }): Promise<Xlsx
     sum(ln.values, 0, 12),
   ])
   const note: Cell[][] = [[`${year}년 매출장표 · 총매출·매출원가 VAT 포함, 손익·영업이익·당기순이익 공급가 기준 · 통장=입금·지급일, 귀속월=발생주의`], []]
-  return { ok: true, filename: `매출장표_${year}.xlsx`, base64: toXlsx([{ name: '매출장표', rows: [...note, header, ...rows], widths: [22, ...Array(15).fill(14)] }]) }
+  const filename = `매출장표_${year}.xlsx`
+  await audit({ action: 'export.xlsx', targetType: 'export', targetLabel: filename, summary: `엑셀 다운로드 ${filename}` })
+  return { ok: true, filename, base64: toXlsx([{ name: '매출장표', rows: [...note, header, ...rows], widths: [22, ...Array(15).fill(14)] }]) }
 }
 
 export async function exportCollectionXlsx({ year }: { year: number }): Promise<XlsxResult> {
@@ -67,7 +70,9 @@ export async function exportCollectionXlsx({ year }: { year: number }): Promise<
     ['합계', r0(rep.total.salesPlanned), r0(rep.total.salesCollected), r0(rep.total.salesOutstanding), r0(rep.total.purchasePlanned), r0(rep.total.purchaseSettled), r0(rep.total.purchaseOutstanding),
       r0(rep.total.salesPlanned - rep.total.purchasePlanned), r0(rep.total.salesCollected - rep.total.purchaseSettled)],
   ]
-  return { ok: true, filename: `월별수금결산_${year}.xlsx`, base64: toXlsx([{ name: '월별 수금결산', rows, widths: [8, ...Array(8).fill(15)] }]) }
+  const filename = `월별수금결산_${year}.xlsx`
+  await audit({ action: 'export.xlsx', targetType: 'export', targetLabel: filename, summary: `엑셀 다운로드 ${filename}` })
+  return { ok: true, filename, base64: toXlsx([{ name: '월별 수금결산', rows, widths: [8, ...Array(8).fill(15)] }]) }
 }
 
 export async function exportPlanXlsx({ year }: { year: number }): Promise<XlsxResult> {
@@ -93,7 +98,9 @@ export async function exportPlanXlsx({ year }: { year: number }): Promise<XlsxRe
     ['미지급(결산 예정)', '', r0(rep.cash.futurePurchase), '', ''],
     ['예상 현금', '', r0(rep.cash.balanceTotal + rep.cash.futureSales - rep.cash.futurePurchase), '', ''],
   ]
-  return { ok: true, filename: `매출목표_현금흐름_${year}.xlsx`, base64: toXlsx([{ name: '매출목표', rows: target, widths: [16, 8, 15, 8, 15, 8, 15, 8, 30] }, { name: '현금흐름', rows: cash, widths: [18, 24, 16, 14, 6] }]) }
+  const filename = `매출목표_현금흐름_${year}.xlsx`
+  await audit({ action: 'export.xlsx', targetType: 'export', targetLabel: filename, summary: `엑셀 다운로드 ${filename}` })
+  return { ok: true, filename, base64: toXlsx([{ name: '매출목표', rows: target, widths: [16, 8, 15, 8, 15, 8, 15, 8, 30] }, { name: '현금흐름', rows: cash, widths: [18, 24, 16, 14, 6] }]) }
 }
 
 export async function exportPnlXlsx({ year }: { year: number }): Promise<XlsxResult> {
@@ -107,7 +114,9 @@ export async function exportPnlXlsx({ year }: { year: number }): Promise<XlsxRes
     ...rows.map((r) => [`${r.month}월`, r0(r.grossProfit), r0(r.expense), r0(r.operatingProfit), r0(r.tithe)]),
     ['합계', r0(total.grossProfit), r0(total.expense), r0(total.operatingProfit), r0(total.tithe)],
   ]
-  return { ok: true, filename: `월별손익_${year}.xlsx`, base64: toXlsx([{ name: '월별 손익', rows: data, widths: [8, 15, 15, 15, 15] }]) }
+  const filename = `월별손익_${year}.xlsx`
+  await audit({ action: 'export.xlsx', targetType: 'export', targetLabel: filename, summary: `엑셀 다운로드 ${filename}` })
+  return { ok: true, filename, base64: toXlsx([{ name: '월별 손익', rows: data, widths: [8, 15, 15, 15, 15] }]) }
 }
 
 export async function exportTopXlsx({ year, sort }: { year: number; sort: TopSort }): Promise<XlsxResult> {
@@ -120,7 +129,9 @@ export async function exportTopXlsx({ year, sort }: { year: number; sort: TopSor
     ['순위', '거래처', '매출(VAT 포함)', '손익(공급가)', '건수'],
     ...rows.map((r, i) => [i + 1, r.name, r0(r.sales), r0(r.profit), r.count]),
   ]
-  return { ok: true, filename: `TOP거래처_${year}.xlsx`, base64: toXlsx([{ name: 'TOP 거래처', rows: data, widths: [6, 30, 16, 16, 8] }]) }
+  const filename = `TOP거래처_${year}.xlsx`
+  await audit({ action: 'export.xlsx', targetType: 'export', targetLabel: filename, summary: `엑셀 다운로드 ${filename}` })
+  return { ok: true, filename, base64: toXlsx([{ name: 'TOP 거래처', rows: data, widths: [6, 30, 16, 16, 8] }]) }
 }
 
 export async function exportDonationsXlsx({ year }: { year: number }): Promise<XlsxResult> {
@@ -129,5 +140,7 @@ export async function exportDonationsXlsx({ year }: { year: number }): Promise<X
   const { months, total, count } = await getDonations({ year })
   const summary: Cell[][] = [[`${year}년 기부금 월별 합계`], [], ['월', '건수', '합계'], ...months.map((m) => [`${m.month}월`, m.rows.length, r0(m.total)]), ['연간', count, r0(total)]]
   const detail: Cell[][] = [['월', '지출일', '사용처', '품목', '수단', '금액'], ...months.flatMap((m) => m.rows.map((r) => [`${m.month}월`, r.expenseDate, r.counterpartyText ?? '', r.itemName ?? '', r.paymentMethod, r0(r.amount)]))]
-  return { ok: true, filename: `기부금_${year}.xlsx`, base64: toXlsx([{ name: '월별 합계', rows: summary, widths: [8, 8, 16] }, { name: '사용내역', rows: detail, widths: [6, 12, 28, 28, 12, 14] }]) }
+  const filename = `기부금_${year}.xlsx`
+  await audit({ action: 'export.xlsx', targetType: 'export', targetLabel: filename, summary: `엑셀 다운로드 ${filename}` })
+  return { ok: true, filename, base64: toXlsx([{ name: '월별 합계', rows: summary, widths: [8, 8, 16] }, { name: '사용내역', rows: detail, widths: [6, 12, 28, 28, 12, 14] }]) }
 }

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { LOGGED_OUT_COOKIE, clearSessionCookies } from '@/lib/auth-cookies'
+import { audit } from '@/server/audit'
+import { getSessionUser } from '@/server/auth/guards'
 
 /**
  * 로그아웃 마무리 — 미들웨어 매처에서 제외된 경로.
@@ -7,6 +9,8 @@ import { LOGGED_OUT_COOKIE, clearSessionCookies } from '@/lib/auth-cookies'
  * 미들웨어의 세션 갱신 Set-Cookie 로 세션을 되살리던 문제(2026-09-09, Vercel) → 표식이 있으면 미들웨어가 세션을 무시·삭제.
  */
 export async function GET(req: Request) {
+  const user = await getSessionUser()
+  if (user) await audit({ action: 'auth.logout', summary: `로그아웃 ${user.email ?? user.name ?? ''}`, actor: user })
   const res = NextResponse.redirect(new URL('/login', req.url), 303)
   clearSessionCookies(res)
   res.cookies.set(LOGGED_OUT_COOKIE, '1', { maxAge: 10 * 60, path: '/', httpOnly: true, sameSite: 'lax', secure: new URL(req.url).protocol === 'https:' })

@@ -7,6 +7,7 @@ import { db } from '@/lib/db/client'
 import { annualPlan, cashBalance, salesTarget } from '@/lib/db/schema'
 import { PLAN_GROUP_CODES, PRIORITIES } from '@/lib/plan-groups'
 import { canEditPlan, getSessionUser, type SessionUser } from '@/server/auth/guards'
+import { audit } from '@/server/audit'
 
 type Result = { ok: true } | { error: string }
 
@@ -34,6 +35,7 @@ export async function saveAnnualSalesTarget(raw: unknown): Promise<Result> {
       target: annualPlan.year,
       set: { annualSalesTarget: String(annualSalesTarget), updatedBy: guard.user.id },
     })
+  await audit({ action: 'plan.save', targetType: 'plan', targetId: year, summary: `${year}년 연간 매출목표 ${Number(annualSalesTarget).toLocaleString()}원 저장` })
   revalidatePath('/reports/collection')
   return { ok: true }
 }
@@ -74,6 +76,7 @@ export async function saveSalesTargets(raw: unknown): Promise<Result> {
         targetAmount: sql`excluded.target_amount`,
       },
     })
+  await audit({ action: 'plan.save', targetType: 'plan', summary: `상품군별 매출목표 ${rows.length}건 저장`, detail: rows })
   revalidatePath('/reports/plan')
   return { ok: true }
 }
@@ -149,6 +152,7 @@ export async function saveCashBalances(raw: unknown): Promise<Result> {
     await tx.delete(cashBalance).where(and(...del))
   })
 
+  await audit({ action: 'plan.save', targetType: 'plan', summary: '계좌 잔액 저장' })
   revalidatePath('/reports/plan')
   return { ok: true }
 }

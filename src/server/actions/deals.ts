@@ -14,6 +14,7 @@ import {
   getSessionUser,
 } from '@/server/auth/guards'
 import { recordDealChanges } from '@/server/deal-changes'
+import { audit, diffFields } from '@/server/audit'
 
 const AMOUNT_FIELDS = [
   'salesAmountNet',
@@ -141,6 +142,7 @@ export async function createDeal(raw: unknown) {
       })
       .returning({ id: deal.id, dealCode: deal.dealCode })
     revalidatePath('/deals')
+    await audit({ action: 'deal.create', targetType: 'deal', targetId: row.id, targetLabel: row.dealCode, summary: `거래 등록 ${row.dealCode}` })
     return { ok: true, deal: row }
   } catch (e) {
     if (e instanceof Error && e.message.includes('unique')) {
@@ -186,6 +188,8 @@ export async function updateDeal(id: string, raw: unknown) {
     .set({ ...parsed.data, updatedBy: user.id })
     .where(eq(deal.id, id))
   await recordDealChanges(id, existing, parsed.data, user.id)
+  const changed = diffFields(existing as Record<string, unknown>, parsed.data as Record<string, unknown>)
+  await audit({ action: 'deal.update', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `거래 수정 ${existing.dealCode} (${Object.keys(changed).length}개 항목)`, detail: changed })
   revalidatePath('/deals')
   revalidatePath(`/deals/${id}`)
   return { ok: true }
@@ -196,7 +200,7 @@ export async function deleteDeal(id: string) {
   if (!user) return { error: '로그인 필요' }
 
   const [existing] = await db
-    .select({ status: deal.status, ownerUserId: deal.ownerUserId })
+    .select({ status: deal.status, ownerUserId: deal.ownerUserId, dealCode: deal.dealCode })
     .from(deal)
     .where(eq(deal.id, id))
     .limit(1)
@@ -209,6 +213,7 @@ export async function deleteDeal(id: string) {
     .update(deal)
     .set({ deletedAt: new Date(), updatedBy: user.id })
     .where(eq(deal.id, id))
+  await audit({ action: 'deal.delete', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `거래 삭제 ${existing.dealCode}` })
   revalidatePath('/deals')
   redirect('/deals')
 }
@@ -226,6 +231,7 @@ export async function toggleDealPaid(
     .select({
       status: deal.status,
       ownerUserId: deal.ownerUserId,
+      dealCode: deal.dealCode,
       salesPaidStatus: deal.salesPaidStatus,
       purchasePaidStatus: deal.purchasePaidStatus,
       salesPaidDate: deal.salesPaidDate,
@@ -243,6 +249,7 @@ export async function toggleDealPaid(
     const patch = { salesPaidStatus: next, salesPaidDate: next === 'completed' ? (row.salesPaidDate ?? today) : null }
     await db.update(deal).set({ ...patch, updatedBy: user.id }).where(eq(deal.id, id))
     await recordDealChanges(id, row, patch, user.id)
+    await audit({ action: 'deal.paid_toggle', targetType: 'deal', targetId: id, targetLabel: row.dealCode, summary: `${row.dealCode} 입금 ${next === 'completed' ? '완료' : '미입금으로 되돌림'}`, detail: patch })
     revalidatePath('/deals')
     return { ok: true, status: next }
   }
@@ -250,6 +257,7 @@ export async function toggleDealPaid(
   const patch = { purchasePaidStatus: next, purchasePaidDate: next === 'completed' ? (row.purchasePaidDate ?? today) : null }
   await db.update(deal).set({ ...patch, updatedBy: user.id }).where(eq(deal.id, id))
   await recordDealChanges(id, row, patch, user.id)
+  await audit({ action: 'deal.paid_toggle', targetType: 'deal', targetId: id, targetLabel: row.dealCode, summary: `${row.dealCode} 결산 ${next === 'completed' ? '완료' : '미결산으로 되돌림'}`, detail: patch })
   revalidatePath('/deals')
   return { ok: true, status: next }
 }
@@ -299,6 +307,7 @@ export async function updateDealInline(
     const patch = { accrualYear: value.year, accrualMonth: value.month }
     await db.update(deal).set({ ...patch, updatedBy: user.id }).where(eq(deal.id, id))
     await recordDealChanges(id, existing, patch, user.id)
+    await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} 귀속월 ${existing.accrualYear}/${existing.accrualMonth} → ${value.year}/${value.month}`, detail: diffFields(existing as Record<string, unknown>, patch) })
     revalidatePath('/deals')
     return { ok: true }
   }
@@ -321,12 +330,14 @@ export async function updateDealInline(
           }
     await db.update(deal).set({ ...patch, updatedBy: user.id }).where(eq(deal.id, id))
     await recordDealChanges(id, existing, patch, user.id)
+    await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} ${field === 'salesAmountNet' ? '매출금' : '매입금'} ${existing[field] ?? '-'} → ${value ?? '-'}`, detail: diffFields(existing as Record<string, unknown>, patch) })
   } else {
     await db
       .update(deal)
       .set({ [field]: value, updatedBy: user.id })
       .where(eq(deal.id, id))
     await recordDealChanges(id, existing, { [field]: value }, user.id)
+    await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} ${field} ${existing[field] ?? '-'} → ${value ?? '-'}`, detail: { [field]: [existing[field] ?? null, value] } })
   }
   revalidatePath('/deals')
   return { ok: true }

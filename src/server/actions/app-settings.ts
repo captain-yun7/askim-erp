@@ -6,6 +6,7 @@ import { db } from '@/lib/db/client'
 import { appSetting } from '@/lib/db/schema'
 import { canManageUsers, getSessionUser } from '@/server/auth/guards'
 import { SETTING_KEYS } from '@/server/queries/app-settings'
+import { audit } from '@/server/audit'
 
 const daysSchema = z.coerce.number().int().min(1, '1일 이상').max(365, '365일 이하')
 
@@ -21,6 +22,7 @@ export async function saveChangeHighlightDays(raw: unknown): Promise<{ ok: true;
     .insert(appSetting)
     .values({ key: SETTING_KEYS.changeHighlightDays, value: String(days), updatedBy: user.id })
     .onConflictDoUpdate({ target: appSetting.key, set: { value: String(days), updatedBy: user.id, updatedAt: new Date() } })
+  await audit({ action: 'setting.update', targetType: 'setting', targetId: SETTING_KEYS.changeHighlightDays, summary: `거래 수정 표시 기간 → ${days}일`, detail: { days } })
   revalidatePath('/admin')
   revalidatePath('/deals')
   return { ok: true, days }

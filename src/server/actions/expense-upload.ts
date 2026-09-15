@@ -7,6 +7,7 @@ import { db } from '@/lib/db/client'
 import { expense, expenseCategory } from '@/lib/db/schema'
 import { dupKey, parseExpenseWorkbook, type UploadIssue, type UploadRow } from '@/lib/expense-upload'
 import { canCreateExpense, getSessionUser } from '@/server/auth/guards'
+import { audit, diffFields } from '@/server/audit'
 
 const MAX_BYTES = 10 * 1024 * 1024
 
@@ -133,5 +134,6 @@ export async function commitExpenseUpload(raw: unknown): Promise<{ ok: true; ins
   revalidatePath('/reports/ledger')
   revalidatePath('/reports/pnl')
   revalidatePath('/')
+  await audit({ action: 'expense.upload', targetType: 'expense', summary: `판관비 엑셀 업로드 ${target.length}건 등록, 중복 ${rows.length - target.length}건 제외`, detail: { inserted: target.length, skipped: rows.length - target.length, paymentMethod } })
   return { ok: true, inserted: target.length, skipped: rows.length - target.length }
 }

@@ -3,6 +3,7 @@ import { get } from '@vercel/blob'
 import { db } from '@/lib/db/client'
 import { attachment } from '@/lib/db/schema'
 import { getSessionUser } from '@/server/auth/guards'
+import { audit } from '@/server/audit'
 
 /** 비공개 첨부 제공 — 로그인 사용자만. 기본 inline(브라우저 뷰어), ?download=1 이면 다운로드 */
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -16,6 +17,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   if (!res || res.statusCode !== 200) return new Response('파일을 읽을 수 없습니다', { status: 502 })
 
   const download = new URL(req.url).searchParams.get('download') === '1'
+  await audit({ action: 'attachment.view', targetType: row.targetType, targetId: row.targetId, targetLabel: row.filename, summary: `첨부 ${download ? '다운로드' : '열람'} ${row.filename}`, detail: { download } })
   const encoded = encodeURIComponent(row.filename)
   return new Response(res.stream, {
     headers: {

@@ -10,6 +10,7 @@ import {
 import { listDeals, type DealListFilters } from '@/server/queries/deals'
 import { canViewBankInfo, getSessionUser } from '@/server/auth/guards'
 import { toCsv } from '@/lib/csv'
+import { audit } from '@/server/audit'
 
 type ExportResult = { ok: true; filename: string; csv: string } | { error: string }
 
@@ -84,6 +85,7 @@ export async function exportDealsCsv(filters: DealListFilters): Promise<ExportRe
     ])
 
     const filename = filters.year ? `deals_${filters.year}.csv` : 'deals.csv'
+    await audit({ action: 'export.csv', targetType: 'export', targetLabel: filename, summary: `CSV 내보내기 ${filename} (${rows.length}건)`, detail: filters })
     return { ok: true, filename, csv: toCsv(headers, csvRows) }
   } catch (e) {
     return { error: e instanceof Error ? e.message : '내보내기 실패' }
@@ -162,6 +164,7 @@ export async function exportCounterpartiesCsv(
       r.memo ?? '',
     ])
 
+    await audit({ action: 'export.csv', targetType: 'export', targetLabel: 'counterparties.csv', summary: `CSV 내보내기 counterparties.csv (${csvRows.length}건)`, detail: filters })
     return { ok: true, filename: 'counterparties.csv', csv: toCsv(headers, csvRows) }
   } catch (e) {
     return { error: e instanceof Error ? e.message : '내보내기 실패' }
@@ -225,6 +228,7 @@ export async function exportExpensesCsv(
     ])
 
     const filename = filters.year ? `expenses_${filters.year}.csv` : 'expenses.csv'
+    await audit({ action: 'export.csv', targetType: 'export', targetLabel: filename, summary: `CSV 내보내기 ${filename} (${csvRows.length}건)`, detail: filters })
     return { ok: true, filename, csv: toCsv(headers, csvRows) }
   } catch (e) {
     return { error: e instanceof Error ? e.message : '내보내기 실패' }

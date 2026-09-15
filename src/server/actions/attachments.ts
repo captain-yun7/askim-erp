@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { db } from '@/lib/db/client'
 import { attachment, users } from '@/lib/db/schema'
 import { getSessionUser, isViewer } from '@/server/auth/guards'
+import { audit, diffFields } from '@/server/audit'
 
 export type AttachmentTarget = 'deposit' | 'contract' | 'deal'
 const targetSchema = z.enum(['deposit', 'contract', 'deal'])
@@ -78,6 +79,7 @@ export async function uploadAttachment(formData: FormData): Promise<{ ok: true; 
       uploadedBy: user.id,
     })
     .returning({ id: attachment.id, createdAt: attachment.createdAt })
+  await audit({ action: 'attachment.upload', targetType: targetType.data, targetId, targetLabel: file.name, summary: `첨부 올리기 ${file.name} (${targetType.data} ${targetId})`, detail: { size: file.size, contentType: file.type } })
   revalidatePath('/deposits')
   revalidatePath('/deals')
   return { ok: true, attachment: { id: row.id, filename: file.name, contentType: file.type, size: file.size, createdAt: row.createdAt.toISOString(), uploadedBy: user.name ?? null } }
@@ -91,6 +93,7 @@ export async function deleteAttachment(id: string): Promise<{ ok: true } | { err
   if (!row) return { error: '첨부를 찾을 수 없습니다' }
   await del(row.blobUrl)
   await db.delete(attachment).where(eq(attachment.id, id))
+  await audit({ action: 'attachment.delete', targetType: row.targetType, targetId: row.targetId, targetLabel: row.filename, summary: `첨부 삭제 ${row.filename} (${row.targetType} ${row.targetId})` })
   revalidatePath('/deposits')
   revalidatePath('/deals')
   return { ok: true }

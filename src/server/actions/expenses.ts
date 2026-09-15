@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { db } from '@/lib/db/client'
 import { expense } from '@/lib/db/schema'
 import { canCreateExpense, canDeleteExpense, canEditExpense, getSessionUser } from '@/server/auth/guards'
+import { audit, diffFields } from '@/server/audit'
 
 const numStrSchema = z
   .union([z.string(), z.number(), z.null(), z.literal('')])
@@ -76,6 +77,7 @@ export async function createExpenses(raw: unknown) {
       })),
     )
     revalidatePath('/expenses')
+    await audit({ action: 'expense.create', targetType: 'expense', summary: `판관비 ${rows.length}건 입력 (합계 ${rows.reduce((a, r) => a + Number(r.amount ?? 0), 0).toLocaleString()}원)`, detail: { count: rows.length, paymentMethod: data.paymentMethod } })
     return { ok: true }
   } catch (e) {
     return { error: e instanceof Error ? e.message : '저장 실패' }
@@ -132,6 +134,7 @@ export async function updateExpense(id: string, raw: unknown) {
       paymentMethod: d.paymentMethod,
     })
     .where(eq(expense.id, id))
+  await audit({ action: 'expense.update', targetType: 'expense', targetId: id, targetLabel: d.itemName ?? null, summary: `판관비 수정 ${d.expenseDate} ${d.itemName ?? ''} ${Number(d.amount).toLocaleString()}원`, detail: d })
   revalidateExpenseViews()
   return { ok: true }
 }
@@ -144,6 +147,7 @@ export async function deleteExpense(id: string) {
   if (!canDeleteExpense(user, existing)) return { error: '이 지출을 삭제할 권한이 없습니다 (영업은 본인 입력건 7일 이내)' }
 
   await db.update(expense).set({ deletedAt: new Date() }).where(eq(expense.id, id))
+  await audit({ action: 'expense.delete', targetType: 'expense', targetId: id, summary: `판관비 삭제 ${id}` })
   revalidateExpenseViews()
   return { ok: true }
 }

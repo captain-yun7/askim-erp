@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { db } from '@/lib/db/client'
 import { users } from '@/lib/db/schema'
 import { canManageUsers, getSessionUser } from '@/server/auth/guards'
+import { audit, diffFields } from '@/server/audit'
 
 const roleSchema = z.enum(['admin', 'accountant', 'sales', 'viewer'])
 
@@ -21,6 +22,11 @@ const createUserSchema = z.object({
 })
 
 export type CreateUserInput = z.infer<typeof createUserSchema>
+
+async function userLabel(id: string) {
+  const [u] = await db.select({ name: users.name, email: users.email }).from(users).where(eq(users.id, id)).limit(1)
+  return u ? `${u.name} ${u.email}` : id
+}
 
 async function requireAdmin() {
   const user = await getSessionUser()
@@ -59,6 +65,7 @@ export async function createUser(raw: unknown) {
     })
     .returning({ id: users.id })
 
+  await audit({ action: 'user.create', targetType: 'user', targetId: row?.id, targetLabel: email, summary: `사용자 등록 ${name} (${email}, ${role})`, detail: { role, team } })
   revalidatePath('/admin/users')
   return { ok: true, id: row?.id }
 }
@@ -76,6 +83,7 @@ export async function updateUserRole(id: string, role: unknown) {
   }
 
   await db.update(users).set({ role: parsed.data }).where(eq(users.id, id))
+  await audit({ action: 'user.role', targetType: 'user', targetId: id, targetLabel: await userLabel(id), summary: `역할 변경 → ${parsed.data} (${await userLabel(id)})`, detail: { role: parsed.data } })
   revalidatePath('/admin/users')
   return { ok: true }
 }
@@ -86,6 +94,7 @@ export async function updateUserTeam(id: string, team: unknown) {
   const parsed = z.string().trim().max(30).nullable().safeParse(team)
   if (!parsed.success) return { error: '잘못된 값입니다' }
   await db.update(users).set({ team: parsed.data || null }).where(eq(users.id, id))
+  await audit({ action: 'user.team', targetType: 'user', targetId: id, targetLabel: await userLabel(id), summary: `팀 변경 → ${parsed.data || '-'} (${await userLabel(id)})` })
   revalidatePath('/admin/users')
   return { ok: true }
 }
@@ -96,6 +105,7 @@ export async function toggleUserTeamLead(id: string, isTeamLead: unknown) {
   const parsed = z.boolean().safeParse(isTeamLead)
   if (!parsed.success) return { error: '잘못된 값입니다' }
   await db.update(users).set({ isTeamLead: parsed.data }).where(eq(users.id, id))
+  await audit({ action: 'user.team_lead', targetType: 'user', targetId: id, targetLabel: await userLabel(id), summary: `팀장 ${parsed.data ? '지정' : '해제'} (${await userLabel(id)})` })
   revalidatePath('/admin/users')
   return { ok: true }
 }
@@ -115,6 +125,7 @@ export async function toggleUserActive(id: string, active: unknown) {
     .update(users)
     .set({ isActive: isActive.data })
     .where(eq(users.id, id))
+  await audit({ action: 'user.active', targetType: 'user', targetId: id, targetLabel: await userLabel(id), summary: `사용자 ${isActive.data ? '활성화' : '비활성화'} (${await userLabel(id)})` })
   revalidatePath('/admin/users')
   return { ok: true }
 }
@@ -140,5 +151,6 @@ export async function resetUserPassword(id: string) {
     .update(users)
     .set({ passwordHash: await bcrypt.hash(tempPassword, 10) })
     .where(eq(users.id, id))
+  await audit({ action: 'user.reset_password', targetType: 'user', targetId: id, targetLabel: await userLabel(id), summary: `비밀번호 초기화 (${await userLabel(id)})` })
   return { ok: true, tempPassword }
 }

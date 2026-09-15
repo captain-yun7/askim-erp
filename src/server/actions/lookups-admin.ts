@@ -13,6 +13,7 @@ import {
   salesMethod,
 } from '@/lib/db/schema'
 import { canManageLookups, getSessionUser } from '@/server/auth/guards'
+import { audit } from '@/server/audit'
 
 async function requireLookupAdmin() {
   const user = await getSessionUser()
@@ -21,7 +22,8 @@ async function requireLookupAdmin() {
   return { user }
 }
 
-function done() {
+async function done(kind: string, id: number, data: unknown) {
+  await audit({ action: 'lookup.update', targetType: 'lookup', targetId: `${kind}:${id}`, summary: `마스터 수정 ${kind} #${id}`, detail: data })
   revalidatePath('/admin/lookups')
   return { ok: true as const }
 }
@@ -62,7 +64,7 @@ export async function updateDealCategory(id: number, raw: unknown) {
       planGroup: planGroup || null,
     })
     .where(eq(dealCategory.id, id))
-  return done()
+  return done('상품구분', id, parsed.data)
 }
 
 const accountSchema = z.object({
@@ -80,7 +82,7 @@ export async function updateAccount(id: number, raw: unknown) {
     .update(account)
     .set({ nameKo: parsed.data.nameKo, displayOrder: parsed.data.displayOrder })
     .where(eq(account.id, id))
-  return done()
+  return done('계정항목', id, parsed.data)
 }
 
 const salesMethodSchema = z.object({
@@ -98,7 +100,7 @@ export async function updateSalesMethod(id: number, raw: unknown) {
     .update(salesMethod)
     .set({ nameKo: parsed.data.nameKo, displayOrder: parsed.data.displayOrder })
     .where(eq(salesMethod.id, id))
-  return done()
+  return done('매출수단', id, parsed.data)
 }
 
 const expenseCategorySchema = z.object({
@@ -121,5 +123,5 @@ export async function updateExpenseCategory(id: number, raw: unknown) {
       displayOrder: parsed.data.displayOrder,
     })
     .where(eq(expenseCategory.id, id))
-  return done()
+  return done('거래항목', id, parsed.data)
 }

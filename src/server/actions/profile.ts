@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { db } from '@/lib/db/client'
 import { users } from '@/lib/db/schema'
 import { getSessionUser } from '@/server/auth/guards'
+import { audit } from '@/server/audit'
 
 const profileSchema = z
   .object({
@@ -43,6 +44,7 @@ export async function updateProfile(raw: unknown) {
   }
 
   await db.update(users).set(set).where(eq(users.id, sessionUser.id))
+  await audit({ action: 'profile.update', targetType: 'user', targetId: sessionUser.id, summary: `내 프로필 변경${set.passwordHash ? ' (비밀번호 변경)' : ''}`, detail: { name, passwordChanged: Boolean(set.passwordHash) } })
   revalidatePath('/profile')
   return { ok: true }
 }

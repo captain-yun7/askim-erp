@@ -12,6 +12,7 @@ import {
   canEditCounterpartySensitive,
   getSessionUser,
 } from '@/server/auth/guards'
+import { audit, diffFields } from '@/server/audit'
 
 /** 회계/admin만 변경 가능한 민감 필드 */
 const SENSITIVE_FIELDS = [
@@ -73,6 +74,7 @@ export async function createCounterparty(raw: unknown) {
     .insert(counterparty)
     .values({ ...data, createdBy: user.id })
     .returning({ id: counterparty.id, name: counterparty.name })
+  await audit({ action: 'counterparty.create', targetType: 'counterparty', targetId: row.id, targetLabel: row.name, summary: `거래처 등록 ${row.name}` })
   revalidatePath('/counterparties')
   revalidatePath('/deals')
   return { ok: true, counterparty: row }
@@ -111,6 +113,8 @@ export async function updateCounterparty(id: string, raw: unknown) {
   }
 
   await db.update(counterparty).set(data).where(eq(counterparty.id, id))
+  const changed = diffFields(existing as Record<string, unknown>, data as Record<string, unknown>)
+  await audit({ action: 'counterparty.update', targetType: 'counterparty', targetId: id, targetLabel: existing.name, summary: `거래처 수정 ${existing.name} (${Object.keys(changed).length}개 항목)`, detail: changed })
   revalidatePath('/counterparties')
   revalidatePath('/deals')
   return { ok: true }
@@ -125,6 +129,7 @@ export async function deleteCounterparty(id: string) {
     .update(counterparty)
     .set({ deletedAt: new Date(), isActive: false })
     .where(eq(counterparty.id, id))
+  await audit({ action: 'counterparty.delete', targetType: 'counterparty', targetId: id, summary: `거래처 비활성화 ${id}` })
   revalidatePath('/counterparties')
   return { ok: true }
 }

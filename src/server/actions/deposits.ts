@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { db } from '@/lib/db/client'
 import { deposit, exclusiveContract } from '@/lib/db/schema'
 import { getSessionUser, type SessionUser } from '@/server/auth/guards'
+import { audit, diffFields } from '@/server/audit'
 
 type Result = { ok: true } | { error: string }
 
@@ -47,6 +48,7 @@ export async function saveDeposit(id: number | null, raw: unknown): Promise<Resu
     // 등록자를 담당자로 (팀원 본인 것만 조회 기준)
     await db.insert(deposit).values({ ...values, ownerUserId: guard.user.id, ownerName: values.ownerName ?? guard.user.name ?? null })
   }
+  await audit({ action: 'deposit.save', targetType: 'deposit', targetId: id, targetLabel: values.counterpartyName, summary: `보증금 ${id != null ? '수정' : '등록'} ${values.counterpartyName} ${Number(values.amount).toLocaleString()}원`, detail: values })
   revalidatePath('/deposits')
   return { ok: true }
 }
@@ -55,6 +57,7 @@ export async function deleteDeposit(id: number): Promise<Result> {
   const guard = await requireEditor()
   if ('error' in guard) return { error: guard.error }
   await db.update(deposit).set({ deletedAt: new Date() }).where(eq(deposit.id, id))
+  await audit({ action: 'deposit.delete', targetType: 'deposit', targetId: id, summary: `보증금 삭제 #${id}` })
   revalidatePath('/deposits')
   return { ok: true }
 }
@@ -90,6 +93,7 @@ export async function saveExclusiveContract(id: number | null, raw: unknown): Pr
   } else {
     await db.insert(exclusiveContract).values({ ...values, ownerUserId: guard.user.id, ownerName: values.ownerName ?? guard.user.name ?? null })
   }
+  await audit({ action: 'contract.save', targetType: 'contract', targetId: id, targetLabel: values.mediaName, summary: `${values.kind === 'asset' ? '보유자산' : '전속계약'} ${id != null ? '수정' : '등록'} ${values.mediaName}`, detail: values })
   revalidatePath('/deposits')
   return { ok: true }
 }
@@ -101,6 +105,7 @@ export async function deleteExclusiveContract(id: number): Promise<Result> {
     .update(exclusiveContract)
     .set({ deletedAt: new Date() })
     .where(eq(exclusiveContract.id, id))
+  await audit({ action: 'contract.delete', targetType: 'contract', targetId: id, summary: `전속계약/보유자산 삭제 #${id}` })
   revalidatePath('/deposits')
   return { ok: true }
 }
