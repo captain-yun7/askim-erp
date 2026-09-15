@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { toggleDealPaid, updateDealInline } from '@/server/actions/deals'
@@ -39,6 +39,8 @@ type Row = {
   purchaseDueDate: string | null
   purchasePaidDate: string | null
   purchaseInvoiceDate: string | null
+  settlementYear: number | null
+  settlementMonth: number | null
   ownerUserId: string | null
   canTogglePaid: boolean
   recentChanges?: RecentChanges
@@ -137,17 +139,21 @@ function InlineDate({
   value,
   enabled,
   muted,
+  fallback,
 }: {
   dealId: string
   field: InlineField
   value: string | null
   enabled: boolean
   muted?: boolean
+  /** 날짜가 없을 때 대신 보여줄 텍스트 (예: 결산연월) */
+  fallback?: string | null
 }) {
   const { pending, save } = useInlineSave(dealId)
   const [editing, setEditing] = useState(false)
+  const label = value ? formatDate(value) : (fallback ?? formatDate(value))
   if (!enabled)
-    return <span className={cn(muted && 'text-muted-foreground')}>{formatDate(value)}</span>
+    return <span className={cn(muted && 'text-muted-foreground')}>{label}</span>
   if (editing) {
     return (
       <input
@@ -179,7 +185,47 @@ function InlineDate({
       )}
       onClick={() => setEditing(true)}
     >
-      {formatDate(value)}
+      {label}
+    </button>
+  )
+}
+
+/** 귀속연월 인라인 편집 — 'YY/M' 표시, 클릭 → 'YYYY-MM' 입력 (2026-09-14 피드백) */
+function InlineAccrual({ dealId, year, month, enabled }: { dealId: string; year: number; month: number; enabled: boolean }) {
+  const router = useRouter()
+  const [pending, start] = useTransition()
+  const [editing, setEditing] = useState(false)
+  const text = `${String(year).slice(2)}/${month}`
+  if (!enabled) return <span className="text-xs text-muted-foreground">{text}</span>
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        type="month"
+        defaultValue={`${year}-${String(month).padStart(2, '0')}`}
+        className="h-6 rounded border border-primary bg-background px-1 font-mono text-[11px] outline-none"
+        onBlur={(e) => {
+          setEditing(false)
+          const m = /^(\d{4})-(\d{2})$/.exec(e.target.value)
+          if (!m) return
+          const next = { year: Number(m[1]), month: Number(m[2]) }
+          if (next.year === year && next.month === month) return
+          start(async () => {
+            const res = await updateDealInline(dealId, { field: 'accrual', value: next })
+            if ('error' in res) toast.error(res.error)
+            else router.refresh()
+          })
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+          if (e.key === 'Escape') setEditing(false)
+        }}
+      />
+    )
+  }
+  return (
+    <button type="button" title="클릭해서 귀속연월 수정" className={cn('rounded px-0.5 text-xs text-muted-foreground hover:bg-accent/60', pending && 'opacity-40')} onClick={() => setEditing(true)}>
+      {text}
     </button>
   )
 }
@@ -239,6 +285,7 @@ export type ColumnFilters = {
   fCode?: string
   fIssuer?: string
   fSupplier?: string
+  fItem?: string
   fSales?: string
   fSalesVat?: string
   fPurchase?: string
@@ -350,6 +397,9 @@ function FilterHeaderRow({ filters }: { filters: ColumnFilters }) {
       <TableHead className="py-1">
         <ColumnFilterInput param="fSupplier" value={filters.fSupplier} placeholder="매체사 검색" />
       </TableHead>
+      <TableHead className="py-1">
+        <ColumnFilterInput param="fItem" value={filters.fItem} placeholder="품목명 검색" />
+      </TableHead>
       {amount('fSales')}
       {amount('fSalesVat')}
       {amount('fPurchase')}
@@ -389,6 +439,9 @@ function FilterHeaderRow({ filters }: { filters: ColumnFilters }) {
 
 export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFilters?: ColumnFilters }) {
   const hasFilter = Object.values(columnFilters).some(Boolean)
+  // 상세에서 돌아올 때 필터 유지 (2026-09-14 피드백)
+  const search = useSearchParams().toString()
+  const detailHref = (id: string) => `/deals/${id}${search ? `?back=${encodeURIComponent('/deals?' + search)}` : ''}`
   if (rows.length === 0 && !hasFilter) {
     return (
       <div className="px-6 py-20 text-center text-sm text-muted-foreground">
@@ -407,6 +460,7 @@ export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFi
             <TableHead>담당</TableHead>
             <TableHead>발행처 / 광고주</TableHead>
             <TableHead>매체사</TableHead>
+            <TableHead>품목명</TableHead>
             <TableHead className="text-right">매출</TableHead>
             <TableHead className="text-right">부가세</TableHead>
             <TableHead className="text-right">매입</TableHead>
@@ -423,7 +477,7 @@ export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFi
         <TableBody>
           {rows.length === 0 && (
             <TableRow>
-              <TableCell colSpan={16} className="py-14 text-center text-sm text-muted-foreground">
+              <TableCell colSpan={17} className="py-14 text-center text-sm text-muted-foreground">
                 검색 결과가 없습니다. 필터 입력을 비우고 Enter 를 누르면 해제됩니다.
               </TableCell>
             </TableRow>
@@ -444,7 +498,7 @@ export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFi
               <TableRow key={r.id} className="hover:bg-muted/60">
                 <TableCell {...cell('code')}>
                   <Link
-                    href={`/deals/${r.id}`}
+                    href={detailHref(r.id)}
                     className="text-[13px] font-medium tabular-nums text-foreground hover:text-brand"
                   >
                     {r.dealCode}
@@ -456,7 +510,7 @@ export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFi
                   )}
                 </TableCell>
                 <TableCell {...cell('accrual', 'text-xs text-muted-foreground')}>
-                  {String(r.accrualYear).slice(2)}/{r.accrualMonth}
+                  <InlineAccrual dealId={r.id} year={r.accrualYear} month={r.accrualMonth} enabled={r.canTogglePaid} />
                 </TableCell>
                 <TableCell {...cell('category')}>
                   {r.categoryName ? (
@@ -477,6 +531,9 @@ export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFi
                   )}
                 </TableCell>
                 <TableCell {...cell('supplier', 'text-[13px] text-muted-foreground')}>{r.supplierName ?? '-'}</TableCell>
+                <TableCell {...cell('item', 'max-w-56 truncate text-[12.5px]')} title={r.itemName ?? undefined}>
+                  {r.itemName ?? <span className="text-muted-foreground">-</span>}
+                </TableCell>
                 <TableCell {...cell('salesNet', 'text-right text-[13px] tabular-nums')}>
                   <InlineAmount dealId={r.id} field="salesAmountNet" value={r.salesAmountNet} enabled={r.canTogglePaid} />
                 </TableCell>
@@ -536,7 +593,14 @@ export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFi
                 <TableCell {...cell('purchaseDates')}>
                   <div className="text-[12px] leading-tight tabular-nums">
                     <div>
-                      <InlineDate dealId={r.id} field="purchaseDueDate" value={r.purchaseDueDate} enabled={r.canTogglePaid} muted />
+                      <InlineDate
+                        dealId={r.id}
+                        field="purchaseDueDate"
+                        value={r.purchaseDueDate}
+                        enabled={r.canTogglePaid}
+                        muted
+                        fallback={r.settlementYear && r.settlementMonth ? `${r.settlementYear}-${String(r.settlementMonth).padStart(2, '0')}` : null}
+                      />
                     </div>
                     <div>
                       <InlineDate dealId={r.id} field="purchasePaidDate" value={r.purchasePaidDate} enabled={r.canTogglePaid} muted={!r.purchasePaidDate} />

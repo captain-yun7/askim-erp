@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { createDeal, updateDeal, type DealInput } from '@/server/actions/deals'
+import { createDeal, deleteDeal, updateDeal, type DealInput } from '@/server/actions/deals'
 import { CounterpartyCombobox } from './counterparty-combobox'
 import { CounterpartyQuickCreate } from '../counterparties/counterparty-quick-create'
 import { formatKRW } from '@/lib/format'
@@ -38,10 +38,15 @@ export function DealForm({
   lookups,
   initial,
   readOnly = false,
+  backHref = '/deals',
+  canDelete = false,
 }: {
   lookups: Lookups
   initial?: Initial
   readOnly?: boolean
+  /** 취소·저장 후 돌아갈 목록 URL (필터 보존) */
+  backHref?: string
+  canDelete?: boolean
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -130,7 +135,7 @@ export function DealForm({
         return
       }
       toast.success(initial?.id ? '저장되었습니다' : '거래가 등록되었습니다')
-      router.push('/deals')
+      router.push(backHref)
       router.refresh()
     })
   }
@@ -533,9 +538,26 @@ export function DealForm({
       </Card>
 
       <div className="mt-6 flex items-center justify-between">
-        <Button variant="ghost" onClick={() => router.push('/deals')}>
-          ↩ 취소
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={() => router.push(backHref)}>
+            ↩ 취소
+          </Button>
+          {initial?.id && canDelete && !readOnly && (
+            <Button
+              variant="destructive"
+              disabled={pending}
+              onClick={() => {
+                if (!window.confirm(`거래 ${initial.dealCode ?? ''} 을(를) 삭제할까요? 목록·리포트에서 제외되며 복구는 개발팀에 요청해야 합니다.`)) return
+                startTransition(async () => {
+                  const res = await deleteDeal(initial.id!)
+                  if (res && 'error' in res) toast.error(res.error)
+                })
+              }}
+            >
+              삭제
+            </Button>
+          )}
+        </div>
         <div className="flex gap-2">
           <Button
             variant="outline"

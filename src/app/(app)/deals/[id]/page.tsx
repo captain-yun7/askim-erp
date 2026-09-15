@@ -5,17 +5,22 @@ import { DealForm } from '@/components/deals/deal-form'
 import { getDealById } from '@/server/queries/deals'
 import { getCounterpartyById } from '@/server/queries/counterparties'
 import { getAllLookups } from '@/server/queries/lookups'
-import { canEditDeal, getSessionUser } from '@/server/auth/guards'
+import { canDeleteDeal, canEditDeal, getSessionUser } from '@/server/auth/guards'
 import { getRecentChanges } from '@/server/deal-changes'
 import { changeTitle } from '@/lib/change-highlight'
 import { getChangeHighlightDays } from '@/server/queries/app-settings'
 
 export default async function EditDealPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ back?: string }>
 }) {
   const { id } = await params
+  const { back } = await searchParams
+  // 목록 필터를 유지한 채 돌아가기 — 내부 경로만 허용
+  const backHref = back && back.startsWith('/deals') ? back : '/deals'
   const d = await getDealById(id)
   if (!d) notFound()
 
@@ -35,7 +40,7 @@ export default async function EditDealPage({
     <div>
       <div className="border-b px-8 pb-4 pt-6">
         <Link
-          href="/deals"
+          href={backHref}
           className="mb-2 inline-flex items-center gap-1 text-[12.5px] text-muted-foreground hover:text-foreground"
         >
           <ChevronLeft className="size-3.5" />거래 목록
@@ -60,6 +65,8 @@ export default async function EditDealPage({
       <DealForm
         lookups={lookups}
         readOnly={readOnly}
+        backHref={backHref}
+        canDelete={user != null && canDeleteDeal(user, d)}
         initial={
           {
             ...d,

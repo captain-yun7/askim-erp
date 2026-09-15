@@ -17,6 +17,7 @@ export type DealListFilters = {
   fCode?: string
   fIssuer?: string
   fSupplier?: string
+  fItem?: string
   /** 금액·날짜·상태 컬럼 검색 (2026-09-07 피드백) — 검색식은 lib/column-filter 참고 */
   fSales?: string
   fSalesVat?: string
@@ -101,6 +102,7 @@ export async function listDeals(f: DealListFilters = {}) {
       )!,
     )
   }
+  if (f.fItem) conds.push(ilike(deal.itemName, `%${f.fItem.trim()}%`))
   if (f.fSupplier)
     conds.push(
       sql`exists (select 1 from counterparty c where c.id = ${deal.supplierCounterpartyId} and c.name ilike ${`%${f.fSupplier.trim()}%`})`,
@@ -205,6 +207,8 @@ export async function listDeals(f: DealListFilters = {}) {
       purchaseDueDate: deal.purchaseDueDate,
       purchasePaidDate: deal.purchasePaidDate,
       purchaseInvoiceDate: deal.purchaseInvoiceDate,
+      settlementYear: deal.settlementYear,
+      settlementMonth: deal.settlementMonth,
       categoryName: dealCategory.nameKo,
       ownerName: users.name,
       issuerName: sql<string | null>`(select name from counterparty where id = ${deal.issuerCounterpartyId})`,

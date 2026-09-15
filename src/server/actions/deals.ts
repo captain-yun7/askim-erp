@@ -266,6 +266,10 @@ const inlineSchema = z.union([
     value: z.coerce.number().finite().min(0).nullable(),
   }),
   z.object({
+    field: z.literal('accrual'),
+    value: z.object({ year: z.coerce.number().int().min(2000).max(2100), month: z.coerce.number().int().min(1).max(12) }),
+  }),
+  z.object({
     field: z.enum(INLINE_DATE_FIELDS),
     value: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
   }),
@@ -285,6 +289,14 @@ export async function updateDealInline(
   if (!canEditDeal(user, existing)) return { error: '이 거래를 수정할 권한이 없습니다' }
 
   const { field, value } = parsed.data
+  if (field === 'accrual') {
+    // 귀속연월 인라인 수정 (2026-09-14 피드백)
+    const patch = { accrualYear: value.year, accrualMonth: value.month }
+    await db.update(deal).set({ ...patch, updatedBy: user.id }).where(eq(deal.id, id))
+    await recordDealChanges(id, existing, patch, user.id)
+    revalidatePath('/deals')
+    return { ok: true }
+  }
   if (field === 'salesAmountNet' || field === 'purchaseAmountNet') {
     if (!canEditDealAmounts(user, existing))
       return { error: '금액을 변경할 권한이 없습니다' }

@@ -23,7 +23,7 @@ import { formatKRW, formatKRWShort } from '@/lib/format'
 type SP = { [k: string]: string | string[] | undefined }
 
 const TEXT_COLUMN_FILTERS = [
-  'fSales', 'fSalesVat', 'fPurchase', 'fPurchaseVat', 'fProfit',
+  'fItem', 'fSales', 'fSalesVat', 'fPurchase', 'fPurchaseVat', 'fProfit',
   'fSalesInvoice', 'fPurchaseInvoice', 'fSalesDate', 'fPurchaseDate',
 ] as const
 
