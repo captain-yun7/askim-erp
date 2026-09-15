@@ -17,7 +17,8 @@ import {
  * Step 2: 거래 시트 3개에서 등장하는 상호 중 누락분 → 자동 생성
  */
 
-async function importMaster(rows: unknown[][]): Promise<number> {
+/** 거래처관리 시트 → insert 행 (DB 쓰기 없음) */
+export function parseMaster(rows: unknown[][]): typeof counterparty.$inferInsert[] {
   // 헤더는 R7 (index 6). 데이터는 R8부터.
   // col: 1=No, 2=상호명, 3=사업자번호, 4=대표자, 5=주소, 6=업태, 7=종목,
   //      8=전화, 9=담당자, 10=메일, 11=계좌, 12=은행, 13=예금주,
@@ -50,13 +51,18 @@ async function importMaster(rows: unknown[][]): Promise<number> {
       isActive: true,
     })
   }
+  return records
+}
+
+async function importMaster(rows: unknown[][]): Promise<number> {
+  const records = parseMaster(rows)
   if (records.length === 0) return 0
-  // upsert by business_no (있을 때), 없으면 name 기준은 unique 아니므로 그냥 insert
   await db.insert(counterparty).values(records)
   return records.length
 }
 
-async function autoCreateFromDeals(wb: ReturnType<typeof loadWorkbook>) {
+/** 거래시트에 등장하지만 미등록인 거래처만 생성 (기존 행은 건드리지 않음) */
+export async function autoCreateFromDeals(wb: ReturnType<typeof loadWorkbook>) {
   // 이미 등록된 거래처 set
   const existing = await db.select({ name: counterparty.name }).from(counterparty)
   const existingKeys = new Set(existing.map((c) => counterpartyKey(c.name)))
@@ -129,7 +135,9 @@ async function main() {
   process.exit(0)
 }
 
-main().catch((e) => {
-  console.error(e)
-  process.exit(1)
-})
+if (process.argv[1] && /import-counterparties\.ts$/.test(process.argv[1])) {
+  main().catch((e) => {
+    console.error(e)
+    process.exit(1)
+  })
+}

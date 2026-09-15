@@ -237,6 +237,16 @@ async function importSheet(
   return { valid, warnings }
 }
 
+/** 엑셀 3개 시트를 파싱해 거래코드 중복까지 정리한 행 목록 (DB 쓰기 없음) — 전량 적재·병합 공용 */
+export async function parseAllDeals() {
+  const maps = await buildLookupMaps()
+  const krw = await importSheet('원화', '원화매출매입', 8, maps)
+  const fx = await importSheet('외화', '외화매출매입', 8, maps)
+  const ip = await importSheet('IP', 'IP&협찬건', 5, maps)
+  const dedup = deduplicateDealCodes([...krw.valid, ...fx.valid, ...ip.valid])
+  return { rows: dedup.rows, warnings: [...krw.warnings, ...fx.warnings, ...ip.warnings, ...dedup.warnings], counts: { krw: krw.valid.length, fx: fx.valid.length, ip: ip.valid.length } }
+}
+
 async function main() {
   await db.execute(sql`TRUNCATE TABLE deal CASCADE`)
   console.log('🧹 deal truncated')
@@ -283,7 +293,9 @@ async function main() {
   process.exit(0)
 }
 
-main().catch((e) => {
-  console.error(e)
-  process.exit(1)
-})
+if (process.argv[1]?.endsWith('import-deals.ts')) {
+  main().catch((e) => {
+    console.error(e)
+    process.exit(1)
+  })
+}

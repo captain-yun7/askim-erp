@@ -13,10 +13,8 @@ import {
   sheetToRows,
 } from './import-utils'
 
-async function main() {
-  await db.execute(sql`TRUNCATE TABLE expense CASCADE`)
-  console.log('🧹 expense truncated')
-
+/** 판관비 외 + 개인카드/현금 시트를 expense insert 행으로 파싱 (DB 쓰기 없음) — 전량 적재·병합 공용 */
+export async function parseAllExpenses() {
   const catRows = await db.select().from(expenseCategory)
   const catCodeToId = new Map(catRows.map((c) => [c.code, c.id]))
 
@@ -59,13 +57,6 @@ async function main() {
     })
   }
 
-  console.log(`📥 판관비 외 → expense: ${records.length}건 준비`)
-
-  const CHUNK = 500
-  for (let i = 0; i < records.length; i += CHUNK) {
-    await db.insert(expense).values(records.slice(i, i + CHUNK))
-  }
-
   // 개인카드, 현금사용 — 컬럼 위치는 시트마다 다를 수 있어 동적 탐지
   const personalRows = sheetToRows(wb, '개인카드, 현금사용')
   // 헤더 행 찾기
@@ -100,6 +91,19 @@ async function main() {
       paymentMethod: 'personal_card',
     })
   }
+  return { corporate: records, personal: personalRecords, warnings }
+}
+
+async function main() {
+  await db.execute(sql`TRUNCATE TABLE expense CASCADE`)
+  console.log('🧹 expense truncated')
+
+  const { corporate: records, personal: personalRecords, warnings } = await parseAllExpenses()
+  console.log(`📥 판관비 외 → expense: ${records.length}건 준비`)
+  const CHUNK = 500
+  for (let i = 0; i < records.length; i += CHUNK) {
+    await db.insert(expense).values(records.slice(i, i + CHUNK))
+  }
   if (personalRecords.length) {
     await db.insert(expense).values(personalRecords)
     console.log(`📥 개인카드/현금 → expense: ${personalRecords.length}건`)
@@ -115,7 +119,9 @@ async function main() {
   process.exit(0)
 }
 
-main().catch((e) => {
-  console.error(e)
-  process.exit(1)
-})
+if (process.argv[1] && /import-expenses\.ts$/.test(process.argv[1])) {
+  main().catch((e) => {
+    console.error(e)
+    process.exit(1)
+  })
+}
