@@ -22,6 +22,7 @@ test('새 거래는 음영 없음 → 금액 인라인 수정 → 매출 칸만 
   await page.goto('/deals/new')
   await page.locator('div:has(> label:text-is("품목명")) input').fill(ITEM)
   await page.locator('div:has(> label:has-text("매출금")) input').first().fill('1000000')
+  await page.locator('div:has(> label:has-text("매입금")) input').first().fill('300000') // 매입이 있어야 결산 토글 표시
   await page.getByRole('button', { name: '확정저장' }).click()
   await page.waitForURL((u) => u.pathname === '/deals')
 

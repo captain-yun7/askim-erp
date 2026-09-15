@@ -137,9 +137,9 @@ export async function listDeals(f: DealListFilters = {}) {
     dateCond([deal.purchaseDueDate, deal.purchasePaidDate], f.fPurchaseDate),
   ]
   for (const c of columnConds) if (c) conds.push(c)
-  if (f.fPaid === 'paid') conds.push(eq(deal.salesPaidStatus, 'completed'))
+  if (f.fPaid === 'paid') conds.push(eq(deal.salesPaidStatus, 'completed'), hasSales)
   if (f.fPaid === 'unpaid') conds.push(sql`${deal.salesPaidStatus} <> 'completed'`, hasSales)
-  if (f.fSettled === 'settled') conds.push(eq(deal.purchasePaidStatus, 'completed'))
+  if (f.fSettled === 'settled') conds.push(eq(deal.purchasePaidStatus, 'completed'), hasPurchase)
   if (f.fSettled === 'unsettled') conds.push(sql`${deal.purchasePaidStatus} <> 'completed'`, hasPurchase)
 
   if (f.q) {
