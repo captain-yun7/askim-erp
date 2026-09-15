@@ -36,9 +36,9 @@ export default async function TopCounterpartiesPage({
     <div className="flex flex-col px-8 pb-8 pt-6">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">TOP 거래처</h1>
+          <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">TOP 거래처 <span className="text-base text-muted-foreground">(VAT포함)</span></h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            발행처 기준 매출·손익 상위 {LIMIT}
+            발행처 기준 매출(VAT 포함)·손익(공급가) 상위 {LIMIT}
             {sp.year === undefined || sp.year === '' ? ' · 2026' : ` · ${year}년`}
           </p>
         </div>

@@ -1,6 +1,6 @@
 import { and, asc, eq, isNull, sql } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
-import { deal, expense, expenseCategory, ledgerOverride } from '@/lib/db/schema'
+import { deal, expense, expenseCategory } from '@/lib/db/schema'
 import type { CostGroup } from '@/lib/cost-groups'
 
 /**
@@ -11,7 +11,9 @@ import type { CostGroup } from '@/lib/cost-groups'
  * 판관비      = 고정비 + 변동비 (expense_category.cost_group)
  * 판관비 외   = 세금 등 non_operating → 당기순이익에서 차감
  * 십일조      = 영업이익(통장) × 10%
- * 총매출(귀속월)·매출원가_귀속월은 ledger_override 로 수기 덮어쓰기 가능
+ *
+ * 금액 기준 (2026-09-15 고객 확정): 총매출·매출원가는 VAT 포함(총매출금·총매입금), 손익은 공급가(매출금 − 매입금).
+ * 귀속월 수기 덮어쓰기(ledger_override)는 폐지 — 엑셀 수식과 같이 자동 집계만 사용.
  */
 
 export type LedgerCategory = {
@@ -23,13 +25,16 @@ export type LedgerCategory = {
 
 export type LedgerMonth = {
   month: number
+  /** VAT 포함 (총매출금·총매입금) */
   salesCash: number
   salesAccrual: number
   cogsCash: number
   cogsAccrual: number
-  /** 수기 입력 여부 */
-  salesAccrualOverridden: boolean
-  cogsAccrualOverridden: boolean
+  /** 공급가 (매출금·매입금) — 손익 계산용 */
+  salesCashNet: number
+  salesAccrualNet: number
+  cogsCashNet: number
+  cogsAccrualNet: number
   /** expense_category.id → 금액 */
   expenses: Record<number, number>
 }
@@ -43,12 +48,16 @@ export type LedgerReport = {
 const num = (v: string | null | undefined) => parseFloat(v ?? '0') || 0
 
 export async function getSalesLedger({ year }: { year: number }): Promise<LedgerReport> {
-  const [accrualRows, cashSales, cashPurchase, expenseRows, categories, overrides] = await Promise.all([
+  const salesGross = sql`coalesce(${deal.salesAmountGross}, ${deal.salesAmountNet})`
+  const purchaseGross = sql`coalesce(${deal.purchaseAmountGross}, ${deal.purchaseAmountNet})`
+  const [accrualRows, cashSales, cashPurchase, expenseRows, categories] = await Promise.all([
     db
       .select({
         month: deal.accrualMonth,
-        sales: sql<string>`coalesce(sum(${deal.salesAmountNet}), 0)::text`,
-        purchase: sql<string>`coalesce(sum(${deal.purchaseAmountNet}), 0)::text`,
+        sales: sql<string>`coalesce(sum(${salesGross}), 0)::text`,
+        purchase: sql<string>`coalesce(sum(${purchaseGross}), 0)::text`,
+        salesNet: sql<string>`coalesce(sum(${deal.salesAmountNet}), 0)::text`,
+        purchaseNet: sql<string>`coalesce(sum(${deal.purchaseAmountNet}), 0)::text`,
       })
       .from(deal)
       .where(and(isNull(deal.deletedAt), eq(deal.accrualYear, year)))
@@ -56,7 +65,8 @@ export async function getSalesLedger({ year }: { year: number }): Promise<Ledger
     db
       .select({
         month: sql<number>`extract(month from ${deal.salesPaidDate})::int`,
-        sales: sql<string>`coalesce(sum(${deal.salesAmountNet}), 0)::text`,
+        sales: sql<string>`coalesce(sum(${salesGross}), 0)::text`,
+        salesNet: sql<string>`coalesce(sum(${deal.salesAmountNet}), 0)::text`,
       })
       .from(deal)
       .where(
@@ -69,7 +79,8 @@ export async function getSalesLedger({ year }: { year: number }): Promise<Ledger
     db
       .select({
         month: sql<number>`extract(month from ${deal.purchasePaidDate})::int`,
-        purchase: sql<string>`coalesce(sum(${deal.purchaseAmountNet}), 0)::text`,
+        purchase: sql<string>`coalesce(sum(${purchaseGross}), 0)::text`,
+        purchaseNet: sql<string>`coalesce(sum(${deal.purchaseAmountNet}), 0)::text`,
       })
       .from(deal)
       .where(
@@ -98,7 +109,6 @@ export async function getSalesLedger({ year }: { year: number }): Promise<Ledger
       .from(expenseCategory)
       .where(sql`${expenseCategory.costGroup} <> 'excluded'`)
       .orderBy(asc(expenseCategory.displayOrder)),
-    db.select().from(ledgerOverride).where(eq(ledgerOverride.year, year)),
   ])
 
   const months: LedgerMonth[] = Array.from({ length: 12 }, (_, i) => ({
@@ -107,8 +117,10 @@ export async function getSalesLedger({ year }: { year: number }): Promise<Ledger
     salesAccrual: 0,
     cogsCash: 0,
     cogsAccrual: 0,
-    salesAccrualOverridden: false,
-    cogsAccrualOverridden: false,
+    salesCashNet: 0,
+    salesAccrualNet: 0,
+    cogsCashNet: 0,
+    cogsAccrualNet: 0,
     expenses: {},
   }))
   const at = (m: number | null) => (m && m >= 1 && m <= 12 ? months[m - 1] : null)
@@ -118,33 +130,28 @@ export async function getSalesLedger({ year }: { year: number }): Promise<Ledger
     if (!slot) continue
     slot.salesAccrual = num(r.sales)
     slot.cogsAccrual = num(r.purchase)
+    slot.salesAccrualNet = num(r.salesNet)
+    slot.cogsAccrualNet = num(r.purchaseNet)
   }
   for (const r of cashSales) {
     const slot = at(r.month)
-    if (slot) slot.salesCash = num(r.sales)
+    if (slot) {
+      slot.salesCash = num(r.sales)
+      slot.salesCashNet = num(r.salesNet)
+    }
   }
   for (const r of cashPurchase) {
     const slot = at(r.month)
-    if (slot) slot.cogsCash = num(r.purchase)
+    if (slot) {
+      slot.cogsCash = num(r.purchase)
+      slot.cogsCashNet = num(r.purchaseNet)
+    }
   }
   for (const r of expenseRows) {
     const slot = at(r.month)
     if (!slot || r.categoryId == null) continue
     slot.expenses[r.categoryId] = (slot.expenses[r.categoryId] ?? 0) + num(r.amount)
   }
-  // 수기 override 적용 — 파생 행(손익·영업이익·당기순이익)도 이 값 기준으로 계산됨
-  for (const o of overrides) {
-    const slot = at(o.month)
-    if (!slot) continue
-    if (o.field === 'sales_accrual') {
-      slot.salesAccrual = num(o.amount)
-      slot.salesAccrualOverridden = true
-    } else {
-      slot.cogsAccrual = num(o.amount)
-      slot.cogsAccrualOverridden = true
-    }
-  }
-
   return { year, categories, months }
 }
 
@@ -153,10 +160,6 @@ export async function getSalesLedger({ year }: { year: number }): Promise<Ledger
 export type LedgerLine = {
   key: string
   label: string
-  /** 수기 입력 가능 행 — 셀 편집 대상 필드명 */
-  editableField?: 'sales_accrual' | 'cogs_accrual'
-  /** 월별 수기 입력 여부 (editableField 행만) */
-  overridden?: boolean[]
   /** 들여쓰기 수준: 0 주요 행, 1 소계, 2 과목 */
   level: 0 | 1 | 2
   /** 강조 스타일 */
@@ -179,6 +182,11 @@ export function buildLedgerLines(report: LedgerReport): LedgerLine[] {
   const salesAccrual = months.map((m) => m.salesAccrual)
   const cogsCash = months.map((m) => m.cogsCash)
   const cogsAccrual = months.map((m) => m.cogsAccrual)
+  // 손익은 공급가 기준 (2026-09-15 고객 확정)
+  const salesCashNet = months.map((m) => m.salesCashNet)
+  const salesAccrualNet = months.map((m) => m.salesAccrualNet)
+  const cogsCashNet = months.map((m) => m.cogsCashNet)
+  const cogsAccrualNet = months.map((m) => m.cogsAccrualNet)
 
   const fixed = byGroup('fixed')
   const variable = byGroup('variable')
@@ -189,23 +197,20 @@ export function buildLedgerLines(report: LedgerReport): LedgerLine[] {
   const sgna = fixedTotal.map((v, i) => v + variableTotal[i])
   const nonOpTotal = sumOf(nonOp.map((c) => c.id))
 
-  const grossCash = sub(salesCash, cogsCash)
-  const grossAccrual = sub(salesAccrual, cogsAccrual)
+  const grossCash = sub(salesCashNet, cogsCashNet)
+  const grossAccrual = sub(salesAccrualNet, cogsAccrualNet)
   const opCash = sub(grossCash, sgna)
   const opAccrual = sub(grossAccrual, sgna)
   const netCash = sub(opCash, nonOpTotal)
   const netAccrual = sub(opAccrual, nonOpTotal)
   const tithe = opCash.map((v) => v * 0.1)
 
-  const salesOv = months.map((m) => m.salesAccrualOverridden)
-  const cogsOv = months.map((m) => m.cogsAccrualOverridden)
-
   const lines: LedgerLine[] = [
     { key: 'sales_cash', label: '총매출(통장)', level: 0, tone: 'sales', values: salesCash },
-    { key: 'sales_accrual', label: '총매출(귀속월)', level: 0, tone: 'sales', values: salesAccrual, editableField: 'sales_accrual', overridden: salesOv },
+    { key: 'sales_accrual', label: '총매출(귀속월)', level: 0, tone: 'sales', values: salesAccrual },
     // 매출원가 2행은 총매출(귀속월) 바로 아래 통장→귀속월 순으로 묶음 (2026-09-07 피드백)
     { key: 'cogs_cash', label: '(매출원가)_통장', level: 2, tone: 'muted', values: cogsCash, pctBase: salesCash },
-    { key: 'cogs_accrual', label: '(매출원가)_귀속월', level: 2, tone: 'muted', values: cogsAccrual, pctBase: salesAccrual, editableField: 'cogs_accrual', overridden: cogsOv },
+    { key: 'cogs_accrual', label: '(매출원가)_귀속월', level: 2, tone: 'muted', values: cogsAccrual, pctBase: salesAccrual },
     { key: 'gross_cash', label: '손익(통장)', level: 0, tone: 'profit', values: grossCash, pctBase: salesCash },
     { key: 'gross_accrual', label: '손익(귀속월)', level: 0, tone: 'profit', values: grossAccrual, pctBase: salesAccrual },
     { key: 'op_cash', label: '영업이익(통장)', level: 0, tone: 'operating', values: opCash, pctBase: salesCash },
