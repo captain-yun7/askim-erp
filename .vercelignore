@@ -1,0 +1,7 @@
+_docs
+pgdata
+test-results
+docker
+e2e
+scripts
+*.xlsx
