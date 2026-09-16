@@ -66,3 +66,33 @@ test('토글 결과가 refresh 없이 화면·DB에 반영된다', async ({ page
     .poll(async () => (await page.locator('tbody tr button[title*="클릭하면"]').first().innerText()).trim(), { timeout: 10_000 })
     .toBe(before)
 })
+
+test('서버 응답이 2초 걸려도 토글은 즉시 반영된다 (낙관적 업데이트)', async ({ page }) => {
+  await login(page)
+  await page.goto('/deals?year=2026')
+  await page.waitForSelector('tbody tr')
+
+  // 운영(한국↔버지니아) 왕복을 흉내내 서버액션 응답을 2초 지연
+  await page.route('**/deals?*', async (route) => {
+    if (route.request().method() === 'POST') await new Promise((r) => setTimeout(r, 2000))
+    await route.continue()
+  })
+
+  const toggle = page.locator('tbody tr button[title*="클릭하면"]').first()
+  const before = (await toggle.innerText()).trim()
+  const t0 = Date.now()
+  await toggle.click()
+  await expect
+    .poll(async () => (await toggle.innerText()).trim(), { timeout: 5000, intervals: [10] })
+    .not.toBe(before)
+  const flipMs = Date.now() - t0
+  console.log(`OPTIMISTIC_FLIP_MS ${flipMs}`)
+  expect(flipMs).toBeLessThan(500) // 서버 2초 지연에도 즉시 반영
+
+  // 서버 응답 후에도 상태 유지 + 원복
+  await page.waitForTimeout(3000)
+  const after = (await toggle.innerText()).trim()
+  expect(after).not.toBe(before)
+  await toggle.click()
+  await expect.poll(async () => (await toggle.innerText()).trim(), { timeout: 8000 }).toBe(before)
+})

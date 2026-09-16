@@ -36,7 +36,11 @@ test('행위가 감사 로그에 순서대로 기록되고 필터가 동작한�
   const row = page.locator('tbody tr').first()
   await row.locator('td:nth-child(9) button').click()
   await row.locator('td:nth-child(9) input').fill('2000000')
-  await row.locator('td:nth-child(9) input').press('Enter')
+  // 낙관적 업데이트라 화면은 즉시 바뀐다 — 서버 저장 완료(서버액션 응답)까지 기다린 뒤 이동
+  await Promise.all([
+    page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/deals'),
+    row.locator('td:nth-child(9) input').press('Enter'),
+  ])
   await expect(row.locator('td:nth-child(9)')).toHaveText(/2,000,000/)
 
   await page.goto('/admin/audit')
