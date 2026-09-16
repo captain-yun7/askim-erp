@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -47,7 +46,6 @@ export function ExpenseRowActions({
   canEdit: boolean
   canDelete: boolean
 }) {
-  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [pending, start] = useTransition()
   const [form, setForm] = useState({
@@ -71,7 +69,6 @@ export function ExpenseRowActions({
       }
       toast.success('수정되었습니다')
       setOpen(false)
-      router.refresh()
     })
   }
 
@@ -84,7 +81,6 @@ export function ExpenseRowActions({
         return
       }
       toast.success('삭제되었습니다')
-      router.refresh()
     })
   }
 

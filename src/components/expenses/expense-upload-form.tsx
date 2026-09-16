@@ -75,7 +75,6 @@ export function ExpenseUploadForm({ categories }: { categories: { id: number; na
       }
       toast.success(`${res.inserted.toLocaleString()}건 등록${res.skipped ? ` · 중복 ${res.skipped}건 제외` : ''}`)
       router.push('/expenses')
-      router.refresh()
     })
   }
 
