@@ -84,6 +84,8 @@ export async function autoCreateFromDeals(wb: ReturnType<typeof loadWorkbook>) {
         if (/^\d{4}\.\s*\d+월/.test(name)) continue
         const key = counterpartyKey(name)
         if (existingKeys.has(key) || existingNames.has(name)) continue
+        // ERP 에서 개명된 거래처("AK부동산" → "성수나우(AK부동산)")는 새로 만들지 않음
+        if (existing.some((c) => c.name.includes(name))) { console.log(`   ↷ 건너뜀(개명된 거래처로 보임): ${name}`); continue }
         if (!mentionedSet.has(key)) mentionedSet.set(key, name)
       }
     }

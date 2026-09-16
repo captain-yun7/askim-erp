@@ -31,7 +31,11 @@ async function mergeCounterparties() {
   const existing = await db.select({ name: counterparty.name }).from(counterparty)
   const keys = new Set(existing.map((c) => counterpartyKey(c.name)))
   const names = new Set(existing.map((c) => c.name))
-  const fresh = parseMaster(sheetToRows(wb, '거래처관리')).filter((r) => !names.has(r.name) && !keys.has(counterpartyKey(r.name)))
+  // ERP 에서 거래처명을 바꾼 경우("AK부동산" → "성수나우(AK부동산)") 엑셀 옛 이름이 신규로 잡히므로, 기존 이름에 포함되는 이름은 만들지 않고 보고만 한다
+  const renamed = (name: string) => existing.find((c) => c.name !== name && c.name.includes(name))?.name
+  const candidates = parseMaster(sheetToRows(wb, '거래처관리')).filter((r) => !names.has(r.name) && !keys.has(counterpartyKey(r.name)))
+  const fresh = candidates.filter((r) => !renamed(r.name))
+  for (const r of candidates.filter((r) => renamed(r.name))) console.log(`[거래처] 건너뜀(ERP 에서 개명된 것으로 보임): ${r.name} → ${renamed(r.name)}`)
   console.log(`[거래처] 거래처관리 신규 ${fresh.length}건: ${fresh.map((r) => r.name).join(', ') || '-'}`)
   if (!DRY && fresh.length) await db.insert(counterparty).values(fresh)
   if (!DRY) {
@@ -50,12 +54,16 @@ async function mergeDeals() {
   const toInsert = xl.filter((r) => !dbBy.has(r.dealCode))
   let updated = 0
   const conflicts: string[] = []
+  const unlinkSkipped: string[] = []
   const updates: { id: string; set: Rec; line: string }[] = []
   for (const x of xl) {
     const d = dbBy.get(x.dealCode)
     if (!d) continue
     if (d.deletedAt) continue // ERP 에서 삭제한 거래는 되살리지 않음
     let diff = FIELDS.filter((f) => norm((x as Rec)[f]) !== norm((d as Rec)[f]))
+    // 거래처 FK 가 엑셀 쪽에서 null 이 되는 건 대개 ERP 개명으로 이름 매칭이 실패한 것 → 끊지 않는다
+    const unlink = diff.filter((f) => f.endsWith('CounterpartyId') && (x as Rec)[f] == null && (d as Rec)[f] != null)
+    if (unlink.length) { unlinkSkipped.push(`${x.dealCode}: ${unlink.join(', ')}`); diff = diff.filter((f) => !unlink.includes(f)) }
     if (!diff.length) continue
     const erpEdited = d.updatedAt.getTime() - d.createdAt.getTime() > 120_000
     if (erpEdited && CONFLICT_SAFE) {
@@ -74,6 +82,7 @@ async function mergeDeals() {
   console.log(`  추가 ${toInsert.length}건: ${toInsert.map((r) => r.dealCode).join(' ')}`)
   console.log(`  갱신 ${updates.length}건`)
   for (const u of updates.slice(0, 5)) console.log('    ' + u.line.slice(0, 160))
+  if (unlinkSkipped.length) console.log(`  거래처 연결 해제 건너뜀 ${unlinkSkipped.length}건: ${unlinkSkipped.join(' / ')}`)
   console.log(`  충돌(ERP 수정분, 건너뜀) ${conflicts.length}건`)
   for (const c of conflicts) console.log('    ⚠ ' + c.slice(0, 200))
   const onlyDb = dbRows.filter((r) => !xl.some((x) => x.dealCode === r.dealCode))
