@@ -1,7 +1,7 @@
 import './_env'
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
-import { counterparty, deal, expense } from '@/lib/db/schema'
+import { counterparty, deal, dealFieldChange, expense } from '@/lib/db/schema'
 import { dupKey } from '@/lib/expense-upload'
 import { counterpartyKey, loadWorkbook, sheetToRows } from './import-utils'
 import { parseMaster, autoCreateFromDeals } from './import-counterparties'
@@ -12,13 +12,15 @@ import { parseAllExpenses } from './import-expenses'
  * 병합 적재 — 엑셀(XLSX_FILE)을 현재 DB 위에 덮어쓰지 않고 합친다 (2026-09-15~, 베타 이후 표준)
  *   - 거래처: 거래처관리 시트·거래시트에서 미등록 상호만 추가, 보증금 재연결
  *   - 거래: 거래코드 기준 upsert. ERP 직접 등록분(엑셀에 없음)·삭제분은 보존.
- *            ERP 에서 수정한 적 있는 행(updated_at > created_at+2분)은 엑셀값과 다르면 충돌로 보고 건너뜀 (CONFLICT=xl 이면 엑셀 우선)
+ *            ERP 에서 수정한 적 있는 행(updated_at > created_at+2분)은 엑셀값과 다르면 충돌로 보고 건너뜀
+ *            CONFLICT=xl 이면 엑셀 우선, CONFLICT=safe 면 ERP 에서 손댄 필드(deal_field_change)만 남기고 나머지 필드는 엑셀값 적용
  *   - 판관비: dupKey(일자|금액|품목|거래처) 기준 미존재 행만 추가. DB 에만 있는 행 보존
  *   DRY_RUN=1 이면 쓰기 없음.
  *     DRY_RUN=1 XLSX_FILE=... npx tsx scripts/merge-import.ts
  */
 const DRY = process.env.DRY_RUN === '1'
 const CONFLICT_XL = process.env.CONFLICT === 'xl'
+const CONFLICT_SAFE = process.env.CONFLICT === 'safe'
 
 const FIELDS = ['accrualYear','accrualMonth','ownerUserId','categoryId','accountId','currency','salesMethodId','issuerCounterpartyId','advertiserName','itemName','adStart','adEnd','salesAmountNet','salesVat','salesAmountGross','salesDueDate','salesPaidDate','salesPaidStatus','salesInvoiceDate','salesMemo','supplierCounterpartyId','settlementYear','settlementMonth','purchasePricingRaw','purchaseAmountNet','purchaseVat','purchaseAmountGross','purchaseDueDate','purchasePaidDate','purchasePaidStatus','purchaseInvoiceDate','purchaseMemo'] as const
 const norm = (v: unknown) => (v == null || v === '' ? null : /^-?\d+(\.\d+)?$/.test(String(v)) ? String(Math.round(Number(v) * 100) / 100) : String(v))
@@ -43,6 +45,8 @@ async function mergeDeals() {
   const { rows: xl, warnings } = await parseAllDeals()
   const dbRows = await db.select().from(deal)
   const dbBy = new Map(dbRows.map((r) => [r.dealCode, r]))
+  const touched = new Map<string, Set<string>>() // dealId → ERP 에서 수정한 필드
+  for (const c of await db.select({ dealId: dealFieldChange.dealId, field: dealFieldChange.field }).from(dealFieldChange)) (touched.get(c.dealId) ?? touched.set(c.dealId, new Set()).get(c.dealId)!).add(c.field)
   const toInsert = xl.filter((r) => !dbBy.has(r.dealCode))
   let updated = 0
   const conflicts: string[] = []
@@ -51,11 +55,17 @@ async function mergeDeals() {
     const d = dbBy.get(x.dealCode)
     if (!d) continue
     if (d.deletedAt) continue // ERP 에서 삭제한 거래는 되살리지 않음
-    const diff = FIELDS.filter((f) => norm((x as Rec)[f]) !== norm((d as Rec)[f]))
+    let diff = FIELDS.filter((f) => norm((x as Rec)[f]) !== norm((d as Rec)[f]))
     if (!diff.length) continue
-    const line = `${x.dealCode}: ${diff.map((f) => `${f} ${norm((d as Rec)[f]) ?? '-'}→${norm((x as Rec)[f]) ?? '-'}`).join(', ')}`
     const erpEdited = d.updatedAt.getTime() - d.createdAt.getTime() > 120_000
-    if (erpEdited && !CONFLICT_XL) { conflicts.push(line); continue }
+    if (erpEdited && CONFLICT_SAFE) {
+      const keep = diff.filter((f) => touched.get(d.id)?.has(f))
+      if (keep.length) conflicts.push(`${x.dealCode}: ERP 값 유지 → ${keep.map((f) => `${f} ${norm((d as Rec)[f]) ?? '-'} (엑셀 ${norm((x as Rec)[f]) ?? '-'})`).join(', ')}`)
+      diff = diff.filter((f) => !touched.get(d.id)?.has(f))
+      if (!diff.length) continue
+    }
+    const line = `${x.dealCode}: ${diff.map((f) => `${f} ${norm((d as Rec)[f]) ?? '-'}→${norm((x as Rec)[f]) ?? '-'}`).join(', ')}`
+    if (erpEdited && !CONFLICT_XL && !CONFLICT_SAFE) { conflicts.push(line); continue }
     const set: Rec = Object.fromEntries(diff.map((f) => [f, (x as Rec)[f] ?? null]))
     set.updatedAt = d.updatedAt // 적재는 사용자 수정이 아니므로 갱신시각·하이라이트 유지 안 함
     updates.push({ id: d.id, set, line })
@@ -79,7 +89,7 @@ async function mergeDeals() {
 
 async function mergeExpenses() {
   const { corporate, personal } = await parseAllExpenses()
-  const all = [...corporate, ...personal]
+  const all = [...corporate, ...personal].map((r) => ({ ...r, itemName: r.itemName ?? null, counterpartyText: r.counterpartyText ?? null }))
   const dbRows = await db.select({ expenseDate: expense.expenseDate, amount: expense.amount, itemName: expense.itemName, counterpartyText: expense.counterpartyText }).from(expense)
   // 동일 키(같은 날 같은 금액·품목·거래처)가 정당하게 여러 건일 수 있으므로 개수 기준(multiset) 차이만 추가
   const have = new Map<string, number>()
