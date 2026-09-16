@@ -13,6 +13,7 @@ import {
   canEditDealAmounts,
   getSessionUser,
 } from '@/server/auth/guards'
+import { autoNumberDealCode } from '@/server/deal-code'
 import { recordDealChanges } from '@/server/deal-changes'
 import { audit, diffFields } from '@/server/audit'
 
@@ -94,30 +95,6 @@ const dealSchema = z.object({
 
 export type DealInput = z.infer<typeof dealSchema>
 
-/** 거래코드 자동 채번: [prefix][YYMMDD][-N] */
-async function autoNumberDealCode(ownerId: string | null | undefined): Promise<string> {
-  let prefix = 'XX'
-  if (ownerId) {
-    const [u] = await db
-      .select({ p: users.dealCodePrefix })
-      .from(users)
-      .where(eq(users.id, ownerId))
-      .limit(1)
-    if (u?.p) prefix = u.p
-  }
-  const now = new Date()
-  const yymmdd = `${String(now.getFullYear()).slice(2)}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
-  const base = `${prefix}${yymmdd}`
-
-  // 같은 base 가진 거래 개수
-  const [{ c }] = await db
-    .select({ c: sql<number>`count(*)::int` })
-    .from(deal)
-    .where(sql`${deal.dealCodeBase} = ${base}`)
-  if (c === 0) return base
-  return `${base}-${c + 1}`
-}
-
 export async function createDeal(raw: unknown) {
   const user = await getSessionUser()
   if (!user) return { error: '로그인 필요' }
@@ -129,24 +106,28 @@ export async function createDeal(raw: unknown) {
   const data = parsed.data
   // 영업은 본인 거래만 등록 (담당자 강제)
   if (user.role === 'sales') data.ownerUserId = user.id
-  const dealCode = data.dealCode?.trim() || (await autoNumberDealCode(data.ownerUserId))
+  const manualCode = data.dealCode?.trim() || null
 
   try {
-    const [row] = await db
-      .insert(deal)
-      .values({
-        ...data,
-        dealCode,
-        createdBy: user.id,
-        updatedBy: user.id,
-      })
-      .returning({ id: deal.id, dealCode: deal.dealCode })
+    const row = await db.transaction(async (tx) => {
+      const dealCode = manualCode ?? (await autoNumberDealCode(tx, data.ownerUserId))
+      const [r] = await tx
+        .insert(deal)
+        .values({
+          ...data,
+          dealCode,
+          createdBy: user.id,
+          updatedBy: user.id,
+        })
+        .returning({ id: deal.id, dealCode: deal.dealCode })
+      return r
+    })
     revalidatePath('/deals')
     await audit({ action: 'deal.create', targetType: 'deal', targetId: row.id, targetLabel: row.dealCode, summary: `거래 등록 ${row.dealCode}` })
     return { ok: true, deal: row }
   } catch (e) {
     if (e instanceof Error && e.message.includes('unique')) {
-      return { error: `거래코드 중복: ${dealCode}` }
+      return { error: manualCode ? `거래코드 중복: ${manualCode}` : '거래코드 중복 — 다시 시도해 주세요' }
     }
     return { error: e instanceof Error ? e.message : '저장 실패' }
   }
