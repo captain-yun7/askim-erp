@@ -66,13 +66,11 @@ type InlineField =
   | 'purchasePaidDate'
 
 function useInlineSave(dealId: string) {
-  const router = useRouter()
   const [pending, start] = useTransition()
   function save(field: InlineField, value: string | number | null) {
     start(async () => {
       const res = await updateDealInline(dealId, { field, value })
       if ('error' in res) toast.error(res.error)
-      else router.refresh()
     })
   }
   return { pending, save }
@@ -195,7 +193,6 @@ function InlineDate({
 
 /** 귀속연월 인라인 편집 — 'YY/M' 표시, 클릭 → 'YYYY-MM' 입력 (2026-09-14 피드백) */
 function InlineAccrual({ dealId, year, month, enabled }: { dealId: string; year: number; month: number; enabled: boolean }) {
-  const router = useRouter()
   const [pending, start] = useTransition()
   const [editing, setEditing] = useState(false)
   const text = `${String(year).slice(2)}/${month}`
@@ -216,7 +213,6 @@ function InlineAccrual({ dealId, year, month, enabled }: { dealId: string; year:
           start(async () => {
             const res = await updateDealInline(dealId, { field: 'accrual', value: next })
             if ('error' in res) toast.error(res.error)
-            else router.refresh()
           })
         }}
         onKeyDown={(e) => {
@@ -248,7 +244,6 @@ function PaidToggle({
   todoLabel: string
   enabled: boolean
 }) {
-  const router = useRouter()
   const [pending, start] = useTransition()
   if (!enabled) return <StatusPill done={done} doneLabel={doneLabel} todoLabel={todoLabel} />
   return (
@@ -261,7 +256,6 @@ function PaidToggle({
         start(async () => {
           const res = await toggleDealPaid(dealId, side)
           if ('error' in res) toast.error(res.error)
-          else router.refresh()
         })
       }
     >
@@ -350,6 +344,7 @@ function ColumnFilterInput({
   align?: 'right'
 }) {
   const router = useRouter()
+
   return (
     <input
       aria-label={`${param} 검색`}
@@ -378,6 +373,7 @@ function ColumnFilterSelect({
   options: { value: string; label: string }[]
 }) {
   const router = useRouter()
+
   return (
     <select
       aria-label={`${param} 검색`}

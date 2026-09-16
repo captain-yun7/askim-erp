@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -29,7 +28,6 @@ export function DealQuickAdd({
   defaultYear: number
   defaultMonth: number
 }) {
-  const router = useRouter()
   const [pending, start] = useTransition()
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState(() => ({
@@ -72,7 +70,6 @@ export function DealQuickAdd({
       else {
         toast.success(`거래 등록: ${'deal' in res && res.deal ? res.deal.dealCode : ''}`)
         set({ issuerCounterpartyId: null, supplierCounterpartyId: null, itemName: '', salesAmountNet: '', purchaseAmountNet: '' })
-        router.refresh()
       }
     })
   }
