@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -10,7 +9,6 @@ import { saveChangeHighlightDays } from '@/server/actions/app-settings'
 
 /** 관리자 홈 — 최근 수정 칸 음영 기간 설정 */
 export function HighlightDaysSetting({ current }: { current: number }) {
-  const router = useRouter()
   const [value, setValue] = useState(String(current))
   const [pending, start] = useTransition()
   const dirty = value.trim() !== String(current)
@@ -23,7 +21,6 @@ export function HighlightDaysSetting({ current }: { current: number }) {
         return
       }
       toast.success(`수정 표시 기간이 ${res.days}일로 저장되었습니다`)
-      router.refresh()
     })
   }
 

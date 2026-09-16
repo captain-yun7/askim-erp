@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -14,7 +13,6 @@ export function ProfileForm({
 }: {
   initial: { name: string; email: string; role: string; team?: string }
 }) {
-  const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [name, setName] = useState(initial.name)
   const [currentPassword, setCurrentPassword] = useState('')
@@ -30,7 +28,6 @@ export function ProfileForm({
       toast.success('프로필이 저장되었습니다')
       setCurrentPassword('')
       setNewPassword('')
-      router.refresh()
     })
   }
 

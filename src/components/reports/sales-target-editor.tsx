@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -19,7 +18,6 @@ export function SalesTargetEditor({
   rows: Row[]
   onDone: () => void
 }) {
-  const router = useRouter()
   const [pending, start] = useTransition()
   const [state, setState] = useState(
     rows.map((r) => ({ ...r, priority: r.priority ?? '', target: String(r.target || '') })),
@@ -47,7 +45,6 @@ export function SalesTargetEditor({
           else {
             toast.success('매출목표 저장')
             onDone()
-            router.refresh()
           }
         })
       }}

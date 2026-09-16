@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -16,7 +15,6 @@ export function AnnualTargetForm({
   initial: number | null
   editable: boolean
 }) {
-  const router = useRouter()
   const [pending, start] = useTransition()
   const [value, setValue] = useState(initial != null ? String(initial) : '')
 
@@ -35,7 +33,6 @@ export function AnnualTargetForm({
           if ('error' in res) toast.error(res.error)
           else {
             toast.success('연 목표매출 저장')
-            router.refresh()
           }
         })
       }}

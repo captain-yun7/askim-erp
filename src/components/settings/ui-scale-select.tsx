@@ -1,13 +1,11 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useOptimistic, useTransition } from 'react'
 import { UI_SCALES, type UiScale } from '@/lib/ui-scale'
 import { setUiScaleAction } from '@/server/actions/ui-scale'
 import { cn } from '@/lib/utils'
 
 export function UiScaleSelect({ current }: { current: UiScale }) {
-  const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [value, setValue] = useOptimistic(current)
 
@@ -15,7 +13,6 @@ export function UiScaleSelect({ current }: { current: UiScale }) {
     startTransition(async () => {
       setValue(next)
       await setUiScaleAction(next)
-      router.refresh()
     })
   }
 

@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useRef, useState, useTransition } from 'react'
 import { Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -25,7 +24,6 @@ export function CashBalanceEditor({
   rows: { id: number; label: string; amountKrw: number; amountFx: number | null; fxCurrency: string | null }[]
   onDone: () => void
 }) {
-  const router = useRouter()
   const [pending, start] = useTransition()
   const [date, setDate] = useState(asOf ?? new Date().toISOString().slice(0, 10))
   const [fx, setFx] = useState(fxRateUsd != null ? String(fxRateUsd) : '')
@@ -99,7 +97,6 @@ export function CashBalanceEditor({
           else {
             toast.success('계좌 잔액 저장')
             onDone()
-            router.refresh()
           }
         })
       }}
