@@ -46,7 +46,7 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
       <div>
         <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">매출장표</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          {year}년 {title} · 총매출·매출원가는 VAT 포함, 손익·영업이익·당기순이익은 공급가 기준
+          {year}년 {title} · 총매출·매출원가·손익 모두 VAT 포함 (엑셀 매출장표와 동일 기준)
         </p>
       </div>
 

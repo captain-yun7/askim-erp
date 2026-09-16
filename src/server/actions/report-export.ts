@@ -49,7 +49,7 @@ export async function exportLedgerXlsx({ year }: { year: number }): Promise<Xlsx
     sum(ln.values, 6, 12),
     sum(ln.values, 0, 12),
   ])
-  const note: Cell[][] = [[`${year}년 매출장표 · 총매출·매출원가 VAT 포함, 손익·영업이익·당기순이익 공급가 기준 · 통장=입금·지급일, 귀속월=발생주의`], []]
+  const note: Cell[][] = [[`${year}년 매출장표 · 총매출·매출원가·손익 VAT 포함 (엑셀 매출장표와 동일) · 통장=입금·지급일, 귀속월=발생주의`], []]
   const filename = `매출장표_${year}.xlsx`
   await audit({ action: 'export.xlsx', targetType: 'export', targetLabel: filename, summary: `엑셀 다운로드 ${filename}` })
   return { ok: true, filename, base64: toXlsx([{ name: '매출장표', rows: [...note, header, ...rows], widths: [22, ...Array(15).fill(14)] }]) }

@@ -12,7 +12,8 @@ import type { CostGroup } from '@/lib/cost-groups'
  * 판관비 외   = 세금 등 non_operating → 당기순이익에서 차감
  * 십일조      = 영업이익(통장) × 10%
  *
- * 금액 기준 (2026-09-15 고객 확정): 총매출·매출원가는 VAT 포함(총매출금·총매입금), 손익은 공급가(매출금 − 매입금).
+ * 금액 기준: 총매출·매출원가·손익 모두 VAT 포함 — 엑셀 매출장표 수식(손익 = 총매출 − 매출원가, 둘 다 부가세포함)과 동일 (2026-09-16 엑셀 대조로 확정).
+ *   공급가(Net) 값은 참고용으로만 보관. 거래별·TOP 거래처 손익은 별도(공급가).
  * 귀속월 수기 덮어쓰기(ledger_override)는 폐지 — 엑셀 수식과 같이 자동 집계만 사용.
  */
 
@@ -184,11 +185,6 @@ export function buildLedgerLines(report: LedgerReport): LedgerLine[] {
   const salesAccrual = months.map((m) => m.salesAccrual)
   const cogsCash = months.map((m) => m.cogsCash)
   const cogsAccrual = months.map((m) => m.cogsAccrual)
-  // 손익은 공급가 기준 (2026-09-15 고객 확정)
-  const salesCashNet = months.map((m) => m.salesCashNet)
-  const salesAccrualNet = months.map((m) => m.salesAccrualNet)
-  const cogsCashNet = months.map((m) => m.cogsCashNet)
-  const cogsAccrualNet = months.map((m) => m.cogsAccrualNet)
 
   const fixed = byGroup('fixed')
   const variable = byGroup('variable')
@@ -199,8 +195,9 @@ export function buildLedgerLines(report: LedgerReport): LedgerLine[] {
   const sgna = fixedTotal.map((v, i) => v + variableTotal[i])
   const nonOpTotal = sumOf(nonOp.map((c) => c.id))
 
-  const grossCash = sub(salesCashNet, cogsCashNet)
-  const grossAccrual = sub(salesAccrualNet, cogsAccrualNet)
+  // 손익 = 총매출 − 매출원가 (VAT 포함, 엑셀 C8=C6-C10 과 동일)
+  const grossCash = sub(salesCash, cogsCash)
+  const grossAccrual = sub(salesAccrual, cogsAccrual)
   const opCash = sub(grossCash, sgna)
   const opAccrual = sub(grossAccrual, sgna)
   const netCash = sub(opCash, nonOpTotal)
