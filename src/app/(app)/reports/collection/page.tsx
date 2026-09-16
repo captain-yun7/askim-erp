@@ -111,7 +111,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
         <div>
           <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">월별 수금결산</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {year}년 · 예정(입금·결산예정일 기준) / 수금·결산(입금·지급일 기준) / 미수·미결산
+            {year}년 · 예정(입금·결산예정일 기준) / 수금·결산(입금·지급일 기준, 완료 건) / 미수·미결산 · 금액은 VAT 포함
           </p>
         </div>
         <div className="flex items-center gap-2">

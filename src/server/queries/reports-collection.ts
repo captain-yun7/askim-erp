@@ -9,6 +9,8 @@ import { annualPlan, deal } from '@/lib/db/schema'
  * 수금/결산  = 입금일(지급일) 월 기준 합계 (통장 기준)
  * 미수/미결산 = 예정월에 속하면서 아직 입금(지급)되지 않은 금액
  * 달성율     = 수금 / 월 목표매출(연 목표 ÷ 12), 소계는 총수금 / 연 목표
+ * 금액       = VAT 포함(총매출금·총매입금) — 엑셀 '월별 수금,결산' 시트가 AB/AH(부가세포함) 열을 합산 (2026-09-16 고객 지적으로 공급가 → VAT 포함 전환)
+ * 수금/결산  = 입금여부/결산여부 '완료' 인 건만 (엑셀 SUMIFS 조건과 동일)
  */
 
 export type CollectionMonth = {
@@ -42,13 +44,15 @@ export async function getMonthlyCollection({ year }: { year: number }): Promise<
   // 매입 예정: 결산연월 우선, 없으면 결산예정일
   const settleYear = sql`coalesce(${deal.settlementYear}, extract(year from ${deal.purchaseDueDate})::int)`
   const settleMonth = sql<number>`coalesce(${deal.settlementMonth}, extract(month from ${deal.purchaseDueDate})::int)`
+  const salesGross = sql`coalesce(${deal.salesAmountGross}, ${deal.salesAmountNet})`
+  const purchaseGross = sql`coalesce(${deal.purchaseAmountGross}, ${deal.purchaseAmountNet})`
 
   const [salesPlanned, salesCollected, purchasePlanned, purchaseSettled, [plan]] = await Promise.all([
     db
       .select({
         month: monthOf(deal.salesDueDate),
-        planned: sql<string>`coalesce(sum(${deal.salesAmountNet}), 0)::text`,
-        outstanding: sql<string>`coalesce(sum(${deal.salesAmountNet}) filter (where ${deal.salesPaidStatus} <> 'completed'), 0)::text`,
+        planned: sql<string>`coalesce(sum(${salesGross}), 0)::text`,
+        outstanding: sql<string>`coalesce(sum(${salesGross}) filter (where ${deal.salesPaidStatus} <> 'completed'), 0)::text`,
       })
       .from(deal)
       .where(byMonth(deal.salesDueDate, year))
@@ -56,16 +60,16 @@ export async function getMonthlyCollection({ year }: { year: number }): Promise<
     db
       .select({
         month: monthOf(deal.salesPaidDate),
-        amount: sql<string>`coalesce(sum(${deal.salesAmountNet}), 0)::text`,
+        amount: sql<string>`coalesce(sum(${salesGross}), 0)::text`,
       })
       .from(deal)
-      .where(byMonth(deal.salesPaidDate, year))
+      .where(and(byMonth(deal.salesPaidDate, year), eq(deal.salesPaidStatus, 'completed')))
       .groupBy(monthOf(deal.salesPaidDate)),
     db
       .select({
         month: settleMonth,
-        planned: sql<string>`coalesce(sum(${deal.purchaseAmountNet}), 0)::text`,
-        outstanding: sql<string>`coalesce(sum(${deal.purchaseAmountNet}) filter (where ${deal.purchasePaidStatus} <> 'completed'), 0)::text`,
+        planned: sql<string>`coalesce(sum(${purchaseGross}), 0)::text`,
+        outstanding: sql<string>`coalesce(sum(${purchaseGross}) filter (where ${deal.purchasePaidStatus} <> 'completed'), 0)::text`,
       })
       .from(deal)
       .where(and(isNull(deal.deletedAt), sql`${settleYear} = ${year}`))
@@ -73,10 +77,10 @@ export async function getMonthlyCollection({ year }: { year: number }): Promise<
     db
       .select({
         month: monthOf(deal.purchasePaidDate),
-        amount: sql<string>`coalesce(sum(${deal.purchaseAmountNet}), 0)::text`,
+        amount: sql<string>`coalesce(sum(${purchaseGross}), 0)::text`,
       })
       .from(deal)
-      .where(byMonth(deal.purchasePaidDate, year))
+      .where(and(byMonth(deal.purchasePaidDate, year), eq(deal.purchasePaidStatus, 'completed')))
       .groupBy(monthOf(deal.purchasePaidDate)),
     db.select().from(annualPlan).where(eq(annualPlan.year, year)).limit(1),
   ])

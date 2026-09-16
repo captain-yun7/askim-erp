@@ -6,7 +6,7 @@ import type { CostGroup } from '@/lib/cost-groups'
 /**
  * 매출장표 — 엑셀 '매출장표' 시트 구조 (월 가로 × 항목 세로)
  *
- * 통장 기준   = 입금일/지급일 월 (현금주의)
+ * 통장 기준   = 입금일/지급일 월 + 입금여부/결산여부 '완료' (엑셀 SUMIFS 와 동일, 2026-09-16)
  * 귀속월 기준 = 귀속연월 (발생주의)
  * 판관비      = 고정비 + 변동비 (expense_category.cost_group)
  * 판관비 외   = 세금 등 non_operating → 당기순이익에서 차감
@@ -72,6 +72,7 @@ export async function getSalesLedger({ year }: { year: number }): Promise<Ledger
       .where(
         and(
           isNull(deal.deletedAt),
+          eq(deal.salesPaidStatus, 'completed'),
           sql`extract(year from ${deal.salesPaidDate})::int = ${year}`,
         ),
       )
@@ -86,6 +87,7 @@ export async function getSalesLedger({ year }: { year: number }): Promise<Ledger
       .where(
         and(
           isNull(deal.deletedAt),
+          eq(deal.purchasePaidStatus, 'completed'),
           sql`extract(year from ${deal.purchasePaidDate})::int = ${year}`,
         ),
       )
