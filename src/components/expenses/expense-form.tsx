@@ -107,7 +107,6 @@ export function ExpenseForm({ lookups }: { lookups: Lookups }) {
       }
       toast.success('판관비가 저장되었습니다')
       router.push('/expenses')
-      router.refresh()
     })
   }
 

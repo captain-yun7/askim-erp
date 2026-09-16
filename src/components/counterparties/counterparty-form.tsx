@@ -64,7 +64,6 @@ export function CounterpartyForm({
       }
       toast.success('저장되었습니다')
       router.push('/counterparties')
-      router.refresh()
     })
   }
 
@@ -79,7 +78,6 @@ export function CounterpartyForm({
       }
       toast.success('비활성화되었습니다')
       router.push('/counterparties')
-      router.refresh()
     })
   }
 

@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -48,7 +47,6 @@ const STATUS_TONE: Record<string, string> = {
 }
 
 function useSave() {
-  const router = useRouter()
   const [pending, start] = useTransition()
   function run(fn: () => Promise<{ ok?: true; error?: string }>, done?: () => void) {
     start(async () => {
@@ -57,7 +55,6 @@ function useSave() {
       else {
         toast.success('저장되었습니다')
         done?.()
-        router.refresh()
       }
     })
   }

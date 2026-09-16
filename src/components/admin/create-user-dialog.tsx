@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
@@ -42,7 +41,6 @@ const EMPTY = {
 }
 
 export function CreateUserDialog() {
-  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState(EMPTY)
   const [pending, startTransition] = useTransition()
@@ -61,7 +59,6 @@ export function CreateUserDialog() {
       toast.success('사용자가 등록되었습니다')
       setForm(EMPTY)
       setOpen(false)
-      router.refresh()
     })
   }
 

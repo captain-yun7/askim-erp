@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useState, useTransition } from 'react'
+import { useOptimistic, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { toggleDealPaid, updateDealInline } from '@/server/actions/deals'
 import { Badge } from '@/components/ui/badge'
@@ -66,13 +66,13 @@ type InlineField =
   | 'purchasePaidDate'
 
 function useInlineSave(dealId: string) {
-  const router = useRouter()
   const [pending, start] = useTransition()
-  function save(field: InlineField, value: string | number | null) {
+  /** optimistic: 서버 응답 전에 화면을 먼저 바꾸는 setter (실패·응답 시 서버값으로 되돌아감) */
+  function save(field: InlineField, value: string | number | null, optimistic?: () => void) {
     start(async () => {
+      optimistic?.()
       const res = await updateDealInline(dealId, { field, value })
       if ('error' in res) toast.error(res.error)
-      else router.refresh()
     })
   }
   return { pending, save }
@@ -93,6 +93,7 @@ function InlineAmount({
   className?: string
 }) {
   const { pending, save } = useInlineSave(dealId)
+  const [shown, setShown] = useOptimistic(value)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   if (!enabled) return <>{formatKRW(value)}</>
@@ -111,7 +112,7 @@ function InlineAmount({
           if (num !== null && !Number.isFinite(num)) return
           const current = value != null ? Math.round(parseFloat(value)) : null
           if (num === current) return
-          save(field, num)
+          save(field, num, () => setShown(num != null ? String(num) : null))
         }}
         onKeyDown={(e) => {
           if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
@@ -124,13 +125,13 @@ function InlineAmount({
     <button
       type="button"
       title="클릭해서 수정 (부가세 10% 자동)"
-      className={cn('w-full rounded px-0.5 text-right hover:bg-accent/60', pending && 'opacity-40', className)}
+      className={cn('w-full rounded px-0.5 text-right hover:bg-accent/60', pending && 'opacity-70', className)}
       onClick={() => {
-        setDraft(value != null ? String(Math.round(parseFloat(value))) : '')
+        setDraft(shown != null ? String(Math.round(parseFloat(shown))) : '')
         setEditing(true)
       }}
     >
-      {formatKRW(value)}
+      {formatKRW(shown)}
     </button>
   )
 }
@@ -153,8 +154,9 @@ function InlineDate({
   fallback?: string | null
 }) {
   const { pending, save } = useInlineSave(dealId)
+  const [shown, setShown] = useOptimistic(value)
   const [editing, setEditing] = useState(false)
-  const label = value ? formatDate(value) : (fallback ?? formatDate(value))
+  const label = shown ? formatDate(shown) : (fallback ?? formatDate(shown))
   if (!enabled)
     return <span className={cn(muted && 'text-muted-foreground')}>{label}</span>
   if (editing) {
@@ -168,7 +170,7 @@ function InlineDate({
           setEditing(false)
           const v = e.target.value || null
           if (v === value) return
-          save(field, v)
+          save(field, v, () => setShown(v))
         }}
         onKeyDown={(e) => {
           if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
@@ -184,7 +186,7 @@ function InlineDate({
       className={cn(
         'rounded px-0.5 font-mono tabular-nums hover:bg-accent/60',
         muted && 'text-muted-foreground',
-        pending && 'opacity-40',
+        pending && 'opacity-70',
       )}
       onClick={() => setEditing(true)}
     >
@@ -195,10 +197,10 @@ function InlineDate({
 
 /** 귀속연월 인라인 편집 — 'YY/M' 표시, 클릭 → 'YYYY-MM' 입력 (2026-09-14 피드백) */
 function InlineAccrual({ dealId, year, month, enabled }: { dealId: string; year: number; month: number; enabled: boolean }) {
-  const router = useRouter()
   const [pending, start] = useTransition()
+  const [shown, setShown] = useOptimistic({ year, month })
   const [editing, setEditing] = useState(false)
-  const text = `${String(year).slice(2)}/${month}`
+  const text = `${String(shown.year).slice(2)}/${shown.month}`
   if (!enabled) return <span className="text-xs text-muted-foreground">{text}</span>
   if (editing) {
     return (
@@ -214,9 +216,9 @@ function InlineAccrual({ dealId, year, month, enabled }: { dealId: string; year:
           const next = { year: Number(m[1]), month: Number(m[2]) }
           if (next.year === year && next.month === month) return
           start(async () => {
+            setShown(next)
             const res = await updateDealInline(dealId, { field: 'accrual', value: next })
             if ('error' in res) toast.error(res.error)
-            else router.refresh()
           })
         }}
         onKeyDown={(e) => {
@@ -227,7 +229,7 @@ function InlineAccrual({ dealId, year, month, enabled }: { dealId: string; year:
     )
   }
   return (
-    <button type="button" title="클릭해서 귀속연월 수정" className={cn('rounded px-0.5 text-xs text-muted-foreground hover:bg-accent/60', pending && 'opacity-40')} onClick={() => setEditing(true)}>
+    <button type="button" title="클릭해서 귀속연월 수정" className={cn('rounded px-0.5 text-xs text-muted-foreground hover:bg-accent/60', pending && 'opacity-70')} onClick={() => setEditing(true)}>
       {text}
     </button>
   )
@@ -248,24 +250,24 @@ function PaidToggle({
   todoLabel: string
   enabled: boolean
 }) {
-  const router = useRouter()
   const [pending, start] = useTransition()
+  const [shown, setShown] = useOptimistic(done)
   if (!enabled) return <StatusPill done={done} doneLabel={doneLabel} todoLabel={todoLabel} />
   return (
     <button
       type="button"
-      title={done ? `클릭하면 ${todoLabel}(으)로 되돌립니다` : `클릭하면 ${doneLabel} 처리(오늘 날짜)`}
-      className={pending ? 'opacity-40' : 'transition-transform hover:scale-105'}
+      title={shown ? `클릭하면 ${todoLabel}(으)로 되돌립니다` : `클릭하면 ${doneLabel} 처리(오늘 날짜)`}
+      className={cn('transition-transform hover:scale-105', pending && 'opacity-70')}
       disabled={pending}
       onClick={() =>
         start(async () => {
+          setShown(!done)
           const res = await toggleDealPaid(dealId, side)
           if ('error' in res) toast.error(res.error)
-          else router.refresh()
         })
       }
     >
-      <StatusPill done={done} doneLabel={doneLabel} todoLabel={todoLabel} />
+      <StatusPill done={shown} doneLabel={doneLabel} todoLabel={todoLabel} />
     </button>
   )
 }
@@ -350,6 +352,7 @@ function ColumnFilterInput({
   align?: 'right'
 }) {
   const router = useRouter()
+
   return (
     <input
       aria-label={`${param} 검색`}
@@ -378,6 +381,7 @@ function ColumnFilterSelect({
   options: { value: string; label: string }[]
 }) {
   const router = useRouter()
+
   return (
     <select
       aria-label={`${param} 검색`}

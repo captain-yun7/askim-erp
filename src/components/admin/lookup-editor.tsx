@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -21,7 +20,6 @@ type ActionResult = { ok?: true; error?: string }
 
 // ── 공통 행 편집 상태 헬퍼 ──────────────────────────────
 function useSaver() {
-  const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [savingId, setSavingId] = useState<number | null>(null)
 
@@ -35,7 +33,6 @@ function useSaver() {
         return
       }
       toast.success('저장되었습니다')
-      router.refresh()
     })
   }
 

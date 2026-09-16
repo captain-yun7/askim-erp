@@ -142,7 +142,6 @@ export function DealForm({
       }
       toast.success(initial?.id ? '저장되었습니다' : '거래가 등록되었습니다')
       router.push(backHref)
-      router.refresh()
     })
   }
 

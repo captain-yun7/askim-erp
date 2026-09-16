@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -49,7 +48,6 @@ const ROLE_OPTIONS: { value: AdminUser['role']; label: string }[] = [
 ]
 
 export function UserRow({ user }: { user: AdminUser }) {
-  const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [tempPassword, setTempPassword] = useState<string | null>(null)
 
@@ -74,7 +72,6 @@ export function UserRow({ user }: { user: AdminUser }) {
         return
       }
       toast.success('역할이 변경되었습니다')
-      router.refresh()
     })
   }
 
@@ -86,7 +83,6 @@ export function UserRow({ user }: { user: AdminUser }) {
         return
       }
       toast.success(user.isActive ? '비활성화되었습니다' : '활성화되었습니다')
-      router.refresh()
     })
   }
 
@@ -126,7 +122,6 @@ export function UserRow({ user }: { user: AdminUser }) {
               if (res.error) toast.error(res.error)
               else {
                 toast.success('팀이 변경되었습니다 (본인 재로그인 후 조회 범위 반영)')
-                router.refresh()
               }
             })
           }}
@@ -154,7 +149,6 @@ export function UserRow({ user }: { user: AdminUser }) {
               if (res.error) toast.error(res.error)
               else {
                 toast.success(v ? '팀장으로 지정되었습니다' : '팀장 해제되었습니다')
-                router.refresh()
               }
             })
           }
