@@ -82,7 +82,8 @@ export function extractCurrency(memo: string | null): 'USD' | 'CNY' | null {
 
 /** Workbook 로드 (헬퍼) */
 export function loadWorkbook(path: string = XLSX_FILE): XLSX.WorkBook {
-  return XLSX.readFile(path, { cellDates: true, cellNF: false, cellText: false })
+  // cellDates:false — SheetJS 의 Date 변환은 KST 1899 epoch 오프셋 때문에 전날 23:59 로 나와 하루가 밀린다(2026-09-16 발견). 시리얼 → parseDate(SSF) 로만 변환.
+  return XLSX.readFile(path, { cellDates: false, cellNF: false, cellText: false })
 }
 
 /** 시트를 2D 배열로 (헤더 그대로) */

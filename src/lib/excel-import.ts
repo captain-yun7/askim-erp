@@ -22,11 +22,12 @@ export function parseDate(v: unknown): string | null {
     return `${d.y.toString().padStart(4, '0')}-${d.m.toString().padStart(2, '0')}-${d.d.toString().padStart(2, '0')}`
   }
 
-  // Date object (xlsx with cellDates: true)
+  // Date object (xlsx with cellDates: true) — SheetJS 가 KST 에서 전날 23:59 로 만드는 경우가 있어 30분 보정 후 날짜만 취함
   if (v instanceof Date) {
-    const y = v.getFullYear()
-    const m = (v.getMonth() + 1).toString().padStart(2, '0')
-    const d = v.getDate().toString().padStart(2, '0')
+    const t = new Date(v.getTime() + 30 * 60 * 1000)
+    const y = t.getFullYear()
+    const m = (t.getMonth() + 1).toString().padStart(2, '0')
+    const d = t.getDate().toString().padStart(2, '0')
     return `${y}-${m}-${d}`
   }
 

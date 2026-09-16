@@ -21,7 +21,7 @@ function parseReturn(v: unknown): { date: string | null; status: 'held' | 'retur
 }
 
 async function main() {
-  const wb = XLSX.readFile(FILE, { cellDates: true })
+  const wb = XLSX.readFile(FILE, { cellDates: false })
   const us = await db.select({ id: users.id, name: users.name }).from(users)
   const userByName = new Map(us.map((u) => [u.name, u.id]))
   const cps = await db.select({ id: counterparty.id, name: counterparty.name }).from(counterparty)
