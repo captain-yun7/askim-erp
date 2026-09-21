@@ -22,6 +22,22 @@ import { CounterpartyQuickCreate } from '../counterparties/counterparty-quick-cr
 import { formatKRW } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
+/**
+ * 입력 항목 제목 (2026-09-16 피드백): 비고 외 모든 제목에 필수표시(*), 회계팀이 채우는 항목은 빨간 '(회계팀 입력)'.
+ * 별표는 CSS 로 붙여 제목 텍스트 자체는 그대로 둔다.
+ */
+function FL({ children, optional, accounting }: { children: React.ReactNode; optional?: boolean; accounting?: boolean }) {
+  return (
+    <Label
+      data-required={optional ? undefined : ''}
+      className={cn('gap-1', !optional && "after:text-destructive after:content-['*']")}
+    >
+      {children}
+      {accounting && <span className="text-[11px] font-medium text-destructive">(회계팀 입력)</span>}
+    </Label>
+  )
+}
+
 type Lookups = {
   categories: { id: number; nameKo: string; commissionRate: string | null }[]
   accounts: { id: number; nameKo: string }[]
@@ -157,7 +173,7 @@ export function DealForm({
       <Card className="mb-4">
         <CardContent className="grid gap-4 pt-6 md:grid-cols-3">
           <div className="grid gap-1.5">
-            <Label>거래코드</Label>
+            <FL>거래코드</FL>
             <Input
               value={form.dealCode ?? ''}
               onChange={(e) => {
@@ -179,7 +195,7 @@ export function DealForm({
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="grid gap-1.5">
-              <Label>귀속연도 *</Label>
+              <FL>귀속연도</FL>
               <Input
                 type="number"
                 value={form.accrualYear}
@@ -187,7 +203,7 @@ export function DealForm({
               />
             </div>
             <div className="grid gap-1.5">
-              <Label>귀속월 *</Label>
+              <FL>귀속월</FL>
               <Input
                 type="number"
                 min={1}
@@ -198,7 +214,7 @@ export function DealForm({
             </div>
           </div>
           <div className="grid gap-1.5">
-            <Label>담당자</Label>
+            <FL>담당자</FL>
             <Select
               value={form.ownerUserId ?? ''}
               onValueChange={(v) => set('ownerUserId', v || null)}
@@ -216,7 +232,7 @@ export function DealForm({
             </Select>
           </div>
           <div className="grid gap-1.5">
-            <Label>상품구분 *</Label>
+            <FL>상품구분</FL>
             <Select
               value={form.categoryId ? String(form.categoryId) : ''}
               onValueChange={(v) => set('categoryId', v ? Number(v) : null)}
@@ -234,7 +250,7 @@ export function DealForm({
             </Select>
           </div>
           <div className="grid gap-1.5">
-            <Label>계정항목</Label>
+            <FL>계정항목</FL>
             <Select
               value={form.accountId ? String(form.accountId) : ''}
               onValueChange={(v) => set('accountId', v ? Number(v) : null)}
@@ -252,7 +268,7 @@ export function DealForm({
             </Select>
           </div>
           <div className="grid gap-1.5">
-            <Label>통화</Label>
+            <FL>통화</FL>
             <Select
               value={form.currency}
               onValueChange={(v) => set('currency', (v as 'KRW') || 'KRW')}
@@ -282,7 +298,7 @@ export function DealForm({
             </h3>
             <div className="grid gap-3">
               <div className="grid gap-1.5">
-                <Label>발행처</Label>
+                <FL>발행처</FL>
                 <CounterpartyCombobox
                   value={form.issuerCounterpartyId ?? null}
                   initialLabel={labels.issuer}
@@ -295,7 +311,7 @@ export function DealForm({
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label>실광고주</Label>
+                <FL>실광고주</FL>
                 <Input
                   value={form.advertiserName ?? ''}
                   onChange={(e) => set('advertiserName', e.target.value || null)}
@@ -303,7 +319,7 @@ export function DealForm({
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label>품목명</Label>
+                <FL>품목명</FL>
                 <Input
                   value={form.itemName ?? ''}
                   onChange={(e) => set('itemName', e.target.value)}
@@ -311,7 +327,7 @@ export function DealForm({
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="grid gap-1.5">
-                  <Label>광고 시작</Label>
+                  <FL>광고 시작</FL>
                   <Input
                     type="date"
                     value={form.adStart ?? ''}
@@ -319,7 +335,7 @@ export function DealForm({
                   />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>광고 종료</Label>
+                  <FL>광고 종료</FL>
                   <Input
                     type="date"
                     value={form.adEnd ?? ''}
@@ -328,7 +344,7 @@ export function DealForm({
                 </div>
               </div>
               <div className="grid gap-1.5">
-                <Label>매출수단</Label>
+                <FL>매출수단</FL>
                 <Select
                   value={form.salesMethodId ? String(form.salesMethodId) : ''}
                   onValueChange={(v) => set('salesMethodId', v ? Number(v) : null)}
@@ -357,7 +373,7 @@ export function DealForm({
               />
               <div className="grid grid-cols-2 gap-2">
                 <div className="grid gap-1.5">
-                  <Label>입금예정일</Label>
+                  <FL>입금예정일</FL>
                   <Input
                     type="date"
                     value={form.salesDueDate ?? ''}
@@ -365,7 +381,7 @@ export function DealForm({
                   />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>입금일</Label>
+                  <FL>입금일</FL>
                   <Input
                     type="date"
                     value={form.salesPaidDate ?? ''}
@@ -375,7 +391,7 @@ export function DealForm({
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="grid gap-1.5">
-                  <Label>매출 세계발행일</Label>
+                  <FL>매출 세계발행일</FL>
                   <Input
                     type="date"
                     value={form.salesInvoiceDate ?? ''}
@@ -383,7 +399,7 @@ export function DealForm({
                   />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>입금여부</Label>
+                  <FL>입금여부</FL>
                   <Select
                     value={form.salesPaidStatus}
                     onValueChange={(v) => set('salesPaidStatus', (v as 'pending') || 'pending')}
@@ -400,7 +416,7 @@ export function DealForm({
                 </div>
               </div>
               <div className="grid gap-1.5">
-                <Label>매출 비고</Label>
+                <FL optional>매출 비고</FL>
                 <Textarea
                   rows={2}
                   value={form.salesMemo ?? ''}
@@ -422,7 +438,7 @@ export function DealForm({
             </h3>
             <div className="grid gap-3">
               <div className="grid gap-1.5">
-                <Label>매체사</Label>
+                <FL>매체사</FL>
                 <CounterpartyCombobox
                   value={form.supplierCounterpartyId ?? null}
                   initialLabel={labels.supplier}
@@ -435,7 +451,7 @@ export function DealForm({
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label>수수료</Label>
+                <FL>수수료</FL>
                 <Input
                   value={form.purchasePricingRaw ?? ''}
                   onChange={(e) => set('purchasePricingRaw', e.target.value)}
@@ -444,7 +460,7 @@ export function DealForm({
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="grid gap-1.5">
-                  <Label>결산연도</Label>
+                  <FL>결산연도</FL>
                   <Input
                     type="number"
                     value={form.settlementYear ?? ''}
@@ -454,7 +470,7 @@ export function DealForm({
                   />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>결산월</Label>
+                  <FL>결산월</FL>
                   <Input
                     type="number"
                     min={1}
@@ -478,7 +494,7 @@ export function DealForm({
               />
               <div className="grid grid-cols-2 gap-2">
                 <div className="grid gap-1.5">
-                  <Label>결산예정일</Label>
+                  <FL>결산예정일</FL>
                   <Input
                     type="date"
                     value={form.purchaseDueDate ?? ''}
@@ -486,7 +502,7 @@ export function DealForm({
                   />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>지급일</Label>
+                  <FL accounting>지급일</FL>
                   <Input
                     type="date"
                     value={form.purchasePaidDate ?? ''}
@@ -496,7 +512,7 @@ export function DealForm({
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="grid gap-1.5">
-                  <Label>매입 세계발행일</Label>
+                  <FL accounting>매입 세계발행일</FL>
                   <Input
                     type="date"
                     value={form.purchaseInvoiceDate ?? ''}
@@ -504,7 +520,7 @@ export function DealForm({
                   />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>결산여부</Label>
+                  <FL accounting>결산여부</FL>
                   <Select
                     value={form.purchasePaidStatus}
                     onValueChange={(v) =>
@@ -523,7 +539,7 @@ export function DealForm({
                 </div>
               </div>
               <div className="grid gap-1.5">
-                <Label>매입 비고</Label>
+                <FL optional>매입 비고</FL>
                 <Textarea
                   rows={2}
                   value={form.purchaseMemo ?? ''}
@@ -634,7 +650,7 @@ function MoneyRow({
   return (
     <div className="grid grid-cols-3 gap-2">
       <div className="grid gap-1.5">
-        <Label>{netLabel} *</Label>
+        <FL>{netLabel}</FL>
         <Input
           type="text"
           inputMode="numeric"
@@ -644,7 +660,7 @@ function MoneyRow({
         />
       </div>
       <div className="grid gap-1.5">
-        <Label>{vatLabel}</Label>
+        <FL>{vatLabel}</FL>
         <Input
           type="text"
           inputMode="numeric"
@@ -654,7 +670,7 @@ function MoneyRow({
         />
       </div>
       <div className="grid gap-1.5">
-        <Label>{grossLabel}</Label>
+        <FL>{grossLabel}</FL>
         <Input
           type="text"
           inputMode="numeric"
