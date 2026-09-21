@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { DateInput } from '@/components/ui/date-input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -20,6 +21,8 @@ import { checkDealCode, createDeal, deleteDeal, updateDeal, type DealInput } fro
 import { CounterpartyCombobox } from './counterparty-combobox'
 import { CounterpartyQuickCreate } from '../counterparties/counterparty-quick-create'
 import { formatKRW } from '@/lib/format'
+import { formatAmountInput } from '@/lib/loose-date'
+import { AmountInput } from '@/components/ui/amount-input'
 import { cn } from '@/lib/utils'
 
 /**
@@ -147,6 +150,11 @@ export function DealForm({
       toast.error('거래코드가 중복됩니다. 다른 코드를 입력하세요.')
       return
     }
+    // 거래코드 자동 채번 폐지 (2026-09-17 피드백) — 등록 시 직접 입력
+    if (!initial?.id && !form.dealCode?.trim()) {
+      toast.error('거래코드를 입력하세요')
+      return
+    }
     const payload = { ...form, status }
     startTransition(async () => {
       const res = initial?.id
@@ -188,7 +196,7 @@ export function DealForm({
                 if (res.duplicate) toast.error(`거래코드 중복: ${code} 은(는) 이미 등록된 코드입니다`)
               }}
               aria-invalid={codeDup || undefined}
-              placeholder={initial?.id ? '' : '비우면 자동 채번'}
+              placeholder={initial?.id ? '' : '예) AM260917-1'}
               className={cn('font-mono', codeDup && 'border-destructive')}
             />
             {codeDup && <p className="text-xs text-destructive">이미 등록된 거래코드입니다. 다른 코드를 입력하세요.</p>}
@@ -328,19 +336,11 @@ export function DealForm({
               <div className="grid grid-cols-2 gap-2">
                 <div className="grid gap-1.5">
                   <FL>광고 시작</FL>
-                  <Input
-                    type="date"
-                    value={form.adStart ?? ''}
-                    onChange={(e) => set('adStart', e.target.value || null)}
-                  />
+                  <DateInput aria-label="adStart" value={form.adStart} onChange={(v) => set('adStart', v)} />
                 </div>
                 <div className="grid gap-1.5">
                   <FL>광고 종료</FL>
-                  <Input
-                    type="date"
-                    value={form.adEnd ?? ''}
-                    onChange={(e) => set('adEnd', e.target.value || null)}
-                  />
+                  <DateInput aria-label="adEnd" value={form.adEnd} onChange={(v) => set('adEnd', v)} />
                 </div>
               </div>
               <div className="grid gap-1.5">
@@ -374,29 +374,17 @@ export function DealForm({
               <div className="grid grid-cols-2 gap-2">
                 <div className="grid gap-1.5">
                   <FL>입금예정일</FL>
-                  <Input
-                    type="date"
-                    value={form.salesDueDate ?? ''}
-                    onChange={(e) => set('salesDueDate', e.target.value || null)}
-                  />
+                  <DateInput aria-label="salesDueDate" value={form.salesDueDate} onChange={(v) => set('salesDueDate', v)} />
                 </div>
                 <div className="grid gap-1.5">
                   <FL>입금일</FL>
-                  <Input
-                    type="date"
-                    value={form.salesPaidDate ?? ''}
-                    onChange={(e) => set('salesPaidDate', e.target.value || null)}
-                  />
+                  <DateInput aria-label="salesPaidDate" value={form.salesPaidDate} onChange={(v) => set('salesPaidDate', v)} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="grid gap-1.5">
                   <FL>매출 세계발행일</FL>
-                  <Input
-                    type="date"
-                    value={form.salesInvoiceDate ?? ''}
-                    onChange={(e) => set('salesInvoiceDate', e.target.value || null)}
-                  />
+                  <DateInput aria-label="salesInvoiceDate" value={form.salesInvoiceDate} onChange={(v) => set('salesInvoiceDate', v)} />
                 </div>
                 <div className="grid gap-1.5">
                   <FL>입금여부</FL>
@@ -495,29 +483,17 @@ export function DealForm({
               <div className="grid grid-cols-2 gap-2">
                 <div className="grid gap-1.5">
                   <FL>결산예정일</FL>
-                  <Input
-                    type="date"
-                    value={form.purchaseDueDate ?? ''}
-                    onChange={(e) => set('purchaseDueDate', e.target.value || null)}
-                  />
+                  <DateInput aria-label="purchaseDueDate" value={form.purchaseDueDate} onChange={(v) => set('purchaseDueDate', v)} />
                 </div>
                 <div className="grid gap-1.5">
                   <FL accounting>지급일</FL>
-                  <Input
-                    type="date"
-                    value={form.purchasePaidDate ?? ''}
-                    onChange={(e) => set('purchasePaidDate', e.target.value || null)}
-                  />
+                  <DateInput aria-label="purchasePaidDate" value={form.purchasePaidDate} onChange={(v) => set('purchasePaidDate', v)} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="grid gap-1.5">
                   <FL accounting>매입 세계발행일</FL>
-                  <Input
-                    type="date"
-                    value={form.purchaseInvoiceDate ?? ''}
-                    onChange={(e) => set('purchaseInvoiceDate', e.target.value || null)}
-                  />
+                  <DateInput aria-label="purchaseInvoiceDate" value={form.purchaseInvoiceDate} onChange={(v) => set('purchaseInvoiceDate', v)} />
                 </div>
                 <div className="grid gap-1.5">
                   <FL accounting>결산여부</FL>
@@ -651,21 +627,17 @@ function MoneyRow({
     <div className="grid grid-cols-3 gap-2">
       <div className="grid gap-1.5">
         <FL>{netLabel}</FL>
-        <Input
-          type="text"
-          inputMode="numeric"
-          value={net ?? ''}
-          onChange={(e) => onNet(e.target.value || null)}
+        <AmountInput
+          value={net}
+          onChange={onNet}
           className="text-right font-mono"
         />
       </div>
       <div className="grid gap-1.5">
         <FL>{vatLabel}</FL>
-        <Input
-          type="text"
-          inputMode="numeric"
-          value={vat ?? ''}
-          onChange={(e) => onVat(e.target.value || null)}
+        <AmountInput
+          value={vat}
+          onChange={onVat}
           className="text-right font-mono"
         />
       </div>
@@ -674,7 +646,7 @@ function MoneyRow({
         <Input
           type="text"
           inputMode="numeric"
-          value={gross ?? ''}
+          value={formatAmountInput(gross)}
           readOnly
           tabIndex={-1}
           title="금액 + 부가세 자동 계산"
