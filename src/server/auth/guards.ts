@@ -87,11 +87,13 @@ export function canEditDealAmounts(user: SessionUser, deal: DealRef): boolean {
   return canEditDeal(user, deal)
 }
 
-/** 거래 soft delete: 회계/admin 전체, 영업은 본인+draft만 */
+/**
+ * 거래 soft delete: 회계/admin 전체, 영업은 본인 거래(상태 무관).
+ * 2026-09-17 피드백: 확정 저장한 본인 거래에 삭제 버튼이 없다는 문의 → 수정과 같은 기준으로. 함께 보는 팀 묶음이어도 남의 거래는 삭제 불가.
+ */
 export function canDeleteDeal(user: SessionUser, deal: DealRef): boolean {
   if (isStaff(user.role)) return true
-  if (user.role === 'sales')
-    return deal.ownerUserId === user.id && deal.status === 'draft'
+  if (user.role === 'sales') return deal.ownerUserId === user.id
   return false
 }
 

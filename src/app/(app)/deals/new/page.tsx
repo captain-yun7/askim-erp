@@ -8,7 +8,7 @@ import { requireWriter } from '@/server/auth/require-backoffice'
 
 /**
  * 새 거래 등록. `?copy=<거래 id>` 면 그 거래 내용을 채운 채로 연다 (2026-09-16 피드백: 거래 복사).
- * 거래코드는 비워 두어 저장 시 새로 채번되고, 날짜·입금/결산 상태는 복사하지 않는다.
+ * 거래코드는 비워 두고(직접 입력), 날짜·입금/결산 상태는 복사하지 않는다.
  */
 export default async function NewDealPage({ searchParams }: { searchParams: Promise<{ copy?: string }> }) {
   await requireWriter('/deals')
@@ -61,14 +61,14 @@ export default async function NewDealPage({ searchParams }: { searchParams: Prom
         </Link>
         <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">새 거래 등록</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          거래코드는 비워두면 담당자 prefix + YYMMDD로 자동 채번됩니다
+          거래코드는 직접 입력합니다 · 이미 있는 코드는 입력 즉시 알려 드립니다
         </p>
       </div>
       {source && (
         <div data-slot="copy-banner" className="mx-8 mt-4 flex items-center gap-2 rounded-md bg-info px-3 py-2 text-xs text-info-foreground">
           <Copy className="size-3.5" />
           <span>
-            <b className="font-medium">{source.dealCode}</b> 복사본입니다. 저장하면 새 거래코드로 등록됩니다 — 날짜와 입금·결산 상태는 복사되지 않았으니 확인 후 입력하세요.
+            <b className="font-medium">{source.dealCode}</b> 복사본입니다. 새 거래코드를 입력해 저장하세요 — 날짜와 입금·결산 상태는 복사되지 않았으니 확인 후 입력하세요.
           </span>
         </div>
       )}

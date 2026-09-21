@@ -27,6 +27,9 @@ export type DealListFilters = {
   fPurchase?: string
   fPurchaseVat?: string
   fProfit?: string
+  /** 부가세 포함 총매출·총매입 (2026-09-17) */
+  fSalesGross?: string
+  fPurchaseGross?: string
   fPaid?: 'paid' | 'unpaid'
   fSettled?: 'settled' | 'unsettled'
   fSalesInvoice?: string
@@ -179,6 +182,8 @@ export async function listDeals(f: DealListFilters = {}) {
     numberCond(deal.purchaseAmountNet, f.fPurchase),
     numberCond(deal.purchaseVat, f.fPurchaseVat),
     numberCond(deal.profit, f.fProfit),
+    numberCond(deal.salesAmountGross, f.fSalesGross),
+    numberCond(deal.purchaseAmountGross, f.fPurchaseGross),
     dateCond([deal.salesInvoiceDate], f.fSalesInvoice),
     dateCond([deal.purchaseInvoiceDate], f.fPurchaseInvoice),
     dateCond([deal.salesDueDate, deal.salesPaidDate], f.fSalesDate),
@@ -268,6 +273,11 @@ export async function listDeals(f: DealListFilters = {}) {
       salesVat: deal.salesVat,
       purchaseAmountNet: deal.purchaseAmountNet,
       purchaseVat: deal.purchaseVat,
+      // 부가세 포함 금액 — 값이 비어 있으면 공급가+부가세로 보여 줌
+      salesAmountGross: sql<string | null>`coalesce(${deal.salesAmountGross}, ${deal.salesAmountNet} + coalesce(${deal.salesVat}, 0))`,
+      purchaseAmountGross: sql<string | null>`coalesce(${deal.purchaseAmountGross}, ${deal.purchaseAmountNet} + coalesce(${deal.purchaseVat}, 0))`,
+      salesMemo: deal.salesMemo,
+      purchaseMemo: deal.purchaseMemo,
       profit: deal.profit,
       salesPaidStatus: deal.salesPaidStatus,
       purchasePaidStatus: deal.purchasePaidStatus,

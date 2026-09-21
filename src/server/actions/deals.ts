@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { and, eq, isNull, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '@/lib/db/client'
 import { deal, users } from '@/lib/db/schema'
@@ -12,7 +12,6 @@ import {
   getSessionUser,
 } from '@/server/auth/guards'
 import { canEditDealScoped } from '@/server/auth/deal-scope'
-import { autoNumberDealCode } from '@/server/deal-code'
 import { recordDealChanges } from '@/server/deal-changes'
 import { audit, diffFields } from '@/server/audit'
 
@@ -47,7 +46,7 @@ const numStrSchema = z
   })
 
 const dealSchema = z.object({
-  // 빈값/공백이면 undefined → 저장 시 자동 채번
+  // 등록 시 필수 (2026-09-17 피드백: 자동 채번 폐지 — 고객사 자체 코드 체계 사용). 수정 시 비우면 기존 코드 유지
   dealCode: z
     .union([z.string(), z.null()])
     .transform((v) => (typeof v === 'string' && v.trim() !== '' ? v.trim() : undefined))
@@ -106,10 +105,11 @@ export async function createDeal(raw: unknown) {
   // 영업은 본인 거래만 등록 (담당자 강제)
   if (user.role === 'sales') data.ownerUserId = user.id
   const manualCode = data.dealCode?.trim() || null
+  if (!manualCode) return { error: '거래코드를 입력하세요' }
 
   try {
     const row = await db.transaction(async (tx) => {
-      const dealCode = manualCode ?? (await autoNumberDealCode(tx, data.ownerUserId))
+      const dealCode = manualCode
       const [r] = await tx
         .insert(deal)
         .values({
@@ -126,7 +126,7 @@ export async function createDeal(raw: unknown) {
     return { ok: true, deal: row }
   } catch (e) {
     if (e instanceof Error && e.message.includes('unique')) {
-      return { error: manualCode ? `거래코드 중복: ${manualCode}` : '거래코드 중복 — 다시 시도해 주세요' }
+      return { error: `거래코드 중복: ${manualCode}` }
     }
     return { error: e instanceof Error ? e.message : '저장 실패' }
   }
@@ -330,4 +330,67 @@ export async function checkDealCode(code: unknown, excludeId?: unknown): Promise
   const rows = await db.select({ id: deal.id }).from(deal).where(and(eq(deal.dealCode, c), isNull(deal.deletedAt))).limit(1)
   const other = rows.find((r) => r.id !== excludeId)
   return { duplicate: Boolean(other) }
+}
+
+// ── 목록 체크박스 일괄 작업 (2026-09-17 피드백) ─────────────────────────
+
+const idsSchema = z.array(z.string().uuid()).min(1, '거래를 선택하세요').max(1000)
+
+/** 선택한 거래 삭제 — 권한 없는 건은 건너뛰고 건수로 알려 준다 */
+export async function deleteDeals(rawIds: unknown): Promise<{ ok: true; deleted: number; skipped: number } | { error: string }> {
+  const user = await getSessionUser()
+  if (!user) return { error: '로그인 필요' }
+  const parsed = idsSchema.safeParse(rawIds)
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? '잘못된 요청' }
+  const rows = await db
+    .select({ id: deal.id, status: deal.status, ownerUserId: deal.ownerUserId, dealCode: deal.dealCode })
+    .from(deal)
+    .where(and(inArray(deal.id, parsed.data), isNull(deal.deletedAt)))
+  const allowed = rows.filter((r) => canDeleteDeal(user, r))
+  if (allowed.length === 0) return { error: '삭제할 수 있는 거래가 없습니다 (본인 거래만 삭제할 수 있습니다)' }
+  await db.update(deal).set({ deletedAt: new Date(), updatedBy: user.id }).where(inArray(deal.id, allowed.map((r) => r.id)))
+  for (const r of allowed)
+    await audit({ action: 'deal.delete', targetType: 'deal', targetId: r.id, targetLabel: r.dealCode, summary: `거래 삭제 ${r.dealCode} (목록 일괄)` })
+  revalidatePath('/deals')
+  return { ok: true, deleted: allowed.length, skipped: parsed.data.length - allowed.length }
+}
+
+const bulkInvoiceSchema = z.object({
+  ids: idsSchema,
+  side: z.enum(['sales', 'purchase']),
+  date: dateSchema,
+})
+
+/** 선택한 거래의 매출/매입 계산서 발행일을 한 번에 지정 — 여러 거래코드를 한 장의 계산서로 통합 발행하는 경우 */
+export async function bulkSetInvoiceDate(raw: unknown): Promise<{ ok: true; updated: number; skipped: number } | { error: string }> {
+  const user = await getSessionUser()
+  if (!user) return { error: '로그인 필요' }
+  const parsed = bulkInvoiceSchema.safeParse(raw)
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? '잘못된 요청' }
+  const { ids, side, date } = parsed.data
+  const field = side === 'sales' ? 'salesInvoiceDate' : 'purchaseInvoiceDate'
+  const rows = await db.select().from(deal).where(and(inArray(deal.id, ids), isNull(deal.deletedAt)))
+  let updated = 0
+  let skipped = ids.length - rows.length
+  for (const row of rows) {
+    if (!(await canEditDealScoped(user, row))) {
+      skipped++
+      continue
+    }
+    if ((row[field] ?? null) === date) continue
+    const patch = { [field]: date }
+    await db.update(deal).set({ ...patch, updatedBy: user.id }).where(eq(deal.id, row.id))
+    await recordDealChanges(row.id, row, patch, user.id)
+    await audit({
+      action: 'deal.inline',
+      targetType: 'deal',
+      targetId: row.id,
+      targetLabel: row.dealCode,
+      summary: `${row.dealCode} ${side === 'sales' ? '매출' : '매입'}계산서 발행일 ${row[field] ?? '-'} → ${date ?? '-'} (목록 일괄)`,
+      detail: diffFields(row as Record<string, unknown>, patch),
+    })
+    updated++
+  }
+  revalidatePath('/deals')
+  return { ok: true, updated, skipped }
 }

@@ -2,9 +2,9 @@
 
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useOptimistic, useState, useTransition } from 'react'
+import { useEffect, useOptimistic, useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { toggleDealPaid, updateDealInline } from '@/server/actions/deals'
+import { bulkSetInvoiceDate, deleteDeals, toggleDealPaid, updateDealInline } from '@/server/actions/deals'
 import { Badge } from '@/components/ui/badge'
 import {
   TableBody,
@@ -13,7 +13,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Copy } from 'lucide-react'
+import { Copy, Trash2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { DateInput } from '@/components/ui/date-input'
 import { AttachmentButton } from '@/components/attachments/attachment-button'
 import { cn } from '@/lib/utils'
 import { formatDate, formatKRW } from '@/lib/format'
@@ -31,6 +33,10 @@ type Row = {
   salesVat: string | null
   purchaseAmountNet: string | null
   purchaseVat: string | null
+  salesAmountGross?: string | null
+  purchaseAmountGross?: string | null
+  salesMemo?: string | null
+  purchaseMemo?: string | null
   profit: string | null
   salesPaidStatus: string
   purchasePaidStatus: string
@@ -44,6 +50,7 @@ type Row = {
   settlementMonth: number | null
   ownerUserId: string | null
   canTogglePaid: boolean
+  canDelete?: boolean
   recentChanges?: RecentChanges
   attachmentCount?: number
   categoryName: string | null
@@ -85,18 +92,32 @@ function InlineAmount({
   value,
   enabled,
   className,
+  memo,
+  memoLabel,
 }: {
   dealId: string
   field: 'salesAmountNet' | 'purchaseAmountNet'
   value: string | null
   enabled: boolean
   className?: string
+  /** 마우스를 올리면 보여 줄 비고 (2026-09-17 피드백: 매출금 → 매출 비고, 매입금 → 매입 비고) */
+  memo?: string | null
+  memoLabel?: string
 }) {
   const { pending, save } = useInlineSave(dealId)
   const [shown, setShown] = useOptimistic(value)
+  const note = memo?.trim() ? `${memoLabel ?? '비고'}: ${memo.trim()}` : null
+  // 비고가 있으면 금액 옆에 작은 점으로 알려 준다
+  const dot = note ? <span aria-hidden className="mr-1 inline-block size-1.5 rounded-full bg-brand align-middle" /> : null
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
-  if (!enabled) return <>{formatKRW(value)}</>
+  if (!enabled)
+    return (
+      <span title={note ?? undefined} data-memo={note ? '' : undefined}>
+        {dot}
+        {formatKRW(value)}
+      </span>
+    )
   if (editing) {
     return (
       <input
@@ -124,13 +145,15 @@ function InlineAmount({
   return (
     <button
       type="button"
-      title="클릭해서 수정 (부가세 10% 자동)"
+      title={note ? `${note}\n— 클릭해서 수정 (부가세 10% 자동)` : '클릭해서 수정 (부가세 10% 자동)'}
+      data-memo={note ? '' : undefined}
       className={cn('w-full rounded px-0.5 text-right hover:bg-accent/60', pending && 'opacity-70', className)}
       onClick={() => {
         setDraft(shown != null ? String(Math.round(parseFloat(shown))) : '')
         setEditing(true)
       }}
     >
+      {dot}
       {formatKRW(shown)}
     </button>
   )
@@ -161,20 +184,16 @@ function InlineDate({
     return <span className={cn(muted && 'text-muted-foreground')}>{label}</span>
   if (editing) {
     return (
-      <input
+      <DateInput
+        compact
         autoFocus
-        type="date"
-        className="h-6 rounded border border-primary bg-background px-1 font-mono text-[11px] outline-none"
-        defaultValue={value ?? ''}
-        onBlur={(e) => {
+        value={value}
+        aria-label={`${field} 입력`}
+        onCancel={() => setEditing(false)}
+        onChange={(v) => {
           setEditing(false)
-          const v = e.target.value || null
           if (v === value) return
           save(field, v, () => setShown(v))
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-          if (e.key === 'Escape') setEditing(false)
         }}
       />
     )
@@ -344,6 +363,8 @@ export type ColumnFilters = {
   fPurchase?: string
   fPurchaseVat?: string
   fProfit?: string
+  fSalesGross?: string
+  fPurchaseGross?: string
   fPaid?: 'paid' | 'unpaid'
   fSettled?: 'settled' | 'unsettled'
   fSalesInvoice?: string
@@ -467,8 +488,10 @@ function FilterHeaderRow({ filters }: { filters: ColumnFilters }) {
       </TableHead>
       {amount('fSales')}
       {amount('fSalesVat')}
+      {amount('fSalesGross')}
       {amount('fPurchase')}
       {amount('fPurchaseVat')}
+      {amount('fPurchaseGross')}
       {amount('fProfit')}
       <TableHead className="py-1">
         <div className="flex gap-1">
@@ -503,10 +526,125 @@ function FilterHeaderRow({ filters }: { filters: ColumnFilters }) {
   )
 }
 
+type Picked = { id: string; code: string; canEdit: boolean; canDelete: boolean }
+
+/**
+ * 체크박스로 고른 거래 일괄 작업 (2026-09-17 피드백): 계산서 발행일 한 번에 지정 · 여러 건 삭제.
+ * 선택 상태를 표 컴포넌트에 두면 체크할 때마다 수백 행이 다시 그려지므로, 체크박스는 비제어로 두고 여기서 change 이벤트만 모아 센다.
+ */
+function BulkBar({ container }: { container: React.RefObject<HTMLDivElement | null> }) {
+  const router = useRouter()
+  const [picked, setPicked] = useState<Picked[]>([])
+  const [side, setSide] = useState<'sales' | 'purchase'>('sales')
+  const [date, setDate] = useState<string | null>(null)
+  const [pending, start] = useTransition()
+
+  useEffect(() => {
+    const root = container.current
+    if (!root) return
+    // 새로 마운트될 때(필터 변경) 남아 있던 체크를 지운다
+    for (const b of root.querySelectorAll<HTMLInputElement>('input[data-row-select], input[data-select-all]')) b.checked = false
+    const boxes = () => [...root.querySelectorAll<HTMLInputElement>('input[data-row-select]')]
+    const read = () =>
+      setPicked(
+        boxes()
+          .filter((b) => b.checked)
+          .map((b) => ({ id: b.dataset.id!, code: b.dataset.code ?? '', canEdit: b.dataset.canEdit === '1', canDelete: b.dataset.canDelete === '1' })),
+      )
+    const onChange = (e: Event) => {
+      const t = e.target as HTMLInputElement
+      if (t.matches?.('input[data-select-all]')) for (const b of boxes()) b.checked = t.checked
+      else if (!t.matches?.('input[data-row-select]')) return
+      read()
+    }
+    root.addEventListener('change', onChange)
+    return () => root.removeEventListener('change', onChange)
+  }, [container])
+
+  function clear() {
+    const root = container.current
+    if (root) for (const b of root.querySelectorAll<HTMLInputElement>('input[data-row-select], input[data-select-all]')) b.checked = false
+    setPicked([])
+  }
+
+  if (picked.length === 0) return null
+  const editable = picked.filter((p) => p.canEdit)
+  const deletable = picked.filter((p) => p.canDelete)
+
+  function applyInvoiceDate() {
+    if (editable.length === 0) return
+    start(async () => {
+      const res = await bulkSetInvoiceDate({ ids: editable.map((p) => p.id), side, date })
+      if ('error' in res) {
+        toast.error(res.error)
+        return
+      }
+      const label = side === 'sales' ? '매출계산서' : '매입계산서'
+      toast.success(`${label} 발행일을 ${res.updated}건에 ${date ?? '비움'}(으)로 적용했습니다`, res.skipped ? { description: `권한이 없는 ${res.skipped}건은 건너뛰었습니다` } : undefined)
+      clear()
+      router.refresh()
+    })
+  }
+
+  function removePicked() {
+    if (deletable.length === 0) {
+      toast.error('삭제할 수 있는 거래가 없습니다', { description: '본인 거래만 삭제할 수 있습니다' })
+      return
+    }
+    const skip = picked.length - deletable.length
+    // 확인 메시지는 한 번만 (고객 요청)
+    if (!confirm(`선택한 거래 ${deletable.length}건을 삭제하시겠습니까?${skip ? `\n(삭제 권한이 없는 ${skip}건은 제외됩니다)` : ''}`)) return
+    start(async () => {
+      const res = await deleteDeals(deletable.map((p) => p.id))
+      if ('error' in res) {
+        toast.error(res.error)
+        return
+      }
+      toast.success(`거래 ${res.deleted}건을 삭제했습니다`)
+      clear()
+      router.refresh()
+    })
+  }
+
+  return (
+    <div data-slot="deals-bulk-bar" className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b bg-muted/50 px-4 py-2 text-[12.5px]">
+      <span>
+        <b>{picked.length}</b>건 선택
+      </span>
+      <span className="h-4 w-px bg-border" />
+      <span className="flex items-center gap-1.5">
+        <span className="text-muted-foreground">계산서 발행일 일괄 수정</span>
+        <select
+          aria-label="계산서 구분"
+          className="h-7 rounded-md border bg-background px-1.5 text-[12.5px]"
+          value={side}
+          onChange={(e) => setSide(e.target.value as 'sales' | 'purchase')}
+        >
+          <option value="sales">매출계산서</option>
+          <option value="purchase">매입계산서</option>
+        </select>
+        <DateInput compact aria-label="일괄 발행일" value={date} onChange={setDate} className="w-[104px]" inputClassName="h-7 w-[104px] border-input" />
+        <Button size="sm" className="h-7" disabled={pending || editable.length === 0} onClick={applyInvoiceDate} title={date ? undefined : '날짜를 비워 두면 발행일을 지웁니다'}>
+          {pending ? '적용 중...' : `${editable.length}건에 적용`}
+        </Button>
+      </span>
+      <span className="h-4 w-px bg-border" />
+      <Button size="sm" variant="destructive" className="h-7 gap-1.5" disabled={pending} onClick={removePicked}>
+        <Trash2 className="size-3.5" />
+        선택 삭제
+      </Button>
+      <button type="button" className="text-muted-foreground hover:text-foreground" onClick={clear}>
+        선택 해제
+      </button>
+    </div>
+  )
+}
+
 export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows: Row[]; columnFilters?: ColumnFilters; canCopy?: boolean }) {
   const hasFilter = Object.values(columnFilters).some(Boolean)
   // 상세에서 돌아올 때 필터 유지 (2026-09-14 피드백)
   const search = useSearchParams().toString()
+  const container = useRef<HTMLDivElement>(null)
   const detailHref = (id: string) => `/deals/${id}${search ? `?back=${encodeURIComponent('/deals?' + search)}` : ''}`
   if (rows.length === 0 && !hasFilter) {
     return (
@@ -516,7 +654,10 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
     )
   }
   return (
-    // 표 자체가 가로·세로 스크롤 상자(남은 화면 높이를 채움) — 헤더 두 줄은 상자 상단에 고정, 가로 스크롤바는 상자 하단(항상 화면 안)에 보임.
+    <div ref={container} className="flex min-h-0 flex-1 flex-col">
+    {/* 필터·검색이 바뀌면 선택을 비운다 */}
+    <BulkBar key={search} container={container} />
+    {/* 표 자체가 가로·세로 스크롤 상자(남은 화면 높이를 채움) — 헤더 두 줄은 상자 상단에 고정, 가로 스크롤바는 상자 하단(항상 화면 안)에 보임. */}
     <div
       data-slot="deals-scroll"
       className={cn(
@@ -529,7 +670,12 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
         {/* border-collapse 표에서 sticky 헤더의 행 테두리는 틈이 생겨 아래 글자가 비친다 → 테두리 대신 셀 안쪽 그림자로 선을 그린다 */}
         <TableHeader className="sticky top-0 z-20 bg-card [&_th]:bg-card [&_th]:shadow-[inset_0_-1px_0_var(--border)] [&_tr]:border-b-0">
           <TableRow className="hover:bg-transparent">
-            <TableHead>거래코드</TableHead>
+            <TableHead>
+              <span className="flex items-center gap-2">
+                <input type="checkbox" data-select-all aria-label="전체 선택" title="화면의 거래 전체 선택" className="size-3.5 accent-[var(--primary)]" />
+                거래코드
+              </span>
+            </TableHead>
             <TableHead className="w-16 text-center" title="첨부파일 · 복사">📎</TableHead>
             <TableHead>귀속</TableHead>
             <TableHead>상품구분</TableHead>
@@ -539,8 +685,10 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
             <TableHead>품목명</TableHead>
             <TableHead className="text-right">매출</TableHead>
             <TableHead className="text-right">부가세</TableHead>
+            <TableHead className="text-right" title="매출금 + 부가세">총매출<br />(VAT 포함)</TableHead>
             <TableHead className="text-right">매입</TableHead>
             <TableHead className="text-right">부가세</TableHead>
+            <TableHead className="text-right" title="매입금 + 부가세">총매입<br />(VAT 포함)</TableHead>
             <TableHead className="text-right">손익</TableHead>
             <TableHead className="text-center">입금 / 결산</TableHead>
             <TableHead>매출계산서<br />발행일</TableHead>
@@ -553,7 +701,7 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
         <TableBody>
           {rows.length === 0 && (
             <TableRow>
-              <TableCell colSpan={18} className="py-14 text-center text-sm text-muted-foreground">
+              <TableCell colSpan={20} className="py-14 text-center text-sm text-muted-foreground">
                 검색 결과가 없습니다. 필터 입력을 비우고 Enter 를 누르면 해제됩니다.
               </TableCell>
             </TableRow>
@@ -573,6 +721,20 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
             return (
               <TableRow key={r.id} className="hover:bg-muted/60">
                 <TableCell {...cell('code')}>
+                  <span className="flex items-center gap-2">
+                  {(r.canTogglePaid || r.canDelete) && (
+                    <input
+                      type="checkbox"
+                      data-row-select
+                      data-id={r.id}
+                      data-code={r.dealCode}
+                      data-can-edit={r.canTogglePaid ? '1' : '0'}
+                      data-can-delete={r.canDelete ? '1' : '0'}
+                      aria-label={`${r.dealCode} 선택`}
+                      className="size-3.5 shrink-0 accent-[var(--primary)]"
+                    />
+                  )}
+                  <span>
                   <Link
                     href={detailHref(r.id)}
                     className="text-[13px] font-medium tabular-nums text-foreground hover:text-brand"
@@ -584,6 +746,8 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
                       {r.currency}
                     </Badge>
                   )}
+                  </span>
+                  </span>
                 </TableCell>
                 <TableCell className="text-center">
                   <div className="flex items-center justify-center gap-0.5">
@@ -636,16 +800,22 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
                   {r.itemName ?? <span className="text-muted-foreground">-</span>}
                 </TableCell>
                 <TableCell {...cell('salesNet', 'text-right text-[13px] tabular-nums')}>
-                  <InlineAmount dealId={r.id} field="salesAmountNet" value={r.salesAmountNet} enabled={r.canTogglePaid} />
+                  <InlineAmount dealId={r.id} field="salesAmountNet" value={r.salesAmountNet} enabled={r.canTogglePaid} memo={r.salesMemo} memoLabel="매출 비고" />
                 </TableCell>
                 <TableCell {...cell('salesVat', 'text-right text-[13px] text-muted-foreground tabular-nums')}>
                   {formatKRW(r.salesVat)}
                 </TableCell>
+                <TableCell className="text-right text-[13px] tabular-nums" data-col="salesGross">
+                  {formatKRW(r.salesAmountGross ?? null)}
+                </TableCell>
                 <TableCell {...cell('purchaseNet', 'text-right text-[13px] tabular-nums')}>
-                  <InlineAmount dealId={r.id} field="purchaseAmountNet" value={r.purchaseAmountNet} enabled={r.canTogglePaid} />
+                  <InlineAmount dealId={r.id} field="purchaseAmountNet" value={r.purchaseAmountNet} enabled={r.canTogglePaid} memo={r.purchaseMemo} memoLabel="매입 비고" />
                 </TableCell>
                 <TableCell {...cell('purchaseVat', 'text-right text-[13px] text-muted-foreground tabular-nums')}>
                   {formatKRW(r.purchaseVat)}
+                </TableCell>
+                <TableCell className="text-right text-[13px] tabular-nums" data-col="purchaseGross">
+                  {formatKRW(r.purchaseAmountGross ?? null)}
                 </TableCell>
                 <TableCell
                   className={cn(
@@ -722,6 +892,7 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
           })}
         </TableBody>
       </table>
+    </div>
     </div>
   )
 }

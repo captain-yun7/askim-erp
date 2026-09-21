@@ -17,7 +17,7 @@ import { DealQuickAdd } from '@/components/deals/deal-quick-add'
 import { CollapseOnTableScroll } from '@/components/deals/collapse-on-table-scroll'
 import { listDeals } from '@/server/queries/deals'
 import { DEAL_SORT_LABEL, type DealSort } from '@/lib/deal-sort'
-import { canCreateDeal, getSessionUser } from '@/server/auth/guards'
+import { canCreateDeal, canDeleteDeal, getSessionUser } from '@/server/auth/guards'
 import { canEditDealShared, getShareTeams, resolveDealScope } from '@/server/auth/deal-scope'
 import { getAllLookups } from '@/server/queries/lookups'
 import { cn } from '@/lib/utils'
@@ -26,7 +26,7 @@ import { formatKRW, formatKRWShort } from '@/lib/format'
 type SP = { [k: string]: string | string[] | undefined }
 
 const TEXT_COLUMN_FILTERS = [
-  'fItem', 'fSales', 'fSalesVat', 'fPurchase', 'fPurchaseVat', 'fProfit',
+  'fItem', 'fSales', 'fSalesVat', 'fSalesGross', 'fPurchase', 'fPurchaseVat', 'fPurchaseGross', 'fProfit',
   'fSalesInvoice', 'fPurchaseInvoice', 'fSalesDue', 'fSalesPaid', 'fPurchaseDue', 'fPurchasePaid',
 ] as const
 
@@ -217,6 +217,7 @@ export default async function DealsPage({
                 r.ownerTeam,
                 shareTeams,
               ),
+            canDelete: me != null && canDeleteDeal(me, { status: r.status as 'draft' | 'confirmed' | 'closed', ownerUserId: r.ownerUserId }),
           }))}
         />
         {me && me.role !== 'viewer' && (

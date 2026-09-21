@@ -12,7 +12,7 @@ type Cat = { id: number; nameKo: string }
 type User = { id: string; name: string }
 
 /**
- * 목록 하단 빠른 행 추가 (엑셀처럼) — 필수 최소 필드만 입력, 거래코드 자동 채번.
+ * 목록 하단 빠른 행 추가 (엑셀처럼) — 필수 최소 필드만 입력. 거래코드는 직접 입력(2026-09-17: 자동 채번 폐지).
  * 상세(계산서 발행일·메모 등)는 저장 후 행에서 인라인 수정하거나 상세 폼에서.
  */
 export function DealQuickAdd({
@@ -31,6 +31,7 @@ export function DealQuickAdd({
   const [pending, start] = useTransition()
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState(() => ({
+    dealCode: '',
     accrualYear: String(defaultYear),
     accrualMonth: String(defaultMonth),
     categoryId: '',
@@ -44,6 +45,10 @@ export function DealQuickAdd({
   const set = (patch: Partial<typeof form>) => setForm((p) => ({ ...p, ...patch }))
 
   function submit() {
+    if (!form.dealCode.trim()) {
+      toast.error('거래코드를 입력해 주세요')
+      return
+    }
     if (!form.categoryId) {
       toast.error('상품구분을 선택해 주세요')
       return
@@ -52,6 +57,7 @@ export function DealQuickAdd({
     const purchase = Number(form.purchaseAmountNet.replace(/,/g, '')) || 0
     start(async () => {
       const res = await createDeal({
+        dealCode: form.dealCode.trim(),
         accrualYear: Number(form.accrualYear),
         accrualMonth: Number(form.accrualMonth),
         categoryId: Number(form.categoryId),
@@ -69,7 +75,7 @@ export function DealQuickAdd({
       if (res.error) toast.error(res.error)
       else {
         toast.success(`거래 등록: ${'deal' in res && res.deal ? res.deal.dealCode : ''}`)
-        set({ issuerCounterpartyId: null, supplierCounterpartyId: null, itemName: '', salesAmountNet: '', purchaseAmountNet: '' })
+        set({ dealCode: '', issuerCounterpartyId: null, supplierCounterpartyId: null, itemName: '', salesAmountNet: '', purchaseAmountNet: '' })
       }
     })
   }
@@ -90,6 +96,9 @@ export function DealQuickAdd({
   return (
     <div className="border-t bg-accent/30 px-4 py-3">
       <div className="flex flex-wrap items-end gap-2">
+        <L label="거래코드 *">
+          <Input className="h-8 w-32 font-mono" placeholder="AM260917-1" value={form.dealCode} onChange={(e) => set({ dealCode: e.target.value })} />
+        </L>
         <L label="귀속연도">
           <Input className="h-8 w-20 font-mono" inputMode="numeric" value={form.accrualYear} onChange={(e) => set({ accrualYear: e.target.value })} />
         </L>
@@ -157,7 +166,7 @@ export function DealQuickAdd({
         </div>
       </div>
       <p className="mt-1.5 text-[11px] text-muted-foreground">
-        거래코드 자동 채번 · 부가세 10% 자동 · 날짜·비고 등 상세는 저장 후 행에서 바로 수정
+        부가세 10% 자동 · 날짜·비고 등 상세는 저장 후 행에서 바로 수정
       </p>
     </div>
   )
