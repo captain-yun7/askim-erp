@@ -58,6 +58,8 @@ test('보증금 행에 PDF 첨부 → 새 탭 보기(inline) → 다운로드 �
 test('거래 목록 행에도 첨부 → 배지 → 삭제', async ({ page }) => {
   await login(page)
   await page.goto('/deals/new')
+  // 거래코드 자동 채번 폐지(2026-09-17) — 직접 입력
+  await page.locator('div:has(> label:text-is("거래코드")) input').fill(`E2E${Date.now()}`)
   await page.locator('div:has(> label:text-is("품목명")) input').fill('E2E거래첨부')
   await page.locator('div:has(> label:has-text("매출금")) input').first().fill('10000')
   await page.getByRole('button', { name: '확정저장' }).click()
