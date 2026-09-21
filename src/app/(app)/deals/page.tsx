@@ -14,9 +14,11 @@ import { exportDealsCsv } from '@/server/actions/export'
 import { DealsTable } from '@/components/deals/deals-table'
 import { DealsFilters } from '@/components/deals/deals-filters'
 import { DealQuickAdd } from '@/components/deals/deal-quick-add'
+import { CollapseOnTableScroll } from '@/components/deals/collapse-on-table-scroll'
 import { listDeals } from '@/server/queries/deals'
 import { DEAL_SORT_LABEL, type DealSort } from '@/lib/deal-sort'
-import { canCreateDeal, canEditDeal, getDealScope, getSessionUser } from '@/server/auth/guards'
+import { canCreateDeal, canEditDeal, getSessionUser } from '@/server/auth/guards'
+import { resolveDealScope } from '@/server/auth/deal-scope'
 import { getAllLookups } from '@/server/queries/lookups'
 import { cn } from '@/lib/utils'
 import { formatKRW, formatKRWShort } from '@/lib/format'
@@ -25,7 +27,7 @@ type SP = { [k: string]: string | string[] | undefined }
 
 const TEXT_COLUMN_FILTERS = [
   'fItem', 'fSales', 'fSalesVat', 'fPurchase', 'fPurchaseVat', 'fProfit',
-  'fSalesInvoice', 'fPurchaseInvoice', 'fSalesDate', 'fPurchaseDate',
+  'fSalesInvoice', 'fPurchaseInvoice', 'fSalesDue', 'fSalesPaid', 'fPurchaseDue', 'fPurchasePaid',
 ] as const
 
 const intList = (v: string | string[] | undefined) => {
@@ -58,7 +60,9 @@ export default async function DealsPage({
     fIssuer: typeof sp.fIssuer === 'string' ? sp.fIssuer : undefined,
     fSupplier: typeof sp.fSupplier === 'string' ? sp.fSupplier : undefined,
     ...pickColumnFilters(sp),
-    year: sp.year ? parseInt(String(sp.year), 10) : undefined,
+    // 귀속연도 다중 선택 (2026-09-16 피드백) — 하나만 고르면 전월 대비·행 추가 기본값에 쓰도록 year 도 채움
+    years: intList(sp.year),
+    year: intList(sp.year)?.length === 1 ? intList(sp.year)![0] : undefined,
     // 월·상품구분·상태 다중 선택 (2026-09-09 피드백) — 쉼표 구분
     months: intList(sp.month),
     categoryIds: intList(sp.categoryId),
@@ -75,7 +79,7 @@ export default async function DealsPage({
     await Promise.all([listDeals(filters), getAllLookups(), getSessionUser()])
 
   // 담당자 필터 옵션도 조회 범위에 맞춤 (팀장=팀원, 팀원=본인)
-  const scope = me ? getDealScope(me) : ({ kind: 'all' } as const)
+  const scope = me ? await resolveDealScope(me) : ({ kind: 'all' } as const)
   const filterUsers =
     scope.kind === 'team'
       ? lookups.users.filter((u) => u.team === scope.team)
@@ -86,7 +90,8 @@ export default async function DealsPage({
   const margin = aggregate.sales > 0 ? (aggregate.profit / aggregate.sales) * 100 : 0
 
   return (
-    <div className="flex flex-col px-8 pb-8 pt-6">
+    // 화면 높이에 맞춘 세로 배치 — 표만 자체 스크롤하고 검색·필터·요약·헤더는 항상 보인다 (2026-09-16 피드백: 상단 고정)
+    <div className="flex h-[calc(100vh/var(--ui-zoom,1))] min-h-[600px] flex-col px-8 pb-3 pt-6">
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">거래</h1>
@@ -104,7 +109,8 @@ export default async function DealsPage({
         </div>
       </div>
 
-      <section className="mt-5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+      <CollapseOnTableScroll>
+      <section className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
         <SummaryCard
           icon={<Database className="size-[15px]" />}
           tone="primary"
@@ -158,15 +164,17 @@ export default async function DealsPage({
           }
         />
       </section>
+      </CollapseOnTableScroll>
 
-      <section className="mt-5 overflow-clip rounded-2xl border bg-card">
+      {/* 검색·필터·요약·표 헤더 고정 (2026-09-16 피드백): 표만 자체 스크롤 상자 안에서 움직이고 그 위 영역은 항상 보임 */}
+      <section className="mt-5 flex min-h-0 flex-1 flex-col rounded-2xl border bg-card" data-slot="deals-section">
         <div className="border-b p-4">
           <DealsFilters
             categories={lookups.categories}
             users={filterUsers}
             initial={{
               q: filters.q,
-              year: filters.year,
+              years: filters.years,
               months: filters.months,
               categoryIds: filters.categoryIds,
               ownerUserIds: filters.ownerUserIds,
@@ -191,6 +199,7 @@ export default async function DealsPage({
         </div>
 
         <DealsTable
+          canCopy={me != null && canCreateDeal(me.role)}
           columnFilters={{
             fCode: filters.fCode,
             fIssuer: filters.fIssuer,
@@ -217,11 +226,12 @@ export default async function DealsPage({
           />
         )}
 
-        <div className="px-4 py-3 text-xs text-muted-foreground">
-          {rows.length < total
-            ? `${total.toLocaleString()}건 중 ${rows.length.toLocaleString()}건 표시 — 필터로 범위를 좁혀 주세요`
-            : `${total.toLocaleString()}건 전체 표시`}
-        </div>
+        {/* 전체가 다 보일 때는 위 요약줄(총 N건)과 중복이라 생략 — 표 높이 확보 */}
+        {rows.length < total && (
+          <div className="shrink-0 px-4 py-2 text-xs text-muted-foreground">
+            {total.toLocaleString()}건 중 {rows.length.toLocaleString()}건 표시 — 필터로 범위를 좁혀 주세요
+          </div>
+        )}
       </section>
     </div>
   )

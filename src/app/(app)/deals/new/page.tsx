@@ -1,12 +1,55 @@
 import Link from 'next/link'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, Copy } from 'lucide-react'
 import { DealForm } from '@/components/deals/deal-form'
 import { getAllLookups } from '@/server/queries/lookups'
+import { getDealById } from '@/server/queries/deals'
+import { getCounterpartyById } from '@/server/queries/counterparties'
 import { requireWriter } from '@/server/auth/require-backoffice'
 
-export default async function NewDealPage() {
+/**
+ * 새 거래 등록. `?copy=<거래 id>` 면 그 거래 내용을 채운 채로 연다 (2026-09-16 피드백: 거래 복사).
+ * 거래코드는 비워 두어 저장 시 새로 채번되고, 날짜·입금/결산 상태는 복사하지 않는다.
+ */
+export default async function NewDealPage({ searchParams }: { searchParams: Promise<{ copy?: string }> }) {
   await requireWriter('/deals')
-  const lookups = await getAllLookups()
+  const { copy } = await searchParams
+  const isUuid = typeof copy === 'string' && /^[0-9a-f-]{36}$/i.test(copy)
+  const [lookups, source] = await Promise.all([getAllLookups(), isUuid ? getDealById(copy) : null])
+  const [issuer, supplier] = source
+    ? await Promise.all([
+        source.issuerCounterpartyId ? getCounterpartyById(source.issuerCounterpartyId, { includeDeleted: true }) : null,
+        source.supplierCounterpartyId ? getCounterpartyById(source.supplierCounterpartyId, { includeDeleted: true }) : null,
+      ])
+    : [null, null]
+
+  const initial = source
+    ? {
+        accrualYear: source.accrualYear,
+        accrualMonth: source.accrualMonth,
+        ownerUserId: source.ownerUserId,
+        categoryId: source.categoryId,
+        accountId: source.accountId,
+        currency: source.currency,
+        salesMethodId: source.salesMethodId,
+        issuerCounterpartyId: source.issuerCounterpartyId,
+        advertiserCounterpartyId: source.advertiserCounterpartyId,
+        advertiserName: source.advertiserName,
+        itemName: source.itemName,
+        salesAmountNet: source.salesAmountNet,
+        salesVat: source.salesVat,
+        salesAmountGross: source.salesAmountGross,
+        salesMemo: source.salesMemo,
+        supplierCounterpartyId: source.supplierCounterpartyId,
+        purchasePricingRaw: source.purchasePricingRaw,
+        purchaseAmountNet: source.purchaseAmountNet,
+        purchaseVat: source.purchaseVat,
+        purchaseAmountGross: source.purchaseAmountGross,
+        purchaseMemo: source.purchaseMemo,
+        issuerLabel: issuer?.name ?? null,
+        supplierLabel: supplier?.name ?? null,
+      }
+    : undefined
+
   return (
     <div>
       <div className="border-b px-8 pb-4 pt-6">
@@ -21,7 +64,15 @@ export default async function NewDealPage() {
           거래코드는 비워두면 담당자 prefix + YYMMDD로 자동 채번됩니다
         </p>
       </div>
-      <DealForm lookups={lookups} />
+      {source && (
+        <div data-slot="copy-banner" className="mx-8 mt-4 flex items-center gap-2 rounded-md bg-info px-3 py-2 text-xs text-info-foreground">
+          <Copy className="size-3.5" />
+          <span>
+            <b className="font-medium">{source.dealCode}</b> 복사본입니다. 저장하면 새 거래코드로 등록됩니다 — 날짜와 입금·결산 상태는 복사되지 않았으니 확인 후 입력하세요.
+          </span>
+        </div>
+      )}
+      <DealForm lookups={lookups} initial={initial as unknown as Parameters<typeof DealForm>[0]['initial']} />
     </div>
   )
 }

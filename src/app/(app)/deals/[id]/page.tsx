@@ -26,8 +26,8 @@ export default async function EditDealPage({
 
   const [lookups, issuer, supplier, user] = await Promise.all([
     getAllLookups(),
-    d.issuerCounterpartyId ? getCounterpartyById(d.issuerCounterpartyId) : null,
-    d.supplierCounterpartyId ? getCounterpartyById(d.supplierCounterpartyId) : null,
+    d.issuerCounterpartyId ? getCounterpartyById(d.issuerCounterpartyId, { includeDeleted: true }) : null,
+    d.supplierCounterpartyId ? getCounterpartyById(d.supplierCounterpartyId, { includeDeleted: true }) : null,
     getSessionUser(),
   ])
 

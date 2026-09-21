@@ -25,11 +25,12 @@ export async function listCounterparties(opts?: {
     .limit(opts?.limit ?? 20)
 }
 
-export async function getCounterpartyById(id: string) {
+/** includeDeleted: 삭제된 거래처도 기존 거래의 표시용 이름으로는 필요 (거래 수정·복사 화면) */
+export async function getCounterpartyById(id: string, opts: { includeDeleted?: boolean } = {}) {
   const [row] = await db
     .select()
     .from(counterparty)
-    .where(and(eq(counterparty.id, id), isNull(counterparty.deletedAt)))
+    .where(and(eq(counterparty.id, id), opts.includeDeleted ? undefined : isNull(counterparty.deletedAt)))
     .limit(1)
   return row ?? null
 }

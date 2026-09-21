@@ -92,45 +92,27 @@ test.describe('① 거래 목록 컬럼별 검색 (금액·상태·날짜)', () 
 })
 
 test.describe('② 거래 목록 가로 스크롤', () => {
-  test('화면 하단 고정 스크롤바가 보이고 표와 동기화된다', async ({ page }) => {
+  // 2026-09-16: 표가 화면 높이에 맞춘 자체 스크롤 상자가 되면서 별도 하단 고정 바 대신 상자의 가로 스크롤바가 항상 화면 안에 있다
+  test('가로 스크롤바가 항상 화면 안에 있고 마지막 컬럼까지 볼 수 있다', async ({ page }) => {
     await page.setViewportSize({ width: 1100, height: 700 })
     await login(page)
     await page.goto('/deals?year=2026')
 
-    const bar = page.locator('[data-slot=sticky-h-scroll-bar]')
-    const content = page.locator('[data-slot=sticky-h-scroll-content]')
-    await expect(bar).toBeVisible()
-    // 하이드레이션 후 실측이 끝나야 스페이서 폭이 잡힘
-    await expect.poll(() => bar.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true)
+    const box = page.locator('[data-slot=deals-scroll]')
+    await expect(box).toBeVisible()
+    expect(await box.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true)
 
-    // 표 중간까지 세로 스크롤해도 스크롤바는 viewport 하단에 붙어 있어야 함 (sticky)
-    await page.evaluate(() => window.scrollTo(0, 600))
-    const box = await bar.boundingBox()
-    expect(box).not.toBeNull()
-    expect(box!.y + box!.height).toBeLessThanOrEqual(700 + 1)
-    expect(box!.y).toBeGreaterThan(700 - 40)
-
-    // 스크롤바 → 표 동기화
-    await bar.evaluate((el) => {
-      el.scrollLeft = 300
-      el.dispatchEvent(new Event('scroll'))
-    })
-    await expect.poll(() => content.evaluate((el) => el.scrollLeft)).toBe(300)
-
-    // 표 → 스크롤바 동기화
-    await content.evaluate((el) => {
-      el.scrollLeft = 120
-      el.dispatchEvent(new Event('scroll'))
-    })
-    await expect.poll(() => bar.evaluate((el) => el.scrollLeft)).toBe(120)
+    // 세로로 한참 내려도 상자 하단(가로 스크롤바 위치)은 viewport 안
+    await box.evaluate((el) => el.scrollTo({ top: 3000 }))
+    const rect = await box.boundingBox()
+    expect(rect!.y + rect!.height).toBeLessThanOrEqual(700 + 1)
+    expect(await page.evaluate(() => window.scrollY)).toBe(0)
 
     // 오른쪽 끝까지 스크롤하면 마지막 컬럼(결산예정일)이 화면 안에 들어옴
-    await bar.evaluate((el) => {
-      el.scrollLeft = el.scrollWidth
-      el.dispatchEvent(new Event('scroll'))
-    })
+    await box.evaluate((el) => el.scrollTo({ left: el.scrollWidth }))
     const lastHead = page.locator('thead tr').first().locator('th').last()
     await expect.poll(async () => (await lastHead.boundingBox())!.x + (await lastHead.boundingBox())!.width).toBeLessThanOrEqual(1100)
+    await expect(lastHead).toBeInViewport()
   })
 })
 

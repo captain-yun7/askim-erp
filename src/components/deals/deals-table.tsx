@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { StickyHScroll } from '@/components/ui/sticky-h-scroll'
+import { Copy } from 'lucide-react'
 import { AttachmentButton } from '@/components/attachments/attachment-button'
 import { cn } from '@/lib/utils'
 import { formatDate, formatKRW } from '@/lib/format'
@@ -286,8 +286,8 @@ function StatusPill({ done, doneLabel, todoLabel }: { done: boolean; doneLabel: 
   )
 }
 
-/** 담당자 이름 클릭 → 메일 작성 창 (2026-09-15 확정). 본문은 발신자가 수정 가능 */
-function mailtoHref(r: Row): string {
+/** 담당자에게 보낼 메일 제목·본문 (거래 요약) */
+function mailDraft(r: Row): { subject: string; body: string } {
   const won = (v: string | null) => (v ? formatKRW(v) + '원' : '-')
   const lines = [
     `거래코드: ${r.dealCode}`,
@@ -300,8 +300,38 @@ function mailtoHref(r: Row): string {
     `손익: ${won(r.profit)}`,
     `입금: ${r.salesPaidStatus === 'completed' ? '완료' : '미입금'} / 결산: ${r.purchasePaidStatus === 'completed' ? '완료' : '미결산'}`,
   ]
-  const subject = `[ASKIM ERP] ${r.dealCode} ${r.issuerName ?? ''} 거래 문의`
-  return `mailto:${r.ownerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(lines.join('\n') + '\n\n')}`
+  return { subject: `[ASKIM ERP] ${r.dealCode} ${r.issuerName ?? ''} 거래 문의`, body: lines.join('\n') + '\n\n' }
+}
+
+/** 네이버웍스 메일 쓰기 창 (2026-09-16 피드백: 사내 메일이 네이버웍스). 받는사람·제목·본문을 넘기되, 웍스가 본문을 안 채워 주는 경우에 대비해 클립보드에도 복사 */
+const WORKS_COMPOSE = 'https://mail.worksmobile.com/write/popup'
+function worksMailHref(r: Row): string {
+  const { subject, body } = mailDraft(r)
+  const q = new URLSearchParams({ to: r.ownerEmail ?? '', subject, body })
+  return `${WORKS_COMPOSE}?${q.toString()}`
+}
+
+function OwnerMailLink({ r, owner }: { r: Row; owner: string }) {
+  return (
+    <a
+      href={worksMailHref(r)}
+      target="_blank"
+      rel="noopener noreferrer"
+      data-owner-mail={r.ownerEmail ?? ''}
+      title={`${owner}에게 네이버웍스 메일 쓰기 — 거래 정보가 클립보드에 복사됩니다 (본문에 붙여넣기)`}
+      className="text-[13px] underline decoration-dotted underline-offset-4 hover:text-brand"
+      onClick={() => {
+        const { subject, body } = mailDraft(r)
+        const text = `받는사람: ${r.ownerEmail}\n제목: ${subject}\n\n${body}`
+        navigator.clipboard
+          ?.writeText(text)
+          .then(() => toast.success('거래 정보를 복사했습니다', { description: '네이버웍스 메일 본문에 붙여넣기(Ctrl+V) 하세요' }))
+          .catch(() => {})
+      }}
+    >
+      {owner}
+    </a>
+  )
 }
 
 export type ColumnFilters = {
@@ -318,8 +348,10 @@ export type ColumnFilters = {
   fSettled?: 'settled' | 'unsettled'
   fSalesInvoice?: string
   fPurchaseInvoice?: string
-  fSalesDate?: string
-  fPurchaseDate?: string
+  fSalesDue?: string
+  fSalesPaid?: string
+  fPurchaseDue?: string
+  fPurchasePaid?: string
 }
 
 const AMOUNT_HINT = '금액 검색: 800000 정확히 · >1000000 · <=500000 · 100000~500000 범위 · - 비어있음'
@@ -410,6 +442,14 @@ function FilterHeaderRow({ filters }: { filters: ColumnFilters }) {
       <ColumnFilterInput param={param} value={filters[param]} placeholder="YYYY-MM" title={DATE_HINT} />
     </TableHead>
   )
+  const datePair = (top: keyof ColumnFilters, topLabel: string, bottom: keyof ColumnFilters, bottomLabel: string) => (
+    <TableHead className="py-1">
+      <div className="flex flex-col gap-1">
+        <ColumnFilterInput param={top} value={filters[top]} placeholder={topLabel} title={`${topLabel} — ${DATE_HINT}`} />
+        <ColumnFilterInput param={bottom} value={filters[bottom]} placeholder={bottomLabel} title={`${bottomLabel} — ${DATE_HINT}`} />
+      </div>
+    </TableHead>
+  )
   return (
     <TableRow className="hover:bg-transparent">
       <TableHead className="py-1">
@@ -456,13 +496,14 @@ function FilterHeaderRow({ filters }: { filters: ColumnFilters }) {
       </TableHead>
       {date('fSalesInvoice')}
       {date('fPurchaseInvoice')}
-      {date('fSalesDate')}
-      {date('fPurchaseDate')}
+      {/* 헤더가 두 줄(예정일/실제일)인 컬럼은 필터도 두 칸 (2026-09-16 피드백) */}
+      {datePair('fSalesDue', '입금예정', 'fSalesPaid', '입금일')}
+      {datePair('fPurchaseDue', '결산예정', 'fPurchasePaid', '결산일')}
     </TableRow>
   )
 }
 
-export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFilters?: ColumnFilters }) {
+export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows: Row[]; columnFilters?: ColumnFilters; canCopy?: boolean }) {
   const hasFilter = Object.values(columnFilters).some(Boolean)
   // 상세에서 돌아올 때 필터 유지 (2026-09-14 피드백)
   const search = useSearchParams().toString()
@@ -475,12 +516,21 @@ export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFi
     )
   }
   return (
-    <StickyHScroll>
+    // 표 자체가 가로·세로 스크롤 상자(남은 화면 높이를 채움) — 헤더 두 줄은 상자 상단에 고정, 가로 스크롤바는 상자 하단(항상 화면 안)에 보임.
+    <div
+      data-slot="deals-scroll"
+      className={cn(
+        'min-h-0 flex-1 overflow-auto overscroll-contain border-b',
+        '[&::-webkit-scrollbar]:size-2.5 [&::-webkit-scrollbar-track]:bg-muted/60 [&::-webkit-scrollbar-corner]:bg-muted/60',
+        '[&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/50',
+      )}
+    >
       <table className="w-full caption-bottom text-sm">
-        <TableHeader>
+        {/* border-collapse 표에서 sticky 헤더의 행 테두리는 틈이 생겨 아래 글자가 비친다 → 테두리 대신 셀 안쪽 그림자로 선을 그린다 */}
+        <TableHeader className="sticky top-0 z-20 bg-card [&_th]:bg-card [&_th]:shadow-[inset_0_-1px_0_var(--border)] [&_tr]:border-b-0">
           <TableRow className="hover:bg-transparent">
             <TableHead>거래코드</TableHead>
-            <TableHead className="w-12 text-center" title="첨부파일">📎</TableHead>
+            <TableHead className="w-16 text-center" title="첨부파일 · 복사">📎</TableHead>
             <TableHead>귀속</TableHead>
             <TableHead>상품구분</TableHead>
             <TableHead>담당</TableHead>
@@ -536,6 +586,7 @@ export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFi
                   )}
                 </TableCell>
                 <TableCell className="text-center">
+                  <div className="flex items-center justify-center gap-0.5">
                   <AttachmentButton
                     targetType="deal"
                     targetId={r.id}
@@ -543,6 +594,17 @@ export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFi
                     count={r.attachmentCount ?? 0}
                     canEdit={r.canTogglePaid}
                   />
+                  {canCopy && (
+                    <Link
+                      href={`/deals/new?copy=${r.id}`}
+                      aria-label={`${r.dealCode} 복사`}
+                      title="이 거래를 복사해 새 거래 등록 (거래코드는 새로 채번)"
+                      className="grid size-7 place-items-center rounded-md text-muted-foreground/70 hover:bg-muted hover:text-foreground"
+                    >
+                      <Copy className="size-3.5" />
+                    </Link>
+                  )}
+                  </div>
                 </TableCell>
                 <TableCell {...cell('accrual', 'text-xs text-muted-foreground')}>
                   <InlineAccrual dealId={r.id} year={r.accrualYear} month={r.accrualMonth} enabled={r.canTogglePaid} />
@@ -558,13 +620,7 @@ export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFi
                 </TableCell>
                 <TableCell {...cell('owner')}>
                   {r.ownerEmail ? (
-                    <a
-                      href={mailtoHref(r)}
-                      title={`${owner}에게 메일 보내기 — 거래 정보가 본문에 채워집니다`}
-                      className="text-[13px] underline decoration-dotted underline-offset-4 hover:text-brand"
-                    >
-                      {owner}
-                    </a>
+                    <OwnerMailLink r={r} owner={owner} />
                   ) : (
                     <span className="text-[13px]">{owner}</span>
                   )}
@@ -666,6 +722,6 @@ export function DealsTable({ rows, columnFilters = {} }: { rows: Row[]; columnFi
           })}
         </TableBody>
       </table>
-    </StickyHScroll>
+    </div>
   )
 }

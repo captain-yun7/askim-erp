@@ -30,7 +30,7 @@ export function DealsFilters({
   users: User[]
   initial: {
     q?: string
-    year?: number
+    years?: number[]
     months?: number[]
     categoryIds?: number[]
     ownerUserIds?: string[]
@@ -67,23 +67,13 @@ export function DealsFilters({
         />
       </div>
 
-      <Select
-        defaultValue={initial.year ? String(initial.year) : 'all'}
-        onValueChange={(v) => update({ year: v ?? undefined })}
-      >
-        <SelectTrigger className={chip} data-active={Boolean(initial.year)}>
-          <SelectValue />
-          <span className="text-muted-foreground">귀속연도</span>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">전체</SelectItem>
-          {[2023, 2024, 2025, 2026, 2027].map((y) => (
-            <SelectItem key={y} value={String(y)}>
-              {y}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <MultiSelect
+        label="귀속연도"
+        options={[2023, 2024, 2025, 2026, 2027].map((y) => ({ value: String(y), label: String(y) }))}
+        selected={(initial.years ?? []).map(String)}
+        onChange={(v) => update({ year: v.length ? v.join(',') : undefined })}
+        width="w-40"
+      />
 
       <MultiSelect
         label="월"

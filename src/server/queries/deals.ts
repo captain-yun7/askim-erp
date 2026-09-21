@@ -5,7 +5,8 @@ import { parseDateFilter, parseNumberFilter } from '@/lib/column-filter'
 import { getRecentChanges } from '@/server/deal-changes'
 import { getAttachmentCounts } from '@/server/actions/attachments'
 import type { DealSort } from '@/lib/deal-sort'
-import { getDealScope, getSessionUser } from '@/server/auth/guards'
+import { getSessionUser } from '@/server/auth/guards'
+import { resolveDealScope } from '@/server/auth/deal-scope'
 import {
   counterparty,
   deal,
@@ -34,7 +35,14 @@ export type DealListFilters = {
   fSalesDate?: string
   /** 결산예정일 또는 결산일 */
   fPurchaseDate?: string
+  /** 두 줄 헤더 컬럼은 필터도 두 칸 (2026-09-16 피드백) — 예정일·실제일 각각 */
+  fSalesDue?: string
+  fSalesPaid?: string
+  fPurchaseDue?: string
+  fPurchasePaid?: string
   year?: number
+  /** 귀속연도 다중 선택 (2026-09-16 피드백) */
+  years?: number[]
   month?: number
   /** 월 다중 선택 (2026-09-09) — month 와 함께 오면 둘 다 적용 */
   months?: number[]
@@ -76,6 +84,16 @@ function dateCond(cols: PgColumn[], raw: string | undefined): SQL | undefined {
   return f.kind === 'empty' ? and(...per) : or(...per)
 }
 
+/** 결산예정일 검색 — 날짜가 없으면 목록에 보이는 결산연월(1일 기준)로 비교 */
+function purchaseDueCond(raw: string | undefined): SQL | undefined {
+  const f = parseDateFilter(raw)
+  if (!f) return undefined
+  const ym = sql`make_date(${deal.settlementYear}, ${deal.settlementMonth}, 1)`
+  const hasYm = sql`${deal.settlementYear} is not null and ${deal.settlementMonth} between 1 and 12`
+  if (f.kind === 'empty') return sql`${deal.purchaseDueDate} is null and not (${hasYm})`
+  return sql`(${deal.purchaseDueDate} >= ${f.from}::date and ${deal.purchaseDueDate} < ${f.toExclusive}::date) or (${deal.purchaseDueDate} is null and ${hasYm} and ${ym} >= date_trunc('month', ${f.from}::date) and ${ym} < ${f.toExclusive}::date)`
+}
+
 /** 정렬 기준 → orderBy 목록. 같은 값끼리는 작성순(최신 위) */
 function orderFor(sort: DealSort, dir: 'asc' | 'desc') {
   const d = dir === 'asc' ? asc : desc
@@ -85,7 +103,14 @@ function orderFor(sort: DealSort, dir: 'asc' | 'desc') {
     case 'salesPaid': return [sql`${deal.salesPaidDate} ${sql.raw(dir)} nulls last`, ...tail]
     case 'salesDue': return [sql`${deal.salesDueDate} ${sql.raw(dir)} nulls last`, ...tail]
     case 'purchasePaid': return [sql`${deal.purchasePaidDate} ${sql.raw(dir)} nulls last`, ...tail]
-    case 'code': return [d(deal.dealCode), ...tail]
+    // 거래코드는 '-' 뒤 번호를 숫자로 비교 (AK260701-2 다음이 -10, 2026-09-16 피드백). 번호 없는 본 코드는 가지번호보다 앞
+    case 'code':
+      return [
+        d(sql`split_part(${deal.dealCode}, '-', 1)`),
+        sql`coalesce(nullif(regexp_replace(substring(${deal.dealCode} from position('-' in ${deal.dealCode}) + 1), '[^0-9]', '', 'g'), '')::bigint * (case when position('-' in ${deal.dealCode}) > 0 then 1 else 0 end), 0) ${sql.raw(dir)}`,
+        d(deal.dealCode),
+        ...tail,
+      ]
     case 'sales': return [sql`${deal.salesAmountNet} ${sql.raw(dir)} nulls last`, ...tail]
     case 'profit': return [sql`${deal.profit} ${sql.raw(dir)} nulls last`, ...tail]
     default: return [d(deal.createdAt), d(deal.id)]
@@ -100,7 +125,7 @@ export const hasPurchase = sql`coalesce(${deal.purchaseAmountNet}, 0) > 0`
 async function scopeConds() {
   const user = await getSessionUser()
   if (!user) return []
-  const scope = getDealScope(user)
+  const scope = await resolveDealScope(user)
   if (scope.kind === 'team')
     return [
       sql`${deal.ownerUserId} in (select id from users where team = ${scope.team})`,
@@ -115,6 +140,7 @@ export async function listDeals(f: DealListFilters = {}) {
 
   const conds = [isNull(deal.deletedAt), ...(await scopeConds())]
   if (f.year) conds.push(eq(deal.accrualYear, f.year))
+  if (f.years?.length) conds.push(inArray(deal.accrualYear, f.years))
   if (f.month) conds.push(eq(deal.accrualMonth, f.month))
   if (f.months?.length) conds.push(inArray(deal.accrualMonth, f.months))
   if (f.categoryId) conds.push(eq(deal.categoryId, f.categoryId))
@@ -157,6 +183,10 @@ export async function listDeals(f: DealListFilters = {}) {
     dateCond([deal.purchaseInvoiceDate], f.fPurchaseInvoice),
     dateCond([deal.salesDueDate, deal.salesPaidDate], f.fSalesDate),
     dateCond([deal.purchaseDueDate, deal.purchasePaidDate], f.fPurchaseDate),
+    dateCond([deal.salesDueDate], f.fSalesDue),
+    dateCond([deal.salesPaidDate], f.fSalesPaid),
+    purchaseDueCond(f.fPurchaseDue),
+    dateCond([deal.purchasePaidDate], f.fPurchasePaid),
   ]
   for (const c of columnConds) if (c) conds.push(c)
   if (f.fPaid === 'paid') conds.push(eq(deal.salesPaidStatus, 'completed'), hasSales)
