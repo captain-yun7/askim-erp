@@ -9,10 +9,9 @@ import { deal, users } from '@/lib/db/schema'
 import {
   canCreateDeal,
   canDeleteDeal,
-  canEditDeal,
-  canEditDealAmounts,
   getSessionUser,
 } from '@/server/auth/guards'
+import { canEditDealScoped } from '@/server/auth/deal-scope'
 import { autoNumberDealCode } from '@/server/deal-code'
 import { recordDealChanges } from '@/server/deal-changes'
 import { audit, diffFields } from '@/server/audit'
@@ -144,7 +143,7 @@ export async function updateDeal(id: string, raw: unknown) {
   const [existing] = await db.select().from(deal).where(eq(deal.id, id)).limit(1)
   if (!existing) return { error: '거래를 찾을 수 없습니다' }
 
-  if (!canEditDeal(user, existing)) return { error: '이 거래를 수정할 권한이 없습니다' }
+  if (!(await canEditDealScoped(user, existing))) return { error: '이 거래를 수정할 권한이 없습니다' }
 
   if (parsed.data.dealCode && parsed.data.dealCode !== existing.dealCode) {
     const [dup] = await db.select({ id: deal.id }).from(deal).where(and(eq(deal.dealCode, parsed.data.dealCode), isNull(deal.deletedAt))).limit(1)
@@ -155,7 +154,7 @@ export async function updateDeal(id: string, raw: unknown) {
   const amountChanged = AMOUNT_FIELDS.some(
     (f) => !numEq(parsed.data[f], existing[f]),
   )
-  if (amountChanged && !canEditDealAmounts(user, existing)) {
+  if (amountChanged && !(await canEditDealScoped(user, existing))) {
     return { error: '금액을 변경할 권한이 없습니다' }
   }
 
@@ -222,7 +221,7 @@ export async function toggleDealPaid(
     .where(and(eq(deal.id, id), isNull(deal.deletedAt)))
     .limit(1)
   if (!row) return { error: '거래를 찾을 수 없습니다' }
-  if (!canEditDeal(user, row)) return { error: '수정 권한이 없습니다' }
+  if (!(await canEditDealScoped(user, row))) return { error: '수정 권한이 없습니다' }
 
   const today = new Date().toISOString().slice(0, 10)
   if (side === 'sales') {
@@ -280,7 +279,7 @@ export async function updateDealInline(
 
   const [existing] = await db.select().from(deal).where(and(eq(deal.id, id), isNull(deal.deletedAt))).limit(1)
   if (!existing) return { error: '거래를 찾을 수 없습니다' }
-  if (!canEditDeal(user, existing)) return { error: '이 거래를 수정할 권한이 없습니다' }
+  if (!(await canEditDealScoped(user, existing))) return { error: '이 거래를 수정할 권한이 없습니다' }
 
   const { field, value } = parsed.data
   if (field === 'accrual') {
@@ -293,7 +292,7 @@ export async function updateDealInline(
     return { ok: true }
   }
   if (field === 'salesAmountNet' || field === 'purchaseAmountNet') {
-    if (!canEditDealAmounts(user, existing))
+    if (!(await canEditDealScoped(user, existing)))
       return { error: '금액을 변경할 권한이 없습니다' }
     const net = value as number | null
     const vat = net != null && existing.currency === 'KRW' ? Math.round(net * 0.1) : 0

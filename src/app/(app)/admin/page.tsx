@@ -2,7 +2,12 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Database, ScrollText, Users } from 'lucide-react'
 import { canManageUsers, getSessionUser } from '@/server/auth/guards'
-import { getChangeHighlightDays, getTeamLeadScope } from '@/server/queries/app-settings'
+import { getChangeHighlightDays, getTeamLeadScope, getTeamShareGroups } from '@/server/queries/app-settings'
+import { TeamShareGroupsSetting } from '@/components/admin/team-share-groups-setting'
+import { TEAMS } from '@/lib/teams'
+import { db } from '@/lib/db/client'
+import { users } from '@/lib/db/schema'
+import { isNotNull } from 'drizzle-orm'
 import { HighlightDaysSetting } from '@/components/admin/highlight-days-setting'
 import { TeamLeadScopeSetting } from '@/components/admin/team-lead-scope-setting'
 
@@ -30,7 +35,14 @@ const CARDS = [
 export default async function AdminHomePage() {
   const user = await getSessionUser()
   if (!user || !canManageUsers(user.role)) redirect('/')
-  const [highlightDays, teamLeadScope] = await Promise.all([getChangeHighlightDays(), getTeamLeadScope()])
+  const [highlightDays, teamLeadScope, shareGroups, userTeams] = await Promise.all([
+    getChangeHighlightDays(),
+    getTeamLeadScope(),
+    getTeamShareGroups(),
+    db.selectDistinct({ team: users.team }).from(users).where(isNotNull(users.team)),
+  ])
+  // 기본 팀 목록 + 실제 사용자에게 배정된 팀(직접 입력한 팀명 포함)
+  const teams = [...new Set([...TEAMS, ...userTeams.map((u) => u.team!).filter(Boolean), ...shareGroups.flat()])]
 
   return (
     <div className="flex flex-col px-8 pb-8 pt-6">
@@ -67,6 +79,7 @@ export default async function AdminHomePage() {
       <div className="mt-3 grid gap-4 sm:grid-cols-2">
         <HighlightDaysSetting current={highlightDays} />
         <TeamLeadScopeSetting current={teamLeadScope} />
+        <TeamShareGroupsSetting current={shareGroups} teams={teams} />
       </div>
     </div>
   )

@@ -24,7 +24,7 @@ export default async function DepositsPage() {
           <p className="mt-0.5 text-sm text-muted-foreground">
             영업 보증금 관리 · 국내 전속매체 계약사항 · 보유자산 현황
             {scope?.kind === 'own' && ' · 본인 담당 건만 표시'}
-            {scope?.kind === 'team' && ` · ${scope.team} 담당 건만 표시`}
+            {scope?.kind === 'team' && ` · ${scope.teams.join('·')} 담당 건만 표시`}
           </p>
         </div>
         <div className="flex gap-6 rounded-xl border bg-card px-5 py-3 text-[12.5px]">

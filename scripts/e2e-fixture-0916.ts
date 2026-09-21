@@ -15,6 +15,7 @@ const USERS = [
   { key: 'lead', name: 'E2E팀장', email: 'lead.e2e@askim.local', team: 'E2E팀', isTeamLead: true },
   { key: 'member', name: 'E2E팀원', email: 'member.e2e@askim.local', team: 'E2E팀', isTeamLead: false },
   { key: 'other', name: 'E2E타팀', email: 'other.e2e@askim.local', team: 'E2E타팀', isTeamLead: false },
+  { key: 'third', name: 'E2E제3팀', email: 'third.e2e@askim.local', team: 'E2E제3팀', isTeamLead: false },
 ] as const
 
 async function main() {
@@ -37,6 +38,7 @@ async function main() {
     { ...base, dealCode: 'E2E0916-LEAD', itemName: 'E2E거래0916-팀장', ownerUserId: ids.lead, createdBy: ids.lead },
     { ...base, dealCode: 'E2E0916-MEMBER', itemName: 'E2E거래0916-팀원', ownerUserId: ids.member, createdBy: ids.member },
     { ...base, dealCode: 'E2E0916-OTHER', itemName: 'E2E거래0916-타팀', ownerUserId: ids.other, createdBy: ids.other },
+    { ...base, dealCode: 'E2E0916-THIRD', itemName: 'E2E거래0916-제3팀', ownerUserId: ids.third, createdBy: ids.third },
     ...['1', '2', '10', '11'].map((n) => ({ ...base, dealCode: `E2ESORT-${n}`, itemName: 'E2E거래0916-정렬', ownerUserId: ids.other, createdBy: ids.other })),
     { ...base, dealCode: 'E2ESORT', itemName: 'E2E거래0916-정렬', ownerUserId: ids.other, createdBy: ids.other },
   ])
@@ -47,7 +49,7 @@ async function main() {
     { name: 'E2E거래처0916-B', roleTags: ['advertiser'] },
     { name: 'E2E거래처0916-단건', roleTags: [] },
   ])
-  await db.delete(appSetting).where(inArray(appSetting.key, ['team_lead_scope']))
+  await db.delete(appSetting).where(inArray(appSetting.key, ['team_lead_scope', 'team_share_groups']))
   console.log('fixture-0916 ready')
   process.exit(0)
 }

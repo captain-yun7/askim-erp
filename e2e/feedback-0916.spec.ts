@@ -6,6 +6,7 @@ const PW = 'askim2026!'
 const ADMIN = { email: 'admin@askim.local', password: PW }
 const LEAD = { email: 'lead.e2e@askim.local', password: PW }
 const MEMBER = { email: 'member.e2e@askim.local', password: PW }
+const OTHER = { email: 'other.e2e@askim.local', password: PW }
 
 async function login(page: Page, who: { email: string; password: string }) {
   await page.context().clearCookies()
@@ -64,9 +65,73 @@ test('② 권한 — 팀장 조회 범위를 관리자가 전체/자기 팀으�
   await login(page, LEAD)
   await page.goto('/deals?q=E2E거래0916')
   list = await codes(page)
-  expect(list).toEqual(expect.arrayContaining(['E2E0916-LEAD', 'E2E0916-MEMBER', 'E2E0916-OTHER']))
+  expect(list).toEqual(expect.arrayContaining(['E2E0916-LEAD', 'E2E0916-MEMBER', 'E2E0916-OTHER', 'E2E0916-THIRD']))
 
   // 팀원은 설정과 무관하게 본인 것만
+  await login(page, MEMBER)
+  await page.goto('/deals?q=E2E거래0916')
+  expect(await codes(page)).toEqual(['E2E0916-MEMBER'])
+})
+
+test('②-2 함께 보는 팀 묶음 — 묶인 두 팀은 팀장이 아니어도 서로 조회·수정, 다른 팀은 그대로', async ({ page }) => {
+  await login(page, ADMIN)
+  await page.goto('/admin')
+  const card = page.locator('[data-slot=team-share-groups]')
+  // 하이드레이션 전 클릭은 무시되므로 묶음 행이 생길 때까지 재시도
+  await expect(async () => {
+    if ((await card.locator('[data-slot=team-share-group]').count()) === 0) await card.getByRole('button', { name: '묶음 추가' }).click()
+    await expect(card.locator('[data-slot=team-share-group]')).toHaveCount(1, { timeout: 1500 })
+  }).toPass()
+  // 체크박스의 접근성 이름은 감싼 label 글자(팀 이름)
+  await card.getByRole('checkbox', { name: 'E2E팀', exact: true }).click()
+  await card.getByRole('checkbox', { name: 'E2E타팀', exact: true }).click()
+  await card.getByRole('button', { name: '묶음 적용' }).click()
+  await expect(page.getByText('팀 묶음 1개를 저장했습니다')).toBeVisible()
+  await page.reload()
+  await expect(card.locator('[data-slot=team-share-group]')).toContainText('E2E팀 · E2E타팀')
+
+  // 팀원(E2E팀): 같은 팀 + 묶인 타팀은 보이고, 제3팀은 안 보임
+  await login(page, MEMBER)
+  await page.goto('/deals?q=E2E거래0916')
+  const list = await codes(page)
+  expect(list).toEqual(expect.arrayContaining(['E2E0916-LEAD', 'E2E0916-MEMBER', 'E2E0916-OTHER']))
+  expect(list).not.toContain('E2E0916-THIRD')
+
+  // 상대 팀 거래를 목록에서 바로 수정
+  await page.goto('/deals?fCode=E2E0916-OTHER')
+  const row = page.locator('[data-slot=deals-scroll] tbody tr').first()
+  await row.locator('td:nth-child(9) button').click()
+  await row.locator('td:nth-child(9) input').fill('2345000')
+  await row.locator('td:nth-child(9) input').press('Enter')
+  await expect(row.locator('td:nth-child(9)')).toHaveText(/2,345,000/)
+  // 상세 화면도 수정 가능(읽기 전용 아님) — 저장까지
+  await row.locator('td:first-child a').click()
+  await expect(page.getByText('읽기 전용')).toHaveCount(0)
+  await page.locator('div:has(> label:text-is("매출 비고")) textarea').fill('묶음 팀원이 수정')
+  await page.getByRole('button', { name: '확정저장' }).click()
+  await page.waitForURL((u) => u.pathname === '/deals')
+
+  // 반대 방향(E2E타팀 → E2E팀)도 동일, 담당자는 바뀌지 않음
+  await login(page, OTHER)
+  await page.goto('/deals?q=E2E거래0916')
+  const otherList = await codes(page)
+  expect(otherList).toEqual(expect.arrayContaining(['E2E0916-LEAD', 'E2E0916-MEMBER', 'E2E0916-OTHER']))
+  expect(otherList).not.toContain('E2E0916-THIRD')
+  await page.goto('/deals?fCode=E2E0916-OTHER')
+  await expect(page.locator('[data-slot=deals-scroll] tbody tr').first().locator('td:nth-child(5)')).toContainText('E2E타팀')
+  await expect(page.locator('[data-slot=deals-scroll] tbody tr').first().locator('td:nth-child(9)')).toHaveText(/2,345,000/)
+
+  // 묶음에 없는 제3팀은 본인 것만, 남의 거래 상세는 열리지 않음
+  await login(page, { email: 'third.e2e@askim.local', password: PW })
+  await page.goto('/deals?q=E2E거래0916')
+  expect(await codes(page)).toEqual(['E2E0916-THIRD'])
+
+  // 묶음 해제 → 다시 본인 것만, 수정 불가
+  await login(page, ADMIN)
+  await page.goto('/admin')
+  await card.getByLabel('묶음 1 삭제').click()
+  await card.getByRole('button', { name: '묶음 적용' }).click()
+  await expect(page.getByText('팀 묶음을 모두 해제했습니다')).toBeVisible()
   await login(page, MEMBER)
   await page.goto('/deals?q=E2E거래0916')
   expect(await codes(page)).toEqual(['E2E0916-MEMBER'])

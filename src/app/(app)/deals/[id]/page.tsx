@@ -5,7 +5,8 @@ import { DealForm } from '@/components/deals/deal-form'
 import { getDealById } from '@/server/queries/deals'
 import { getCounterpartyById } from '@/server/queries/counterparties'
 import { getAllLookups } from '@/server/queries/lookups'
-import { canDeleteDeal, canEditDeal, getSessionUser } from '@/server/auth/guards'
+import { canDeleteDeal, getSessionUser } from '@/server/auth/guards'
+import { canEditDealScoped } from '@/server/auth/deal-scope'
 import { getRecentChanges } from '@/server/deal-changes'
 import { changeTitle } from '@/lib/change-highlight'
 import { getChangeHighlightDays } from '@/server/queries/app-settings'
@@ -31,7 +32,7 @@ export default async function EditDealPage({
     getSessionUser(),
   ])
 
-  const readOnly = !user || !canEditDeal(user, d)
+  const readOnly = !user || !(await canEditDealScoped(user, d))
   const [recentAll, highlightDays] = await Promise.all([getRecentChanges([d.id]), getChangeHighlightDays()])
   const recent = recentAll[d.id] ?? {}
   const recentList = Object.entries(recent).sort((a, b) => (a[1].changedAt < b[1].changedAt ? 1 : -1))

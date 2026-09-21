@@ -17,8 +17,8 @@ import { DealQuickAdd } from '@/components/deals/deal-quick-add'
 import { CollapseOnTableScroll } from '@/components/deals/collapse-on-table-scroll'
 import { listDeals } from '@/server/queries/deals'
 import { DEAL_SORT_LABEL, type DealSort } from '@/lib/deal-sort'
-import { canCreateDeal, canEditDeal, getSessionUser } from '@/server/auth/guards'
-import { resolveDealScope } from '@/server/auth/deal-scope'
+import { canCreateDeal, getSessionUser } from '@/server/auth/guards'
+import { canEditDealShared, getShareTeams, resolveDealScope } from '@/server/auth/deal-scope'
 import { getAllLookups } from '@/server/queries/lookups'
 import { cn } from '@/lib/utils'
 import { formatKRW, formatKRWShort } from '@/lib/format'
@@ -80,9 +80,10 @@ export default async function DealsPage({
 
   // 담당자 필터 옵션도 조회 범위에 맞춤 (팀장=팀원, 팀원=본인)
   const scope = me ? await resolveDealScope(me) : ({ kind: 'all' } as const)
+  const shareTeams = me ? await getShareTeams(me) : []
   const filterUsers =
     scope.kind === 'team'
-      ? lookups.users.filter((u) => u.team === scope.team)
+      ? lookups.users.filter((u) => u.team != null && scope.teams.includes(u.team))
       : scope.kind === 'own'
         ? lookups.users.filter((u) => u.id === scope.userId)
         : lookups.users
@@ -210,10 +211,12 @@ export default async function DealsPage({
             ...r,
             canTogglePaid:
               me != null &&
-              canEditDeal(me, {
-                status: r.status as 'draft' | 'confirmed' | 'closed',
-                ownerUserId: r.ownerUserId,
-              }),
+              canEditDealShared(
+                me,
+                { status: r.status as 'draft' | 'confirmed' | 'closed', ownerUserId: r.ownerUserId },
+                r.ownerTeam,
+                shareTeams,
+              ),
           }))}
         />
         {me && me.role !== 'viewer' && (

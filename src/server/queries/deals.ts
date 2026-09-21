@@ -128,7 +128,7 @@ async function scopeConds() {
   const scope = await resolveDealScope(user)
   if (scope.kind === 'team')
     return [
-      sql`${deal.ownerUserId} in (select id from users where team = ${scope.team})`,
+      sql`${deal.ownerUserId} in (select id from users where ${inArray(users.team, scope.teams)})`,
     ]
   if (scope.kind === 'own') return [eq(deal.ownerUserId, scope.userId)]
   return []
@@ -283,6 +283,7 @@ export async function listDeals(f: DealListFilters = {}) {
       categoryName: dealCategory.nameKo,
       ownerName: users.name,
       ownerEmail: users.email,
+      ownerTeam: users.team,
       issuerName: sql<string | null>`(select name from counterparty where id = ${deal.issuerCounterpartyId})`,
       advertiserName: sql<string | null>`coalesce(${deal.advertiserName}, (select name from counterparty where id = ${deal.advertiserCounterpartyId}))`,
       supplierName: sql<string | null>`(select name from counterparty where id = ${deal.supplierCounterpartyId})`,

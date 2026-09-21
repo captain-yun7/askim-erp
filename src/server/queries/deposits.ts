@@ -1,7 +1,7 @@
-import { and, asc, eq, isNull, or, sql, type SQL } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, or, sql, type SQL } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
-import { deposit, exclusiveContract } from '@/lib/db/schema'
+import { deposit, exclusiveContract, users } from '@/lib/db/schema'
 import type { SessionUser } from '@/server/auth/guards'
 import { resolveDealScope } from '@/server/auth/deal-scope'
 
@@ -22,8 +22,8 @@ async function ownScope(user: SessionUser | null, ownerUserId: AnyPgColumn, owne
   if (scope.kind === 'all') return undefined
   if (scope.kind === 'team')
     return or(
-      sql`${ownerUserId} in (select id from users where team = ${scope.team})`,
-      sql`${ownerName} in (select name from users where team = ${scope.team})`,
+      sql`${ownerUserId} in (select id from users where ${inArray(users.team, scope.teams)})`,
+      sql`${ownerName} in (select name from users where ${inArray(users.team, scope.teams)})`,
     )!
   return or(eq(ownerUserId, user.id), user.name ? eq(ownerName, user.name) : sql`false`)!
 }

@@ -46,3 +46,26 @@ export async function saveTeamLeadScope(raw: unknown): Promise<{ ok: true; scope
   revalidatePath('/deposits')
   return { ok: true, scope }
 }
+
+/** 함께 보는 팀 묶음 저장 — admin 전용. 한 팀은 한 묶음에만 */
+export async function saveTeamShareGroups(raw: unknown): Promise<{ ok: true; groups: string[][] } | { error: string }> {
+  const user = await getSessionUser()
+  if (!user) return { error: '로그인 필요' }
+  if (!canManageUsers(user.role)) return { error: '관리자만 변경할 수 있습니다' }
+  const parsed = z.array(z.array(z.string().trim().min(1).max(40)).max(20)).max(10).safeParse(raw)
+  if (!parsed.success) return { error: '잘못된 값' }
+  const groups = parsed.data.map((g) => [...new Set(g)]).filter((g) => g.length > 0)
+  if (groups.some((g) => g.length < 2)) return { error: '묶음에는 팀을 2개 이상 선택하세요' }
+  const all = groups.flat()
+  if (new Set(all).size !== all.length) return { error: '한 팀은 하나의 묶음에만 넣을 수 있습니다' }
+  const value = JSON.stringify(groups)
+  await db
+    .insert(appSetting)
+    .values({ key: SETTING_KEYS.teamShareGroups, value, updatedBy: user.id })
+    .onConflictDoUpdate({ target: appSetting.key, set: { value, updatedBy: user.id, updatedAt: new Date() } })
+  await audit({ action: 'setting.update', targetType: 'setting', targetId: SETTING_KEYS.teamShareGroups, summary: `함께 보는 팀 묶음 → ${groups.length ? groups.map((g) => g.join('+')).join(' / ') : '없음'}`, detail: { groups } })
+  revalidatePath('/admin')
+  revalidatePath('/deals')
+  revalidatePath('/deposits')
+  return { ok: true, groups }
+}

@@ -58,7 +58,7 @@ export function canAccessBackoffice(role: Role): boolean {
 
 export type DealScope =
   | { kind: 'all' }
-  | { kind: 'team'; team: string }
+  | { kind: 'team'; teams: string[] }
   | { kind: 'own'; userId: string }
 
 /** 거래 행 단위 조회 범위 — 팀장은 전체 조회 (고객 정의 2026-09-07: "팀장: 모든 거래내역 조회가능") */
