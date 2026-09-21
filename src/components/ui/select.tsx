@@ -92,7 +92,8 @@ function SelectContent({
   sideOffset = 4,
   align = "center",
   alignOffset = 0,
-  alignItemWithTrigger = true,
+  // 트리거에 항목을 겹쳐 맞추는 모드는 화면 배율(zoom)에서 위치가 어긋난다 → 항상 트리거 아래로 펼침
+  alignItemWithTrigger = false,
   ...props
 }: SelectPrimitive.Popup.Props &
   Pick<
