@@ -3,6 +3,7 @@ import { db } from '@/lib/db/client'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import { deposit, exclusiveContract } from '@/lib/db/schema'
 import type { SessionUser } from '@/server/auth/guards'
+import { resolveDealScope } from '@/server/auth/deal-scope'
 
 export const DEPOSIT_STATUS_LABEL: Record<string, string> = {
   held: '보유',
@@ -11,14 +12,24 @@ export const DEPOSIT_STATUS_LABEL: Record<string, string> = {
   unreturned: '미반환',
 }
 
-/** 팀원(영업·팀장 아님)은 본인 것만 — 담당자 FK 또는 담당자 이름 일치 (2026-09-09 피드백). 관리자·팀장·viewer 는 전체 */
-function ownScope(user: SessionUser | null, ownerUserId: AnyPgColumn, ownerName: AnyPgColumn): SQL | undefined {
-  if (!user || user.role !== 'sales' || user.isTeamLead) return undefined
+/**
+ * 팀원(영업·팀장 아님)은 본인 것만 — 담당자 FK 또는 담당자 이름 일치 (2026-09-09 피드백). 관리자·viewer 는 전체.
+ * 팀장은 관리자 설정에 따라 전체 또는 자기 팀(2026-09-16 피드백)
+ */
+async function ownScope(user: SessionUser | null, ownerUserId: AnyPgColumn, ownerName: AnyPgColumn): Promise<SQL | undefined> {
+  if (!user || user.role !== 'sales') return undefined
+  const scope = await resolveDealScope(user)
+  if (scope.kind === 'all') return undefined
+  if (scope.kind === 'team')
+    return or(
+      sql`${ownerUserId} in (select id from users where team = ${scope.team})`,
+      sql`${ownerName} in (select name from users where team = ${scope.team})`,
+    )!
   return or(eq(ownerUserId, user.id), user.name ? eq(ownerName, user.name) : sql`false`)!
 }
 
 export async function listDeposits(user: SessionUser | null = null) {
-  const where = and(isNull(deposit.deletedAt), ownScope(user, deposit.ownerUserId, deposit.ownerName))
+  const where = and(isNull(deposit.deletedAt), await ownScope(user, deposit.ownerUserId, deposit.ownerName))
   const rows = await db
     .select()
     .from(deposit)
@@ -50,7 +61,7 @@ export async function listExclusiveContracts(user: SessionUser | null = null, ki
   return db
     .select()
     .from(exclusiveContract)
-    .where(and(isNull(exclusiveContract.deletedAt), eq(exclusiveContract.kind, kind), ownScope(user, exclusiveContract.ownerUserId, exclusiveContract.ownerName)))
+    .where(and(isNull(exclusiveContract.deletedAt), eq(exclusiveContract.kind, kind), await ownScope(user, exclusiveContract.ownerUserId, exclusiveContract.ownerName)))
     .orderBy(asc(exclusiveContract.displayOrder), asc(exclusiveContract.id))
 }
 

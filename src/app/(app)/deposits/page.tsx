@@ -1,6 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ContractTable, DepositTable } from '@/components/deposits/deposit-tables'
 import { getSessionUser } from '@/server/auth/guards'
+import { resolveDealScope } from '@/server/auth/deal-scope'
 import { listDeposits, listExclusiveContracts } from '@/server/queries/deposits'
 import { getAttachmentCounts } from '@/server/actions/attachments'
 import { formatKRW } from '@/lib/format'
@@ -13,6 +14,7 @@ export default async function DepositsPage() {
     getAttachmentCounts('contract', [...contracts, ...assets].map((r) => String(r.id))),
   ])
   const editable = user != null && user.role !== 'viewer'
+  const scope = user ? await resolveDealScope(user) : null
 
   return (
     <div className="flex flex-col px-8 pb-8 pt-6">
@@ -21,7 +23,8 @@ export default async function DepositsPage() {
           <h1 className="text-[22px] font-bold tracking-tight">보증금·전속계약·보유자산</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             영업 보증금 관리 · 국내 전속매체 계약사항 · 보유자산 현황
-            {user?.role === 'sales' && !user.isTeamLead && ' · 본인 담당 건만 표시'}
+            {scope?.kind === 'own' && ' · 본인 담당 건만 표시'}
+            {scope?.kind === 'team' && ` · ${scope.team} 담당 건만 표시`}
           </p>
         </div>
         <div className="flex gap-6 rounded-xl border bg-card px-5 py-3 text-[12.5px]">

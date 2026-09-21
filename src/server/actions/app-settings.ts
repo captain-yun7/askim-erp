@@ -27,3 +27,22 @@ export async function saveChangeHighlightDays(raw: unknown): Promise<{ ok: true;
   revalidatePath('/deals')
   return { ok: true, days }
 }
+
+/** 팀장 조회 범위 저장 — admin 전용 */
+export async function saveTeamLeadScope(raw: unknown): Promise<{ ok: true; scope: 'all' | 'team' } | { error: string }> {
+  const user = await getSessionUser()
+  if (!user) return { error: '로그인 필요' }
+  if (!canManageUsers(user.role)) return { error: '관리자만 변경할 수 있습니다' }
+  const parsed = z.enum(['all', 'team']).safeParse(raw)
+  if (!parsed.success) return { error: '잘못된 값' }
+  const scope = parsed.data
+  await db
+    .insert(appSetting)
+    .values({ key: SETTING_KEYS.teamLeadScope, value: scope, updatedBy: user.id })
+    .onConflictDoUpdate({ target: appSetting.key, set: { value: scope, updatedBy: user.id, updatedAt: new Date() } })
+  await audit({ action: 'setting.update', targetType: 'setting', targetId: SETTING_KEYS.teamLeadScope, summary: `팀장 조회 범위 → ${scope === 'all' ? '전체' : '자기 팀만'}`, detail: { scope } })
+  revalidatePath('/admin')
+  revalidatePath('/deals')
+  revalidatePath('/deposits')
+  return { ok: true, scope }
+}
