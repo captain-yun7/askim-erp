@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { eq } from 'drizzle-orm'
+import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '@/lib/db/client'
 import { counterparty } from '@/lib/db/schema'
@@ -132,4 +132,22 @@ export async function deleteCounterparty(id: string) {
   await audit({ action: 'counterparty.delete', targetType: 'counterparty', targetId: id, summary: `거래처 비활성화 ${id}` })
   revalidatePath('/counterparties')
   return { ok: true }
+}
+
+/** 거래처 여러 건 삭제 (2026-09-16 피드백: 목록 체크박스). soft delete — 기존 거래에 적힌 거래처명은 그대로 남는다 */
+export async function deleteCounterparties(ids: unknown): Promise<{ ok: true; deleted: number } | { error: string }> {
+  const user = await getSessionUser()
+  if (!user) return { error: '로그인 필요' }
+  if (!canDeleteCounterparty(user.role)) return { error: '거래처 삭제 권한이 없습니다' }
+  const parsed = z.array(z.string().uuid()).min(1).max(500).safeParse(ids)
+  if (!parsed.success) return { error: '삭제할 거래처를 선택하세요' }
+  const rows = await db
+    .update(counterparty)
+    .set({ deletedAt: new Date(), isActive: false })
+    .where(and(inArray(counterparty.id, parsed.data), isNull(counterparty.deletedAt)))
+    .returning({ id: counterparty.id, name: counterparty.name })
+  for (const r of rows)
+    await audit({ action: 'counterparty.delete', targetType: 'counterparty', targetId: r.id, targetLabel: r.name, summary: `거래처 삭제 ${r.name}` })
+  revalidatePath('/counterparties')
+  return { ok: true, deleted: rows.length }
 }

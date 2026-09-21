@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
+import { Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -69,14 +70,14 @@ export function CounterpartyForm({
 
   function handleDelete() {
     if (!initial?.id) return
-    if (!confirm('정말 삭제하시겠습니까? (비활성화됩니다)')) return
+    if (!confirm(`'${initial.name ?? ''}' 거래처를 삭제하시겠습니까?\n\n목록과 검색에서 사라집니다. 이미 등록된 거래에 적힌 거래처명은 그대로 남습니다.`)) return
     startTransition(async () => {
       const res = await deleteCounterparty(initial.id!)
       if (res.error) {
         toast.error(res.error)
         return
       }
-      toast.success('비활성화되었습니다')
+      toast.success('거래처를 삭제했습니다')
       router.push('/counterparties')
     })
   }
@@ -85,6 +86,14 @@ export function CounterpartyForm({
     <div className="px-8 py-6">
       {readOnly && (
         <p className="mb-3 text-[12.5px] text-muted-foreground">조회 전용 — 수정 권한이 없습니다</p>
+      )}
+      {/* 삭제 버튼이 긴 폼 맨 아래에만 있어 못 찾는다는 피드백(2026-09-16) → 상단에도 노출 */}
+      {initial?.id && canDelete && !readOnly && (
+        <div className="mb-3 flex justify-end">
+          <Button variant="outline" size="sm" className="gap-1.5 text-destructive hover:text-destructive" onClick={handleDelete} disabled={pending}>
+            <Trash2 className="size-3.5" />거래처 삭제
+          </Button>
+        </div>
       )}
       <fieldset disabled={readOnly} className="contents">
       <Card>
@@ -217,7 +226,7 @@ export function CounterpartyForm({
         <div>
           {initial?.id && canDelete && !readOnly && (
             <Button variant="destructive" onClick={handleDelete} disabled={pending}>
-              비활성화
+              거래처 삭제
             </Button>
           )}
         </div>

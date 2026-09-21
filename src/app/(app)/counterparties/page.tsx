@@ -6,24 +6,10 @@ import { counterparty } from '@/lib/db/schema'
 import { buttonVariants } from '@/components/ui/button'
 import { CsvExportButton } from '@/components/csv-export-button'
 import { exportCounterpartiesCsv } from '@/server/actions/export'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { CounterpartiesTable } from '@/components/counterparties/counterparties-table'
 import { CounterpartiesFilters } from '@/components/counterparties/counterparties-filters'
 import { cn } from '@/lib/utils'
-import { canCreateCounterparty, canViewBankInfo, getSessionUser } from '@/server/auth/guards'
-
-const ROLE_LABEL: Record<string, string> = {
-  media: '매체사',
-  advertiser: '광고주',
-  agency: '대행사',
-  expense_vendor: '지출처',
-}
+import { canCreateCounterparty, canDeleteCounterparty, canViewBankInfo, getSessionUser } from '@/server/auth/guards'
 
 export default async function CounterpartiesPage({
   searchParams,
@@ -110,78 +96,7 @@ export default async function CounterpartiesPage({
           {rows.length < total && <span>· 앞 200건만 표시</span>}
         </div>
 
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead>상호명</TableHead>
-                <TableHead>사업자번호</TableHead>
-                <TableHead>역할</TableHead>
-                {showBank && (
-                  <>
-                    <TableHead>거래은행</TableHead>
-                    <TableHead>예금주</TableHead>
-                    <TableHead>계좌번호</TableHead>
-                  </>
-                )}
-                <TableHead className="text-right">수수료</TableHead>
-                <TableHead>결제일</TableHead>
-                <TableHead>비고</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((r) => (
-                <TableRow key={r.id} className="hover:bg-muted/60">
-                  <TableCell>
-                    <Link
-                      href={`/counterparties/${r.id}`}
-                      className="font-medium text-primary hover:underline"
-                    >
-                      {r.name}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {r.businessNo ?? '-'}
-                  </TableCell>
-                  <TableCell>
-                    {r.roleTags.length > 0 ? (
-                      <span className="flex flex-wrap gap-1">
-                        {r.roleTags.map((t) => (
-                          <span
-                            key={t}
-                            className="inline-flex rounded-full bg-accent px-2 py-0.5 text-[11px] font-medium text-primary"
-                          >
-                            {ROLE_LABEL[t] ?? t}
-                          </span>
-                        ))}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  {showBank && (
-                    <>
-                      <TableCell className="text-xs">{r.bankName ?? '-'}</TableCell>
-                      <TableCell className="text-xs">{r.accountHolder ?? '-'}</TableCell>
-                      <TableCell className="font-mono text-xs tabular-nums">
-                        {r.accountNo ?? '-'}
-                      </TableCell>
-                    </>
-                  )}
-                  <TableCell className="text-right font-mono text-xs tabular-nums">
-                    {r.officialFeeRate ?? '-'}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {r.paymentTerm ?? '-'}
-                  </TableCell>
-                  <TableCell className="max-w-xs truncate text-xs text-muted-foreground">
-                    {r.memo ?? ''}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <CounterpartiesTable rows={rows} showBank={showBank} canDelete={user != null && canDeleteCounterparty(user.role)} />
       </section>
     </div>
   )
