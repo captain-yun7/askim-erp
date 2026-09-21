@@ -15,6 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { ExpensesFilters } from '@/components/expenses/expenses-filters'
+import { ExpensesBulkBar } from '@/components/expenses/expenses-bulk-bar'
 import { ExpenseRowActions } from '@/components/expenses/expense-row-actions'
 import { getAllLookups } from '@/server/queries/lookups'
 import { cn } from '@/lib/utils'
@@ -95,6 +96,8 @@ export default async function ExpensesPage({
     getAllLookups(),
   ])
 
+  const anyDeletable = me != null && rows.some((r) => canDeleteExpense(me, r))
+
   return (
     <div className="flex flex-col px-8 pb-8 pt-6">
       <div className="flex items-start justify-between">
@@ -156,10 +159,17 @@ export default async function ExpensesPage({
           합계 <b className="text-foreground">₩{formatKRW(aggr.s)}</b>
         </div>
 
+        <div id="expenses-table">
+        {anyDeletable && <ExpensesBulkBar containerId="expenses-table" />}
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
+                {anyDeletable && (
+                  <TableHead className="w-10 pl-4">
+                    <input type="checkbox" data-select-all aria-label="전체 선택" className="size-3.5 accent-[var(--primary)]" />
+                  </TableHead>
+                )}
                 <TableHead>지출일</TableHead>
                 <TableHead>품목</TableHead>
                 <TableHead>거래처</TableHead>
@@ -172,6 +182,13 @@ export default async function ExpensesPage({
             <TableBody>
               {rows.map((r) => (
                 <TableRow key={r.id} className="hover:bg-muted/60">
+                  {anyDeletable && (
+                    <TableCell className="pl-4">
+                      {me != null && canDeleteExpense(me, r) && (
+                        <input type="checkbox" data-row-select data-id={r.id} aria-label={`${r.date} ${r.itemName ?? ''} 선택`} className="size-3.5 accent-[var(--primary)]" />
+                      )}
+                    </TableCell>
+                  )}
                   <TableCell className="font-mono text-xs text-muted-foreground">
                     {r.date}
                   </TableCell>
@@ -214,6 +231,7 @@ export default async function ExpensesPage({
               ))}
             </TableBody>
           </Table>
+        </div>
         </div>
       </section>
     </div>

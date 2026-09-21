@@ -27,9 +27,12 @@ export type ExpenseRowData = {
 
 const PAYMENT_OPTIONS = [
   { value: 'corporate_card', label: '법인카드' },
+  { value: 'bank_transfer', label: '이체' },
+]
+// 신규 입력에서는 뺀 수단 (2026-09-17) — 이미 그 값으로 저장된 행을 고칠 때만 보여 준다
+const LEGACY_PAYMENT_OPTIONS = [
   { value: 'personal_card', label: '개인카드' },
   { value: 'cash', label: '현금' },
-  { value: 'bank_transfer', label: '이체' },
 ]
 
 const selectClass = 'h-9 w-full rounded-lg border bg-background px-2 text-sm'
@@ -140,7 +143,7 @@ export function ExpenseRowActions({
               <div className="grid gap-1.5">
                 <Label htmlFor="exp-method">수단</Label>
                 <select id="exp-method" className={selectClass} value={form.paymentMethod} onChange={(e) => set('paymentMethod', e.target.value)}>
-                  {PAYMENT_OPTIONS.map((o) => (
+                  {[...PAYMENT_OPTIONS, ...LEGACY_PAYMENT_OPTIONS.filter((o) => o.value === row.paymentMethod)].map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
                     </option>

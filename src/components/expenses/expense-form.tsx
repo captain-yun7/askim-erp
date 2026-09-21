@@ -40,10 +40,9 @@ type Row = {
   expenseCategoryId: number | null
 }
 
+// 개인카드·현금은 입력 화면에서 제외 (2026-09-17 피드백) — 기존 데이터의 표시·필터에는 남아 있음
 const PAYMENT_OPTIONS = [
   { value: 'corporate_card', label: '법인카드' },
-  { value: 'personal_card', label: '개인카드' },
-  { value: 'cash', label: '현금' },
   { value: 'bank_transfer', label: '이체' },
 ] as const
 

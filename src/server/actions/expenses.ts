@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { eq } from 'drizzle-orm'
+import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '@/lib/db/client'
 import { expense } from '@/lib/db/schema'
@@ -150,4 +150,23 @@ export async function deleteExpense(id: string) {
   await audit({ action: 'expense.delete', targetType: 'expense', targetId: id, summary: `판관비 삭제 ${id}` })
   revalidateExpenseViews()
   return { ok: true }
+}
+
+/** 판관비 여러 건 삭제 (2026-09-17 피드백: 목록 체크박스) — 권한 없는 건은 건너뜀 */
+export async function deleteExpenses(rawIds: unknown): Promise<{ ok: true; deleted: number; skipped: number } | { error: string }> {
+  const user = await getSessionUser()
+  if (!user) return { error: '로그인 필요' }
+  const parsed = z.array(z.string().uuid()).min(1, '지출을 선택하세요').max(1000).safeParse(rawIds)
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? '잘못된 요청' }
+  const rows = await db
+    .select({ id: expense.id, createdBy: expense.createdBy, payerUserId: expense.payerUserId, createdAt: expense.createdAt, itemName: expense.itemName, amount: expense.amount })
+    .from(expense)
+    .where(and(inArray(expense.id, parsed.data), isNull(expense.deletedAt)))
+  const allowed = rows.filter((r) => canDeleteExpense(user, r))
+  if (allowed.length === 0) return { error: '삭제할 수 있는 지출이 없습니다' }
+  await db.update(expense).set({ deletedAt: new Date() }).where(inArray(expense.id, allowed.map((r) => r.id)))
+  for (const r of allowed)
+    await audit({ action: 'expense.delete', targetType: 'expense', targetId: r.id, targetLabel: r.itemName ?? undefined, summary: `판관비 삭제 ${r.itemName ?? ''} ${Math.round(Number(r.amount)).toLocaleString()}원 (목록 일괄)` })
+  revalidateExpenseViews()
+  return { ok: true, deleted: allowed.length, skipped: parsed.data.length - allowed.length }
 }
