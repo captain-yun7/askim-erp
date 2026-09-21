@@ -90,8 +90,9 @@ export function AppShell({
           })).filter((s) => s.items.length > 0)
         : NAV_SECTIONS
   return (
-    <div className="flex min-h-screen">
-      <aside className="hidden w-58 shrink-0 flex-col border-r border-sidebar-border bg-sidebar p-3 text-sidebar-foreground md:flex">
+    <div className="flex min-h-[calc(100vh/var(--ui-zoom,1))]">
+      {/* 사이드바는 화면에 고정 — 긴 목록을 끝까지 내려야 프로필 메뉴가 보이던 문제(2026-09-16). 높이는 화면 배율(zoom)로 나눠 실제 뷰포트에 맞춤 */}
+      <aside className="sticky top-0 hidden h-[calc(100vh/var(--ui-zoom,1))] w-58 shrink-0 flex-col self-start border-r border-sidebar-border bg-sidebar p-3 text-sidebar-foreground md:flex">
         <Link href="/" className="flex items-center gap-2 px-2.5 pb-5 pt-1.5">
           <Image src="/brand/askim-symbol.png" alt="" width={44} height={17} priority />
           <Image
@@ -104,7 +105,8 @@ export function AppShell({
           />
           <span className="text-[12px] font-medium tracking-wide text-subtle-foreground">ERP</span>
         </Link>
-        <nav className="flex flex-col gap-4">
+        {/* 메뉴가 화면보다 길면(작은 화면·큰 글자) 메뉴만 스크롤 — 프로필은 항상 하단에 보임 */}
+        <nav className="-mr-1 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
           {sections.map((section) => (
             <div key={section.title} className="flex flex-col gap-0.5">
               <span className="px-3 pb-1 text-[11px] font-medium tracking-[0.04em] text-subtle-foreground">
@@ -148,7 +150,7 @@ export function AppShell({
             </div>
           ))}
         </nav>
-        <div className="mt-auto border-t border-sidebar-border pt-2">
+        <div className="mt-auto shrink-0 border-t border-sidebar-border pt-2">
           <DropdownMenu>
             <DropdownMenuTrigger
               render={

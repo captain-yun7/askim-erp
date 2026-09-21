@@ -33,12 +33,17 @@ export default async function RootLayout({
   // 사용자별 화면 배율 — 계정(users.ui_scale)에 저장, SSR 시 적용해 깜빡임 없음
   const scale = await getMyUiScale()
   return (
+    // 화면 배율(zoom)은 body 가 아니라 앱 래퍼에 건다 — body 에 걸면 포털(메뉴·셀렉트·다이얼로그)이 배율만큼 어긋난 좌표에 떠서
+    // 크게 설정한 사용자는 프로필 메뉴가 화면 밖에 뜸(2026-09-16 피드백). 포털 팝업은 [zoom:var(--ui-zoom)] 클래스로 자체 배율을 갖는다.
     <html
       lang="ko"
       className={`${figtree.variable} ${notoSansKr.variable} ${geistMono.variable} h-full antialiased`}
+      style={{ '--ui-zoom': uiScaleZoom(scale) } as React.CSSProperties}
     >
-      <body className="min-h-full" style={{ zoom: uiScaleZoom(scale) }}>
-        {children}
+      <body className="min-h-full">
+        <div id="ui-root" className="[zoom:var(--ui-zoom,1)] min-h-full">
+          {children}
+        </div>
         <Toaster richColors position="top-right" />
       </body>
     </html>
