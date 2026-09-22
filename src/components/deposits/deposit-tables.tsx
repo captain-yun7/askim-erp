@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { DateInput } from '@/components/ui/date-input'
 import { Label } from '@/components/ui/label'
 import {
   Table,
@@ -188,7 +189,7 @@ export function DepositTable({ rows, editable, attachments = {} }: { rows: Depos
                 {editable && (
                   <TableCell>
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" className="size-7" onClick={() => openEdit(r)}>
+                      <Button variant="ghost" size="icon" className="size-7" aria-label="수정" title="수정" onClick={() => openEdit(r)}>
                         <Pencil className="size-3.5" />
                       </Button>
                       <Button
@@ -250,10 +251,10 @@ export function DepositTable({ rows, editable, attachments = {} }: { rows: Depos
                 </select>
               </Field>
               <Field label="보증금 입금일">
-                <Input type="date" value={editing.draft.paidDate} onChange={(e) => set({ paidDate: e.target.value })} />
+                <DateInput aria-label="보증금 입금일" value={editing.draft.paidDate} onChange={(v) => set({ paidDate: v ?? '' })} />
               </Field>
               <Field label="보증금 반환일">
-                <Input type="date" value={editing.draft.returnedDate} onChange={(e) => set({ returnedDate: e.target.value })} />
+                <DateInput aria-label="보증금 반환일" value={editing.draft.returnedDate} onChange={(v) => set({ returnedDate: v ?? '' })} />
               </Field>
               <Field label="비고" wide>
                 <Textarea rows={2} value={editing.draft.memo} onChange={(e) => set({ memo: e.target.value })} />
@@ -413,7 +414,7 @@ export function ContractTable({ rows, editable, kind = 'exclusive', attachments 
                 {editable && (
                   <TableCell>
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" className="size-7" onClick={() => openEdit(r)}>
+                      <Button variant="ghost" size="icon" className="size-7" aria-label="수정" title="수정" onClick={() => openEdit(r)}>
                         <Pencil className="size-3.5" />
                       </Button>
                       <Button
@@ -480,10 +481,10 @@ export function ContractTable({ rows, editable, kind = 'exclusive', attachments 
               </Field>
               <div />
               <Field label="보증금 입금일">
-                <Input type="date" value={editing.draft.depositPaidDate} onChange={(e) => set({ depositPaidDate: e.target.value })} />
+                <DateInput aria-label="보증금 입금일" value={editing.draft.depositPaidDate} onChange={(v) => set({ depositPaidDate: v ?? '' })} />
               </Field>
               <Field label="보증금 반환일">
-                <Input type="date" value={editing.draft.depositReturnedDate} onChange={(e) => set({ depositReturnedDate: e.target.value })} />
+                <DateInput aria-label="보증금 반환일" value={editing.draft.depositReturnedDate} onChange={(v) => set({ depositReturnedDate: v ?? '' })} />
               </Field>
               <Field label="비고" wide>
                 <Textarea rows={2} value={editing.draft.memo} onChange={(e) => set({ memo: e.target.value })} />

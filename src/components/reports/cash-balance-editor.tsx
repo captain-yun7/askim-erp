@@ -5,6 +5,7 @@ import { Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { DateInput } from '@/components/ui/date-input'
 import { saveCashBalances } from '@/server/actions/plan'
 
 type Row = { id: number | null; label: string; amountKrw: string; amountFx: string; fxCurrency: string }
@@ -104,7 +105,7 @@ export function CashBalanceEditor({
       <div className="flex flex-wrap items-center gap-3 text-[12.5px]">
         <label className="flex items-center gap-2">
           <span className="text-muted-foreground">기준일</span>
-          <Input type="date" className="h-8 w-40" value={date} onChange={(e) => setDate(e.target.value)} />
+          <DateInput aria-label="기준일" className="w-44" inputClassName="h-8" value={date} onChange={(v) => setDate(v ?? '')} />
         </label>
         <label className="flex items-center gap-2">
           <span className="text-muted-foreground">적용환율 (USD)</span>

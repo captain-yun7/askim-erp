@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { DateInput } from '@/components/ui/date-input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -129,10 +130,10 @@ export function ExpenseForm({ lookups }: { lookups: Lookups }) {
                 {rows.map((r) => (
                   <TableRow key={r.key} className="hover:bg-transparent">
                     <TableCell>
-                      <Input
-                        type="date"
+                      <DateInput
+                        aria-label="지출일"
                         value={r.expenseDate}
-                        onChange={(e) => updateRow(r.key, { expenseDate: e.target.value })}
+                        onChange={(v) => updateRow(r.key, { expenseDate: v ?? '' })}
                       />
                     </TableCell>
                     <TableCell>

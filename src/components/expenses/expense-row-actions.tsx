@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { DateInput } from '@/components/ui/date-input'
 import { Label } from '@/components/ui/label'
 import { deleteExpense, updateExpense } from '@/server/actions/expenses'
 
@@ -108,7 +109,7 @@ export function ExpenseRowActions({
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1.5">
                 <Label htmlFor="exp-date">지출일 *</Label>
-                <Input id="exp-date" type="date" value={form.expenseDate} onChange={(e) => set('expenseDate', e.target.value)} />
+                <DateInput aria-label="지출일" value={form.expenseDate} onChange={(v) => set('expenseDate', v ?? '')} />
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="exp-amount">금액 *</Label>

@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { DateInput } from '@/components/ui/date-input'
 
 const selectClass = 'h-9 rounded-full border bg-background px-3 text-[13px]'
 
@@ -40,9 +41,9 @@ export function AuditFilters({
           onKeyDown={(e) => e.key === 'Enter' && update({ q: (e.target as HTMLInputElement).value })}
         />
       </div>
-      <input type="date" aria-label="시작일" className={selectClass} defaultValue={initial.from ?? ''} onChange={(e) => update({ from: e.target.value })} />
+      <DateInput aria-label="시작일" className="w-36" inputClassName={selectClass} value={initial.from ?? ''} onChange={(v) => update({ from: v ?? '' })} />
       <span className="text-muted-foreground">~</span>
-      <input type="date" aria-label="종료일" className={selectClass} defaultValue={initial.to ?? ''} onChange={(e) => update({ to: e.target.value })} />
+      <DateInput aria-label="종료일" className="w-36" inputClassName={selectClass} value={initial.to ?? ''} onChange={(v) => update({ to: v ?? '' })} />
       <select aria-label="사용자" className={selectClass} value={initial.userId ?? ''} onChange={(e) => update({ user: e.target.value })}>
         <option value="">전체 사용자</option>
         {users.map((u) => (
