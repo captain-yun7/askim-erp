@@ -57,7 +57,8 @@ test.describe.serial('관리자 핵심 쓰기 플로우', () => {
 
     const firstRow = page.locator('tbody tr').first()
     await firstRow.locator('input[placeholder="품목명"]').fill(EXP_ITEM)
-    await firstRow.locator('input[inputmode="numeric"]').fill('33000')
+    // 지출일 칸도 숫자 입력이라(2026-09-22) 금액 칸은 마지막 numeric 입력
+    await firstRow.locator('input[inputmode="numeric"]').last().fill('33000')
 
     await page.getByRole('button', { name: '일괄저장' }).click()
     await page.waitForURL((u) => u.pathname === '/expenses')
