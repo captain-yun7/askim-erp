@@ -1,17 +1,32 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { loginAction } from '@/server/actions/auth'
 
+const LAST_EMAIL_KEY = 'askim-last-email'
+
 export function LoginForm() {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  // 마지막으로 로그인한 아이디를 이 브라우저에 기억해 채워 준다 (2026-09-22 피드백). 비밀번호는 저장하지 않음.
+  // 비제어 입력 — 제어 입력이면 하이드레이션 순간 사용자가 먼저 친 값이 지워질 수 있다
+  const emailRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(LAST_EMAIL_KEY)
+      const el = emailRef.current
+      if (saved && el && el.value === '') {
+        el.value = saved
+        document.getElementById('password')?.focus()
+      }
+    } catch {}
+  }, [])
 
   function handleSubmit(formData: FormData) {
     setError(null)
@@ -21,6 +36,9 @@ export function LoginForm() {
         setError(result.error)
         return
       }
+      try {
+        localStorage.setItem(LAST_EMAIL_KEY, String(formData.get('email') ?? '').trim())
+      } catch {}
       router.push('/')
       router.refresh()
     })
@@ -38,7 +56,9 @@ export function LoginForm() {
               type="email"
               autoComplete="email"
               required
-              defaultValue="admin@askim.local"
+              ref={emailRef}
+              defaultValue=""
+              autoFocus
             />
           </div>
           <div className="grid gap-2">
