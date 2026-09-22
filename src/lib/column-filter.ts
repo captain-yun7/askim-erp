@@ -2,7 +2,7 @@
  * 거래 목록 컬럼별 검색식 파서 (2026-09-07 피드백: 금액·날짜·상태 컬럼도 검색)
  *
  * 금액:  `800000` `800,000` 정확히 / `>1000000` `>=` `<` `<=` 비교 / `100000~500000` 범위 / `-` 비어있음
- * 날짜:  `2026` `2026-09` `2026-09-05` 앞부분 일치 / `2026-09-01~2026-09-15` 범위 / `-` 비어있음
+ * 날짜:  `2026` `2026-09` `2026-09-05` 앞부분 일치 / `2026-09-01~2026-09-15` 범위 / `-` 비어있음 / `+` 입력된 것만 (2026-09-22)
  *        구분자는 `-` `.` `/` 또는 없음(20260905) 모두 허용
  */
 
@@ -13,6 +13,7 @@ export type NumberFilter =
 
 export type DateFilter =
   | { kind: 'empty' }
+  | { kind: 'nonempty' }
   /** from 이상 toExclusive 미만 (YYYY-MM-DD) */
   | { kind: 'range'; from: string; toExclusive: string }
 
@@ -73,6 +74,7 @@ export function parseDateFilter(raw: string | undefined): DateFilter | null {
   const s = (raw ?? '').trim()
   if (!s) return null
   if (s === '-') return { kind: 'empty' }
+  if (s === '+') return { kind: 'nonempty' }
 
   const range = s.split('~')
   if (range.length === 2) {

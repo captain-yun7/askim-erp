@@ -376,7 +376,7 @@ export type ColumnFilters = {
 }
 
 const AMOUNT_HINT = '금액 검색: 800000 정확히 · >1000000 · <=500000 · 100000~500000 범위 · - 비어있음'
-const DATE_HINT = '날짜 검색: 2026 · 2026-09 · 2026-09-05 · 2026-09-01~2026-09-15 범위 · - 비어있음'
+const DATE_HINT = '날짜 검색: 2026 · 2026-09 · 2026-09-05 · 2026-09-01~2026-09-15 범위 · - 비어있음 · + 입력된 것만'
 
 function applyColumnFilter(router: ReturnType<typeof useRouter>, param: string, value: string) {
   const next = new URLSearchParams(window.location.search)
@@ -427,17 +427,19 @@ function ColumnFilterSelect({
   value,
   title,
   options,
+  ariaLabel,
 }: {
   param: string
   value?: string
   title: string
   options: { value: string; label: string }[]
+  ariaLabel?: string
 }) {
   const router = useRouter()
 
   return (
     <select
-      aria-label={`${param} 검색`}
+      aria-label={ariaLabel ?? `${param} 검색`}
       title={title}
       value={value ?? ''}
       className={cn(filterInputClass, 'w-16 min-w-0 px-0.5', !value && 'text-muted-foreground/70')}
@@ -458,11 +460,29 @@ function FilterHeaderRow({ filters }: { filters: ColumnFilters }) {
       <ColumnFilterInput param={param} value={filters[param]} placeholder="금액" title={AMOUNT_HINT} align="right" />
     </TableHead>
   )
-  const date = (param: keyof ColumnFilters) => (
-    <TableHead className="py-1">
-      <ColumnFilterInput param={param} value={filters[param]} placeholder="YYYY-MM" title={DATE_HINT} />
-    </TableHead>
-  )
+  // 계산서 발행일은 "공백 / 입력됨"으로도 거를 수 있게 (2026-09-22 피드백) — 셀렉트가 검색식 '-' / '+' 를 대신 넣는다
+  const date = (param: keyof ColumnFilters) => {
+    const v = filters[param]
+    const mode = v === '-' ? '-' : v === '+' ? '+' : ''
+    return (
+      <TableHead className="py-1">
+        <div className="flex flex-col gap-1">
+          <ColumnFilterInput param={param} value={mode ? '' : v} placeholder="YYYY-MM" title={DATE_HINT} />
+          <ColumnFilterSelect
+            param={param}
+            value={mode}
+            ariaLabel={`${param} 공백 여부`}
+            title="공백 여부"
+            options={[
+              { value: '', label: '전체' },
+              { value: '-', label: '공백' },
+              { value: '+', label: '입력됨' },
+            ]}
+          />
+        </div>
+      </TableHead>
+    )
+  }
   const datePair = (top: keyof ColumnFilters, topLabel: string, bottom: keyof ColumnFilters, bottomLabel: string) => (
     <TableHead className="py-1">
       <div className="flex flex-col gap-1">

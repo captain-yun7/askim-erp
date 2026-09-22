@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ilike, inArray, isNull, or, sql, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm'
 import type { PgColumn } from 'drizzle-orm/pg-core'
 import { db } from '@/lib/db/client'
 import { parseDateFilter, parseNumberFilter } from '@/lib/column-filter'
@@ -79,6 +79,7 @@ function numberCond(col: PgColumn, raw: string | undefined): SQL | undefined {
 function dateCond(cols: PgColumn[], raw: string | undefined): SQL | undefined {
   const f = parseDateFilter(raw)
   if (!f) return undefined
+  if (f.kind === 'nonempty') return or(...cols.map((col) => isNotNull(col)))
   const per = cols.map((col) =>
     f.kind === 'empty'
       ? isNull(col)
@@ -94,6 +95,7 @@ function purchaseDueCond(raw: string | undefined): SQL | undefined {
   const ym = sql`make_date(${deal.settlementYear}, ${deal.settlementMonth}, 1)`
   const hasYm = sql`${deal.settlementYear} is not null and ${deal.settlementMonth} between 1 and 12`
   if (f.kind === 'empty') return sql`${deal.purchaseDueDate} is null and not (${hasYm})`
+  if (f.kind === 'nonempty') return sql`${deal.purchaseDueDate} is not null or (${hasYm})`
   return sql`(${deal.purchaseDueDate} >= ${f.from}::date and ${deal.purchaseDueDate} < ${f.toExclusive}::date) or (${deal.purchaseDueDate} is null and ${hasYm} and ${ym} >= date_trunc('month', ${f.from}::date) and ${ym} < ${f.toExclusive}::date)`
 }
 
