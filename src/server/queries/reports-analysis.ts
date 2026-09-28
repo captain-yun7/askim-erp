@@ -41,8 +41,11 @@ const num = (v: string | null | undefined) => parseFloat(v ?? '0') || 0
 const salesGross = sql`coalesce(${deal.salesAmountGross}, ${deal.salesAmountNet})`
 const purchaseGross = sql`coalesce(${deal.purchaseAmountGross}, ${deal.purchaseAmountNet})`
 
+// 금액은 소수 둘째 자리까지라 전 단위로 더해야 부동소수점 오차로 1원이 어긋나지 않는다
+export const sumAmounts = (values: number[]) => values.reduce((a, v) => a + Math.round(v * 100), 0) / 100
+
 function withRatio<T extends { amount: number }>(rows: T[]): (T & { ratio: number })[] {
-  const total = rows.reduce((a, r) => a + r.amount, 0)
+  const total = sumAmounts(rows.map((r) => r.amount))
   return rows
     .filter((r) => Math.round(r.amount) !== 0)
     .sort((a, b) => b.amount - a.amount)
@@ -134,14 +137,14 @@ export async function getSalesAnalysis({ year, month }: { year: number; month?: 
       team,
       title: TEAM_TITLE[team] ?? team,
       rows: rows.sort((a, b) => b.sales - a.sales),
-      total: mkRow('총합계', rows.reduce((a, r) => a + r.sales, 0), rows.reduce((a, r) => a + r.profit, 0)),
+      total: mkRow('총합계', sumAmounts(rows.map((r) => r.sales)), sumAmounts(rows.map((r) => r.profit))),
     }))
 
   return {
     year,
     month: m,
-    salesTotal: byClient.reduce((a, r) => a + r.amount, 0),
-    purchaseTotal: suppliers.reduce((a, r) => a + num(r.amount), 0),
+    salesTotal: sumAmounts(clients.map((r) => num(r.amount))),
+    purchaseTotal: sumAmounts(suppliers.map((r) => num(r.amount))),
     byClient,
     byClientType,
     byCategory: simple(categories, '(상품구분 없음)'),
@@ -149,7 +152,7 @@ export async function getSalesAnalysis({ year, month }: { year: number; month?: 
     bySupplier: simple(suppliers, '(매체사 미지정)'),
     cumulative: {
       groups,
-      total: mkRow('전체', groups.reduce((a, g) => a + g.total.sales, 0), groups.reduce((a, g) => a + g.total.profit, 0)),
+      total: mkRow('전체', sumAmounts(groups.map((g) => g.total.sales)), sumAmounts(groups.map((g) => g.total.profit))),
     },
   }
 }

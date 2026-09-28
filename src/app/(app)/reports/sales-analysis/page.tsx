@@ -3,7 +3,7 @@ import { PeriodControls } from '@/components/reports/period-controls'
 import { ClientTypeSelect } from '@/components/reports/client-type-select'
 import { XlsxExportButton } from '@/components/xlsx-export-button'
 import { exportSalesAnalysisXlsx } from '@/server/actions/report-export'
-import { getSalesAnalysis, type CumulativeRow, type ShareRow } from '@/server/queries/reports-analysis'
+import { sumAmounts, getSalesAnalysis, type CumulativeRow, type ShareRow } from '@/server/queries/reports-analysis'
 import { requireBackoffice } from '@/server/auth/require-backoffice'
 import { getSessionUser } from '@/server/auth/guards'
 import { formatKRW } from '@/lib/format'
@@ -189,7 +189,7 @@ function Card({ no, title, note, slot, children }: { no: number; title: string; 
 }
 
 function ShareCard({ no, title, head, rows, slot }: { no: number; title: string; head: string; rows: ShareRow[]; slot: string }) {
-  const total = rows.reduce((s, r) => s + r.amount, 0)
+  const total = sumAmounts(rows.map((r) => r.amount))
   return (
     <Card no={no} title={title} slot={slot}>
       <table className="w-full">

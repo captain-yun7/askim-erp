@@ -8,7 +8,7 @@ import { getPlanReport } from '@/server/queries/reports-plan'
 import { getMonthlyPnl } from '@/server/queries/reports-pnl'
 import { getTopCounterparties, type TopSort } from '@/server/queries/reports-top'
 import { getDonations } from '@/server/queries/reports-donations'
-import { getSalesAnalysis } from '@/server/queries/reports-analysis'
+import { sumAmounts, getSalesAnalysis } from '@/server/queries/reports-analysis'
 import { audit } from '@/server/audit'
 
 /** 리포트 엑셀(xlsx) 다운로드 (2026-09-09 피드백) — base64 로 전달, 클라이언트에서 저장 */
@@ -158,7 +158,7 @@ export async function exportSalesAnalysisXlsx({ year, month }: { year: number; m
     [],
     [head, amountHead, '비율'],
     ...rows.map((r) => [r.label, r0(r.amount), pct(r.ratio)]),
-    ['총합계', r0(rows.reduce((s, r) => s + r.amount, 0)), rows.length ? 1 : 0],
+    ['총합계', r0(sumAmounts(rows.map((r) => r.amount))), rows.length ? 1 : 0],
   ]
   const clients: Cell[][] = [
     [`${period} 매출 거래처 분석 (귀속월 기준)`],
