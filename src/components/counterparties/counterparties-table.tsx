@@ -8,7 +8,8 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { deleteCounterparties } from '@/server/actions/counterparties'
+import { deleteCounterparties, setCounterpartyClientType } from '@/server/actions/counterparties'
+import { CLIENT_TYPES, clientTypeLabel } from '@/lib/client-type'
 
 const ROLE_LABEL: Record<string, string> = {
   media: '매체사',
@@ -22,6 +23,7 @@ export type CounterpartyRow = {
   name: string
   businessNo: string | null
   roleTags: string[]
+  clientType: string | null
   paymentTerm: string | null
   officialFeeRate: string | null
   bankName: string | null
@@ -31,7 +33,8 @@ export type CounterpartyRow = {
 }
 
 /** 거래처 목록 — 체크박스로 여러 건 삭제 (2026-09-16 피드백) */
-export function CounterpartiesTable({ rows, showBank, canDelete }: { rows: CounterpartyRow[]; showBank: boolean; canDelete: boolean }) {
+export function CounterpartiesTable({ rows, showBank, canDelete, canEdit = false }: { rows: CounterpartyRow[]; showBank: boolean; canDelete: boolean; canEdit?: boolean }) {
+  const selectable = canDelete || canEdit
   const router = useRouter()
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [pending, start] = useTransition()
@@ -65,17 +68,49 @@ export function CounterpartiesTable({ rows, showBank, canDelete }: { rows: Count
     })
   }
 
+  /** 고른 거래처에 구분을 한 번에 지정 (2026-09-28 매출분석보고서) */
+  function applyClientType(value: string) {
+    if (visible.length === 0 || value === '') return
+    const type = value === 'none' ? null : value
+    start(async () => {
+      const res = await setCounterpartyClientType(visible.map((r) => r.id), type)
+      if ('error' in res) {
+        toast.error(res.error)
+        return
+      }
+      toast.success(`거래처 ${res.updated}곳의 구분을 '${clientTypeLabel(type)}'(으)로 지정했습니다`)
+      setSelected(new Set())
+      router.refresh()
+    })
+  }
+
   return (
     <>
-      {canDelete && visible.length > 0 && (
+      {selectable && visible.length > 0 && (
         <div data-slot="bulk-bar" className="flex items-center gap-3 border-b bg-muted/50 px-4 py-2 text-[12.5px]">
           <span>
             <b>{visible.length}</b>건 선택
           </span>
-          <Button size="sm" variant="destructive" className="h-7 gap-1.5" disabled={pending} onClick={removeSelected}>
-            <Trash2 className="size-3.5" />
-            {pending ? '삭제 중...' : '선택 삭제'}
-          </Button>
+          {canEdit && (
+            <label className="flex items-center gap-1.5">
+              <span className="text-muted-foreground">구분 지정</span>
+              <select aria-label="구분 일괄 지정" className="h-7 rounded-md border bg-background px-1.5 text-[12.5px]" value="" disabled={pending} onChange={(e) => applyClientType(e.target.value)}>
+                <option value="">선택…</option>
+                {CLIENT_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+                <option value="none">미지정으로</option>
+              </select>
+            </label>
+          )}
+          {canDelete && (
+            <Button size="sm" variant="destructive" className="h-7 gap-1.5" disabled={pending} onClick={removeSelected}>
+              <Trash2 className="size-3.5" />
+              {pending ? '삭제 중...' : '선택 삭제'}
+            </Button>
+          )}
           <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setSelected(new Set())}>
             선택 해제
           </button>
@@ -85,7 +120,7 @@ export function CounterpartiesTable({ rows, showBank, canDelete }: { rows: Count
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              {canDelete && (
+              {selectable && (
                 <TableHead className="w-10 pl-4">
                   <Checkbox
                     aria-label="전체 선택"
@@ -97,6 +132,7 @@ export function CounterpartiesTable({ rows, showBank, canDelete }: { rows: Count
               <TableHead>상호명</TableHead>
               <TableHead>사업자번호</TableHead>
               <TableHead>역할</TableHead>
+              <TableHead>구분</TableHead>
               {showBank && (
                 <>
                   <TableHead>거래은행</TableHead>
@@ -112,7 +148,7 @@ export function CounterpartiesTable({ rows, showBank, canDelete }: { rows: Count
           <TableBody>
             {rows.map((r) => (
               <TableRow key={r.id} className="hover:bg-muted/60" data-state={selected.has(r.id) ? 'selected' : undefined}>
-                {canDelete && (
+                {selectable && (
                   <TableCell className="pl-4">
                     <Checkbox aria-label={`${r.name} 선택`} checked={selected.has(r.id)} onCheckedChange={() => toggle(r.id)} />
                   </TableCell>
@@ -135,6 +171,9 @@ export function CounterpartiesTable({ rows, showBank, canDelete }: { rows: Count
                   ) : (
                     <span className="text-xs text-muted-foreground">-</span>
                   )}
+                </TableCell>
+                <TableCell className="text-xs" data-col="clientType">
+                  {r.clientType ? clientTypeLabel(r.clientType) : <span className="text-muted-foreground/60">미지정</span>}
                 </TableCell>
                 {showBank && (
                   <>

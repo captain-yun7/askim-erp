@@ -13,6 +13,7 @@ import {
   getSessionUser,
 } from '@/server/auth/guards'
 import { audit, diffFields } from '@/server/audit'
+import { clientTypeLabel, isClientType } from '@/lib/client-type'
 
 /** 회계/admin만 변경 가능한 민감 필드 */
 const SENSITIVE_FIELDS = [
@@ -48,6 +49,10 @@ const counterpartySchema = z.object({
   paymentTerm: z.string().trim().optional().nullable(),
   memo: z.string().trim().optional().nullable(),
   roleTags: z.array(z.string()).default([]),
+  clientType: z
+    .union([z.string(), z.null()])
+    .optional()
+    .transform((v) => (isClientType(v) ? v : null)),
 })
 
 export type CounterpartyInput = z.infer<typeof counterpartySchema>
@@ -150,4 +155,25 @@ export async function deleteCounterparties(ids: unknown): Promise<{ ok: true; de
     await audit({ action: 'counterparty.delete', targetType: 'counterparty', targetId: r.id, targetLabel: r.name, summary: `거래처 삭제 ${r.name}` })
   revalidatePath('/counterparties')
   return { ok: true, deleted: rows.length }
+}
+
+/** 거래처 구분 지정 — 한 건 또는 여러 건 (2026-09-28 매출분석보고서). null 이면 미지정으로 되돌림 */
+export async function setCounterpartyClientType(rawIds: unknown, rawType: unknown): Promise<{ ok: true; updated: number } | { error: string }> {
+  const user = await getSessionUser()
+  if (!user) return { error: '로그인 필요' }
+  if (!canEditCounterpartySensitive(user.role)) return { error: '거래처 수정 권한이 없습니다' }
+  const ids = z.array(z.string().uuid()).min(1, '거래처를 선택하세요').max(500).safeParse(rawIds)
+  if (!ids.success) return { error: ids.error.issues[0]?.message ?? '잘못된 요청' }
+  if (rawType !== null && !isClientType(rawType)) return { error: '잘못된 구분' }
+  const type = rawType as string | null
+  const rows = await db
+    .update(counterparty)
+    .set({ clientType: type })
+    .where(and(inArray(counterparty.id, ids.data), isNull(counterparty.deletedAt)))
+    .returning({ id: counterparty.id, name: counterparty.name })
+  for (const r of rows)
+    await audit({ action: 'counterparty.update', targetType: 'counterparty', targetId: r.id, targetLabel: r.name, summary: `거래처 구분 → ${clientTypeLabel(type)} (${r.name})`, detail: { clientType: type } })
+  revalidatePath('/counterparties')
+  revalidatePath('/reports/sales-analysis')
+  return { ok: true, updated: rows.length }
 }

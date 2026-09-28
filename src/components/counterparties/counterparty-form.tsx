@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { CLIENT_TYPES } from '@/lib/client-type'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -48,6 +49,7 @@ export function CounterpartyForm({
     paymentTerm: initial?.paymentTerm ?? '',
     memo: initial?.memo ?? '',
     roleTags: initial?.roleTags ?? [],
+    clientType: (initial?.clientType ?? null) as string | null,
   })
 
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
@@ -209,6 +211,23 @@ export function CounterpartyForm({
               onChange={(e) => set('paymentTerm', e.target.value)}
               placeholder="익월말 / 당월말 / ..."
             />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="cp-client-type">거래처 구분</Label>
+            <select
+              id="cp-client-type"
+              className="h-9 rounded-full border border-input bg-background px-3.5 text-sm"
+              value={form.clientType ?? ''}
+              onChange={(e) => set('clientType', e.target.value || null)}
+            >
+              <option value="">미지정</option>
+              {CLIENT_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11.5px] text-muted-foreground">매출분석보고서의 산업군 분석에 쓰입니다</p>
           </div>
           <div className="grid gap-1.5 md:col-span-2">
             <Label>메모</Label>

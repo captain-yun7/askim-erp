@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { isClientType } from '@/lib/client-type'
 import { notFound } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import { CounterpartyForm } from '@/components/counterparties/counterparty-form'
@@ -48,6 +49,7 @@ export default async function EditCounterpartyPage({
           unofficialFeeRate: cp.unofficialFeeRate,
           paymentTerm: cp.paymentTerm,
           memo: cp.memo,
+          clientType: isClientType(cp.clientType) ? cp.clientType : null,
           roleTags: cp.roleTags,
         }}
       />

@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { CLIENT_TYPES } from '@/lib/client-type'
 import {
   Select,
   SelectContent,
@@ -23,7 +24,7 @@ const ROLES = [
 export function CounterpartiesFilters({
   initial,
 }: {
-  initial: { q?: string; role?: string; noBiz?: boolean }
+  initial: { q?: string; role?: string; noBiz?: boolean; ctype?: string }
 }) {
   const router = useRouter()
   const sp = useSearchParams()
@@ -65,6 +66,22 @@ export function CounterpartiesFilters({
           {ROLES.map((r) => (
             <SelectItem key={r.value} value={r.value}>
               {r.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select defaultValue={initial.ctype ?? 'all'} onValueChange={(v) => update({ ctype: v ?? undefined })}>
+        <SelectTrigger className={chip} data-active={Boolean(initial.ctype)} aria-label="거래처 구분">
+          <SelectValue />
+          <span className="text-muted-foreground">구분</span>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">전체</SelectItem>
+          <SelectItem value="none">미지정</SelectItem>
+          {CLIENT_TYPES.map((t) => (
+            <SelectItem key={t.value} value={t.value}>
+              {t.label}
             </SelectItem>
           ))}
         </SelectContent>
