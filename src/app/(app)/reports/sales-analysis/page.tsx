@@ -17,6 +17,9 @@ const td = 'px-3 py-2 text-[13px]'
 const numTd = cn(td, 'text-right font-mono tabular-nums')
 
 /** 매출분석보고서 (2026-09-28 요청) — 거래 데이터를 거래처·산업군·상품·담당자·매입처로 묶은 통계 */
+// 매출장표·고객 엑셀과 같게 원 단위 반올림으로 표시한다
+const won = (v: number) => formatKRW(Math.round(v))
+
 export default async function SalesAnalysisPage({ searchParams }: { searchParams: Promise<SP> }) {
   await requireBackoffice()
   const sp = await searchParams
@@ -49,10 +52,10 @@ export default async function SalesAnalysisPage({ searchParams }: { searchParams
       </section>
 
       <section className="mt-4 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
-        <Stat label="매출 합계 (VAT 포함)" value={`₩ ${formatKRW(a.salesTotal)}`} sub={`매출 거래처 ${a.byClient.length}곳`} />
-        <Stat label="매입 합계 (VAT 포함)" value={`₩ ${formatKRW(a.purchaseTotal)}`} sub={`매입 거래처 ${a.bySupplier.length}곳`} />
-        <Stat label="매출 − 매입" value={`₩ ${formatKRW(a.salesTotal - a.purchaseTotal)}`} sub={a.salesTotal ? `매출 대비 ${pct((a.salesTotal - a.purchaseTotal) / a.salesTotal)}` : '-'} />
-        <Stat label={`${year} 누적 매출 (VAT 제외)`} value={`₩ ${formatKRW(a.cumulative.total.sales)}`} sub={`누적 손익 ₩ ${formatKRW(a.cumulative.total.profit)}`} />
+        <Stat label="매출 합계 (VAT 포함)" value={`₩ ${won(a.salesTotal)}`} sub={`매출 거래처 ${a.byClient.length}곳`} />
+        <Stat label="매입 합계 (VAT 포함)" value={`₩ ${won(a.purchaseTotal)}`} sub={`매입 거래처 ${a.bySupplier.length}곳`} />
+        <Stat label="매출 − 매입" value={`₩ ${won(a.salesTotal - a.purchaseTotal)}`} sub={a.salesTotal ? `매출 대비 ${pct((a.salesTotal - a.purchaseTotal) / a.salesTotal)}` : '-'} />
+        <Stat label={`${year} 누적 매출 (VAT 제외)`} value={`₩ ${won(a.cumulative.total.sales)}`} sub={`누적 손익 ₩ ${won(a.cumulative.total.profit)}`} />
       </section>
 
       {unset.length > 0 && (
@@ -89,7 +92,7 @@ export default async function SalesAnalysisPage({ searchParams }: { searchParams
                     <span className={cn(!r.clientType && 'text-muted-foreground/60')}>{r.clientTypeLabel}</span>
                   )}
                 </td>
-                <td className={numTd}>{formatKRW(r.amount)}</td>
+                <td className={numTd}>{won(r.amount)}</td>
                 <Ratio ratio={r.ratio} />
               </tr>
             ))}
@@ -120,7 +123,7 @@ export default async function SalesAnalysisPage({ searchParams }: { searchParams
               <tr key={r.key} className="border-b last:border-0 hover:bg-muted/50">
                 <td className={cn(td, 'text-muted-foreground')}>{i + 1}</td>
                 <td className={cn(td, 'font-medium')}>{r.label}</td>
-                <td className={numTd}>{formatKRW(r.amount)}</td>
+                <td className={numTd}>{won(r.amount)}</td>
                 <Ratio ratio={r.ratio} />
               </tr>
             ))}
@@ -204,7 +207,7 @@ function ShareCard({ no, title, head, rows, slot }: { no: number; title: string;
           {rows.map((r) => (
             <tr key={r.key} className="border-b last:border-0 hover:bg-muted/50">
               <td className={cn(td, 'font-medium', r.label === '미지정' && 'text-muted-foreground')}>{r.label}</td>
-              <td className={numTd}>{formatKRW(r.amount)}</td>
+              <td className={numTd}>{won(r.amount)}</td>
               <Ratio ratio={r.ratio} compact />
             </tr>
           ))}
@@ -240,7 +243,7 @@ function Total({ cols, amount, show }: { cols: number; amount: number; show: boo
         <td className={td} colSpan={cols}>
           총합계
         </td>
-        <td className={numTd}>{formatKRW(amount)}</td>
+        <td className={numTd}>{won(amount)}</td>
         <td className={cn(td, 'text-right font-mono text-[12.5px] tabular-nums')}>100.0%</td>
       </tr>
     </tfoot>
@@ -262,8 +265,8 @@ function CumRow({ r, total }: { r: CumulativeRow; total?: boolean }) {
   return (
     <tr className={cn('border-b last:border-0', total && 'border-t bg-muted/40 font-medium')}>
       <td className={cn(td, !total && 'font-medium')}>{r.owner}</td>
-      <td className={numTd}>{formatKRW(r.sales)}</td>
-      <td className={cn(numTd, r.profit < 0 && 'text-destructive')}>{formatKRW(r.profit)}</td>
+      <td className={numTd}>{won(r.sales)}</td>
+      <td className={cn(numTd, r.profit < 0 && 'text-destructive')}>{won(r.profit)}</td>
       <td className={cn(td, 'text-right font-mono text-[12.5px] tabular-nums')}>{r.margin === null ? '-' : pct(r.margin)}</td>
     </tr>
   )
