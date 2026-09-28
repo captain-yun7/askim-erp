@@ -8,6 +8,7 @@ import { getPlanReport } from '@/server/queries/reports-plan'
 import { getMonthlyPnl } from '@/server/queries/reports-pnl'
 import { getTopCounterparties, type TopSort } from '@/server/queries/reports-top'
 import { getDonations } from '@/server/queries/reports-donations'
+import { getSalesAnalysis } from '@/server/queries/reports-analysis'
 import { audit } from '@/server/audit'
 
 /** 리포트 엑셀(xlsx) 다운로드 (2026-09-09 피드백) — base64 로 전달, 클라이언트에서 저장 */
@@ -143,4 +144,48 @@ export async function exportDonationsXlsx({ year }: { year: number }): Promise<X
   const filename = `기부금_${year}.xlsx`
   await audit({ action: 'export.xlsx', targetType: 'export', targetLabel: filename, summary: `엑셀 다운로드 ${filename}` })
   return { ok: true, filename, base64: toXlsx([{ name: '월별 합계', rows: summary, widths: [8, 8, 16] }, { name: '사용내역', rows: detail, widths: [6, 12, 28, 28, 12, 14] }]) }
+}
+
+/** 매출분석보고서 — 표 6개를 시트별로 (2026-09-28) */
+export async function exportSalesAnalysisXlsx({ year, month }: { year: number; month: number | null }): Promise<XlsxResult> {
+  const g = await guard()
+  if (g) return g
+  const a = await getSalesAnalysis({ year, month })
+  const period = a.month ? `${year}. ${a.month}월` : `${year}년 전체`
+  const pct = (v: number) => Math.round(v * 1000) / 1000
+  const share = (title: string, head: string, amountHead: string, rows: { label: string; amount: number; ratio: number }[]): Cell[][] => [
+    [`${period} ${title}`],
+    [],
+    [head, amountHead, '비율'],
+    ...rows.map((r) => [r.label, r0(r.amount), pct(r.ratio)]),
+    ['총합계', r0(rows.reduce((s, r) => s + r.amount, 0)), rows.length ? 1 : 0],
+  ]
+  const clients: Cell[][] = [
+    [`${period} 매출 거래처 분석 (귀속월 기준)`],
+    [],
+    ['매출거래처', '거래처 구분', '매출금액(VAT포함)', '비율'],
+    ...a.byClient.map((r) => [r.label, r.clientTypeLabel, r0(r.amount), pct(r.ratio)]),
+    ['총합계', '', r0(a.salesTotal), a.byClient.length ? 1 : 0],
+  ]
+  const cumulative: Cell[][] = [[`${year} 누적매출/매출이익 (현 시점 기준, VAT 제외)`], []]
+  for (const grp of a.cumulative.groups) {
+    cumulative.push([`<${grp.title}>`], ['담당자', '누적 매출액(VAT제외)', '누적 손익', '손익율'])
+    for (const r of grp.rows) cumulative.push([r.owner, r0(r.sales), r0(r.profit), r.margin === null ? null : pct(r.margin)])
+    if (grp.rows.length > 1) cumulative.push(['총합계', r0(grp.total.sales), r0(grp.total.profit), grp.total.margin === null ? null : pct(grp.total.margin)])
+    cumulative.push([])
+  }
+  const filename = `매출분석보고서_${year}${a.month ? `-${String(a.month).padStart(2, '0')}` : ''}.xlsx`
+  await audit({ action: 'export.xlsx', targetType: 'export', targetLabel: filename, summary: `엑셀 다운로드 ${filename}` })
+  return {
+    ok: true,
+    filename,
+    base64: toXlsx([
+      { name: '1.매출거래처', rows: clients, widths: [32, 14, 20, 8] },
+      { name: '2.산업군', rows: share('매출 산업군 분석', '구분', '매출금액(VAT포함)', a.byClientType), widths: [20, 20, 8] },
+      { name: '3.상품(매체)', rows: share('매출 상품(매체) 분석', '구분', '매출금액(VAT포함)', a.byCategory), widths: [22, 20, 8] },
+      { name: '4.영업사원', rows: share('영업사원 별 매출액 (귀속월)', '담당자', '매출금액(VAT포함)', a.byOwner), widths: [18, 20, 8] },
+      { name: '5.매입거래처', rows: share('매입 거래처 분석 (귀속월 기준)', '매입거래처', '매입금액(VAT포함)', a.bySupplier), widths: [32, 20, 8] },
+      { name: '6.누적', rows: cumulative, widths: [18, 22, 18, 10] },
+    ]),
+  }
 }
