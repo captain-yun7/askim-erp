@@ -1,0 +1,1 @@
+ALTER TABLE "counterparty" ADD COLUMN "client_type" text;

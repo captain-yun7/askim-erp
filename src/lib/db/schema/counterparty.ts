@@ -30,6 +30,8 @@ export const counterparty = pgTable(
     unofficialFeeRate: text('unofficial_fee_rate'),
     paymentTerm: text('payment_term'),
     roleTags: text('role_tags').array().notNull().default(sql`'{}'::text[]`),
+    // 거래처 구분 — 매출분석보고서의 산업군 분석 기준 (2026-09-28). 값은 lib/client-type 참고, 비어 있으면 미지정
+    clientType: text('client_type'),
     memo: text('memo'),
     isActive: boolean('is_active').notNull().default(true),
 
