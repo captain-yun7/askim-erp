@@ -67,6 +67,9 @@ export default async function ExpensesPage({
     )
   }
   const where = and(...conds)
+  // 월·항목·검색으로 좁혔으면 전부 보여 준다 (100건에서 잘려 월초 내역이 안 보인다는 2026-09-28 문의)
+  const narrowed = Boolean(filters.month || filters.categoryId || filters.q)
+  const limit = narrowed ? 5000 : 100
 
   const [rows, [{ total }], [aggr], lookups] = await Promise.all([
     db
@@ -87,7 +90,7 @@ export default async function ExpensesPage({
       .leftJoin(expenseCategory, eq(expenseCategory.id, expense.expenseCategoryId))
       .where(where)
       .orderBy(desc(expense.expenseDate), desc(expense.createdAt))
-      .limit(100),
+      .limit(limit),
     db.select({ total: sql<number>`count(*)::int` }).from(expense).where(where),
     db
       .select({ s: sql<string>`coalesce(sum(amount),0)::text` })
@@ -135,7 +138,7 @@ export default async function ExpensesPage({
           tone="muted"
           label="지출 건수"
           value={`${total.toLocaleString()}건`}
-          sub={rows.length < total ? '최근 100건만 표시' : '전체 표시'}
+          sub={rows.length < total ? `최근 ${rows.length.toLocaleString()}건만 표시 · 월이나 항목을 고르면 전체 표시` : '전체 표시'}
         />
       </section>
 
@@ -154,9 +157,14 @@ export default async function ExpensesPage({
         </div>
 
         <div className="flex items-center gap-3.5 border-b px-4 py-2.5 text-[12.5px] text-muted-foreground">
-          총 <b className="text-foreground">{total.toLocaleString()}</b>건
+          총 <b data-slot="expenses-total" className="text-foreground">{total.toLocaleString()}</b>건
           <span>·</span>
           합계 <b className="text-foreground">₩{formatKRW(aggr.s)}</b>
+          {rows.length < total && (
+            <span data-slot="expenses-truncated" className="text-destructive">
+              아래 목록은 최근 {rows.length.toLocaleString()}건입니다. 월이나 항목을 고르면 전체가 보입니다 (합계는 전체 기준)
+            </span>
+          )}
         </div>
 
         <div id="expenses-table">
