@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { RememberList } from '@/components/list-return'
 import {
   Clock,
   Database,
@@ -170,6 +171,7 @@ export default async function DealsPage({
       {/* 검색·필터·요약·표 헤더 고정 (2026-09-16 피드백): 표만 자체 스크롤 상자 안에서 움직이고 그 위 영역은 항상 보임 */}
       <section className="mt-5 flex min-h-0 flex-1 flex-col rounded-2xl border bg-card" data-slot="deals-section">
         <div className="border-b p-4">
+          <RememberList path="/deals" />
           <DealsFilters
             categories={lookups.categories}
             users={filterUsers}

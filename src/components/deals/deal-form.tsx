@@ -1,5 +1,6 @@
 'use client'
 
+import { listHref } from '@/lib/list-return'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Coins, Package } from 'lucide-react'
@@ -165,7 +166,7 @@ export function DealForm({
         return
       }
       toast.success(initial?.id ? '저장되었습니다' : '거래가 등록되었습니다')
-      router.push(backHref)
+      router.push(backHref === '/deals' ? listHref('/deals') : backHref)
     })
   }
 
@@ -548,7 +549,7 @@ export function DealForm({
 
       <div className="mt-6 flex items-center justify-between">
         <div className="flex gap-2">
-          <Button variant="ghost" onClick={() => router.push(backHref)}>
+          <Button variant="ghost" onClick={() => router.push(backHref === '/deals' ? listHref('/deals') : backHref)}>
             ↩ 취소
           </Button>
           {initial?.id && canDelete && !readOnly && (
@@ -559,7 +560,12 @@ export function DealForm({
                 if (!window.confirm(`거래 ${initial.dealCode ?? ''} 을(를) 삭제할까요? 목록·리포트에서 제외되며 복구는 개발팀에 요청해야 합니다.`)) return
                 startTransition(async () => {
                   const res = await deleteDeal(initial.id!)
-                  if (res && 'error' in res) toast.error(res.error)
+                  if (res && 'error' in res) {
+                    toast.error(res.error)
+                    return
+                  }
+                  toast.success('거래를 삭제했습니다')
+                  router.push(backHref === '/deals' ? listHref('/deals') : backHref)
                 })
               }}
             >

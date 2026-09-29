@@ -1,7 +1,6 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '@/lib/db/client'
@@ -195,7 +194,8 @@ export async function deleteDeal(id: string) {
     .where(eq(deal.id, id))
   await audit({ action: 'deal.delete', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `거래 삭제 ${existing.dealCode}` })
   revalidatePath('/deals')
-  redirect('/deals')
+  // 목록 이동은 화면에서 한다 — 걸어 둔 필터가 있는 주소로 돌아가야 해서 (2026-09-29)
+  return {}
 }
 
 /** 목록 인라인 토글: 미입금↔입금 / 미결산↔결산 (2026-08-25 회의)
