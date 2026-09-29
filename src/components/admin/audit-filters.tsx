@@ -1,5 +1,6 @@
 'use client'
 
+import { currentFilterParams, pushFilterParams } from '@/lib/filter-nav'
 import { useRouter } from 'next/navigation'
 import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
@@ -19,13 +20,13 @@ export function AuditFilters({
 }) {
   const router = useRouter()
   function update(patch: Record<string, string | undefined>) {
-    const next = new URLSearchParams(window.location.search)
+    const next = currentFilterParams('/admin/audit')
     for (const [k, v] of Object.entries(patch)) {
       if (!v) next.delete(k)
       else next.set(k, v)
     }
     next.delete('page')
-    router.push(`/admin/audit?${next.toString()}`)
+    pushFilterParams(router, '/admin/audit', next)
   }
   const groups = [...new Set(Object.keys(actions).map((k) => k.split('.')[0]))]
   const GROUP_LABEL: Record<string, string> = { auth: '로그인/아웃', deal: '거래', counterparty: '거래처', expense: '판관비', deposit: '보증금', contract: '전속계약·자산', attachment: '첨부', user: '사용자', profile: '프로필', lookup: '마스터', plan: '목표·잔액', setting: '설정', export: '내보내기' }
@@ -35,6 +36,7 @@ export function AuditFilters({
       <div className="relative min-w-56 flex-1">
         <Search className="absolute left-3 top-1/2 size-[15px] -translate-y-1/2 text-muted-foreground" />
         <Input
+          key={initial.q ?? ''}
           defaultValue={initial.q ?? ''}
           placeholder="내용·대상·사용자 검색… (Enter)"
           className="h-9 rounded-full pl-9"

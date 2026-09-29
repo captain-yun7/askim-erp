@@ -1,6 +1,7 @@
 'use client'
 
-import { useRouter, useSearchParams } from 'next/navigation'
+import { currentFilterParams, pushFilterParams } from '@/lib/filter-nav'
+import { useRouter } from 'next/navigation'
 import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import {
@@ -37,15 +38,14 @@ export function ExpensesFilters({
   }
 }) {
   const router = useRouter()
-  const sp = useSearchParams()
 
   function update(patch: Record<string, string | undefined>) {
-    const next = new URLSearchParams(sp.toString())
+    const next = currentFilterParams('/expenses')
     for (const [k, v] of Object.entries(patch)) {
       if (v === undefined || v === '' || v === 'all') next.delete(k)
       else next.set(k, v)
     }
-    router.push(`/expenses?${next.toString()}`)
+    pushFilterParams(router, '/expenses', next)
   }
 
   return (
@@ -53,6 +53,7 @@ export function ExpensesFilters({
       <div className="relative min-w-56 flex-1">
         <Search className="absolute left-3 top-1/2 size-[15px] -translate-y-1/2 text-muted-foreground" />
         <Input
+          key={initial.q ?? ''}
           defaultValue={initial.q ?? ''}
           placeholder="품목, 거래처 검색..."
           className="h-9 rounded-lg pl-9"
@@ -64,6 +65,7 @@ export function ExpensesFilters({
       </div>
 
       <Select
+        key={initial.year ?? 'all'}
         defaultValue={initial.year ? String(initial.year) : 'all'}
         onValueChange={(v) => update({ year: v ?? undefined })}
       >
@@ -82,6 +84,7 @@ export function ExpensesFilters({
       </Select>
 
       <Select
+        key={initial.month ?? 'all'}
         defaultValue={initial.month ? String(initial.month) : 'all'}
         onValueChange={(v) => update({ month: v ?? undefined })}
       >
@@ -100,6 +103,7 @@ export function ExpensesFilters({
       </Select>
 
       <Select
+        key={initial.categoryId ?? 'all'}
         defaultValue={initial.categoryId ? String(initial.categoryId) : 'all'}
         onValueChange={(v) => update({ categoryId: v ?? undefined })}
       >

@@ -1,6 +1,7 @@
 'use client'
 
-import { useRouter, useSearchParams } from 'next/navigation'
+import { currentFilterParams, pushFilterParams } from '@/lib/filter-nav'
+import { useRouter } from 'next/navigation'
 import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { CLIENT_TYPES } from '@/lib/client-type'
@@ -27,15 +28,14 @@ export function CounterpartiesFilters({
   initial: { q?: string; role?: string; noBiz?: boolean; ctype?: string }
 }) {
   const router = useRouter()
-  const sp = useSearchParams()
 
   function update(patch: Record<string, string | undefined>) {
-    const next = new URLSearchParams(sp.toString())
+    const next = currentFilterParams('/counterparties')
     for (const [k, v] of Object.entries(patch)) {
       if (v === undefined || v === '' || v === 'all') next.delete(k)
       else next.set(k, v)
     }
-    router.push(`/counterparties?${next.toString()}`)
+    pushFilterParams(router, '/counterparties', next)
   }
 
   return (
@@ -43,6 +43,7 @@ export function CounterpartiesFilters({
       <div className="relative min-w-56 flex-1">
         <Search className="absolute left-3 top-1/2 size-[15px] -translate-y-1/2 text-muted-foreground" />
         <Input
+          key={initial.q ?? ''}
           defaultValue={initial.q ?? ''}
           placeholder="상호명, 사업자번호 검색..."
           className="h-9 rounded-lg pl-9"
@@ -54,6 +55,7 @@ export function CounterpartiesFilters({
       </div>
 
       <Select
+        key={initial.role ?? 'all'}
         defaultValue={initial.role ?? 'all'}
         onValueChange={(v) => update({ role: v ?? undefined })}
       >
@@ -71,7 +73,7 @@ export function CounterpartiesFilters({
         </SelectContent>
       </Select>
 
-      <Select defaultValue={initial.ctype ?? 'all'} onValueChange={(v) => update({ ctype: v ?? undefined })}>
+      <Select key={initial.ctype ?? 'all'} defaultValue={initial.ctype ?? 'all'} onValueChange={(v) => update({ ctype: v ?? undefined })}>
         <SelectTrigger className={chip} data-active={Boolean(initial.ctype)} aria-label="거래처 구분">
           <SelectValue />
           <span className="text-muted-foreground">구분</span>
