@@ -178,3 +178,29 @@ test('메뉴로 목록을 다시 열면 필터가 초기화된다', async ({ pag
   await page.waitForURL((u) => u.pathname === '/expenses')
   expect(new URL(page.url()).search).toBe('')
 })
+
+/** 2026-09-29 추가 문의 — 필터로 행이 몇 건만 남으면 표가 끝까지 내려가지 않음 (요약 카드 접힘과 스크롤이 서로 되돌림) */
+test('행이 적어도 표를 맨 아래까지 내릴 수 있다', async ({ page }) => {
+  test.setTimeout(120_000)
+  await login(page, ADMIN)
+  for (const height of [650, 700, 750, 800, 825, 850, 875, 900, 950, 1000]) {
+    await page.setViewportSize({ width: 1800, height })
+    await page.goto('/deals?fSupplier=과태료')
+    await expect(rows(page).first()).toBeVisible()
+    const box = page.locator('[data-slot=deals-scroll]')
+    await box.hover()
+    for (let i = 0; i < 12; i++) {
+      await page.mouse.wheel(0, 200)
+      await page.waitForTimeout(120)
+    }
+    await page.waitForTimeout(500)
+    const gap = await box.evaluate((el) => Math.round(el.scrollHeight - el.clientHeight - el.scrollTop))
+    expect(gap, `화면 높이 ${height}`).toBeLessThanOrEqual(1)
+    // 마지막 행의 아래쪽이 표 상자 안에 들어와 있어야 한다
+    const hidden = await box.evaluate((el) => {
+      const last = [...el.querySelectorAll('tbody tr')].pop()!.getBoundingClientRect()
+      return Math.round(last.bottom - el.getBoundingClientRect().bottom)
+    })
+    expect(hidden, `화면 높이 ${height}`).toBeLessThanOrEqual(1)
+  }
+})
