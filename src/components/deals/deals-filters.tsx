@@ -1,6 +1,7 @@
 'use client'
 
-import { useRouter, useSearchParams } from 'next/navigation'
+import { currentFilterParams, pushFilterParams } from '@/lib/filter-nav'
+import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, Check, ChevronDown, Download, Search } from 'lucide-react'
 import { DEAL_SORT_LABEL, type DealSort } from '@/lib/deal-sort'
@@ -40,16 +41,15 @@ export function DealsFilters({
   }
 }) {
   const router = useRouter()
-  const sp = useSearchParams()
 
   function update(patch: Record<string, string | undefined>) {
-    const next = new URLSearchParams(sp.toString())
+    const next = currentFilterParams('/deals')
     for (const [k, v] of Object.entries(patch)) {
       if (v === undefined || v === '' || v === 'all') next.delete(k)
       else next.set(k, v)
     }
     next.delete('page')
-    router.push(`/deals?${next.toString()}`)
+    pushFilterParams(router, '/deals', next)
   }
 
   return (
@@ -57,6 +57,7 @@ export function DealsFilters({
       <div className="relative min-w-56 flex-1">
         <Search className="absolute left-3 top-1/2 size-[15px] -translate-y-1/2 text-muted-foreground" />
         <Input
+          key={initial.q ?? ''}
           defaultValue={initial.q ?? ''}
           placeholder="거래코드, 거래처, 품목 검색..."
           className="h-9 pl-9"
@@ -109,6 +110,7 @@ export function DealsFilters({
 
       {/* 정렬 (2026-09-15): 기본 작성순, 기준·방향 선택 */}
       <Select
+        key={initial.sort ?? 'created'}
         defaultValue={initial.sort ?? 'created'}
         onValueChange={(v) => update({ sort: v === 'created' ? undefined : (v ?? undefined) })}
       >

@@ -1,5 +1,6 @@
 'use client'
 
+import { currentFilterParams, pushFilterParams } from '@/lib/filter-nav'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useOptimistic, useRef, useState, useTransition } from 'react'
@@ -379,12 +380,19 @@ const AMOUNT_HINT = '금액 검색: 800000 정확히 · >1000000 · <=500000 · 
 const DATE_HINT = '날짜 검색: 2026 · 2026-09 · 2026-09-05 · 2026-09-01~2026-09-15 범위 · - 비어있음 · + 입력된 것만'
 
 function applyColumnFilter(router: ReturnType<typeof useRouter>, param: string, value: string) {
-  const next = new URLSearchParams(window.location.search)
+  const next = currentFilterParams('/deals')
+  // 다른 칸에 입력만 해 두고 Enter 를 안 누른 검색어도 함께 적용한다 — 칸에 보이는 글자와 실제 필터가 어긋나지 않게
+  document.querySelectorAll<HTMLInputElement>('input[data-column-filter]').forEach((el) => {
+    const typed = el.value.trim()
+    if (typed === (el.dataset.applied ?? '')) return
+    if (typed) next.set(el.dataset.columnFilter!, typed)
+    else next.delete(el.dataset.columnFilter!)
+  })
   const v = value.trim()
   if (v) next.set(param, v)
   else next.delete(param)
   next.delete('page')
-  router.push(`/deals?${next.toString()}`)
+  pushFilterParams(router, '/deals', next)
 }
 
 const filterInputClass =
@@ -408,6 +416,10 @@ function ColumnFilterInput({
 
   return (
     <input
+      // 뒤로가기 등으로 주소의 필터가 바뀌면 칸의 글자도 그 값으로 다시 맞춘다
+      key={value ?? ''}
+      data-column-filter={param}
+      data-applied={value ?? ''}
       aria-label={`${param} 검색`}
       defaultValue={value ?? ''}
       placeholder={placeholder}
