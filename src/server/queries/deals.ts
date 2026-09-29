@@ -94,9 +94,10 @@ function purchaseDueCond(raw: string | undefined): SQL | undefined {
   if (!f) return undefined
   const ym = sql`make_date(${deal.settlementYear}, ${deal.settlementMonth}, 1)`
   const hasYm = sql`${deal.settlementYear} is not null and ${deal.settlementMonth} between 1 and 12`
-  if (f.kind === 'empty') return sql`${deal.purchaseDueDate} is null and not (${hasYm})`
-  if (f.kind === 'nonempty') return sql`${deal.purchaseDueDate} is not null or (${hasYm})`
-  return sql`(${deal.purchaseDueDate} >= ${f.from}::date and ${deal.purchaseDueDate} < ${f.toExclusive}::date) or (${deal.purchaseDueDate} is null and ${hasYm} and ${ym} >= date_trunc('month', ${f.from}::date) and ${ym} < ${f.toExclusive}::date)`
+  if (f.kind === 'empty') return sql`(${deal.purchaseDueDate} is null and not (${hasYm}))`
+  // or 가 들어가는 식은 전체를 괄호로 묶는다 — 안 묶으면 다른 필터와 and 로 이어질 때 앞 조건이 전부 무시된다 (2026-09-29)
+  if (f.kind === 'nonempty') return sql`(${deal.purchaseDueDate} is not null or (${hasYm}))`
+  return sql`((${deal.purchaseDueDate} >= ${f.from}::date and ${deal.purchaseDueDate} < ${f.toExclusive}::date) or (${deal.purchaseDueDate} is null and ${hasYm} and ${ym} >= date_trunc('month', ${f.from}::date) and ${ym} < ${f.toExclusive}::date))`
 }
 
 /** 정렬 기준 → orderBy 목록. 같은 값끼리는 작성순(최신 위) */
