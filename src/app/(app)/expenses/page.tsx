@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { RememberList } from '@/components/list-return'
 import { and, desc, eq, ilike, isNull, or, sql } from 'drizzle-orm'
 import { Plus, Receipt, Upload, Wallet } from 'lucide-react'
 import { db } from '@/lib/db/client'
@@ -144,6 +145,7 @@ export default async function ExpensesPage({
 
       <section className="mt-5 overflow-hidden rounded-2xl border bg-card">
         <div className="border-b p-4">
+          <RememberList path="/expenses" />
           <ExpensesFilters
             categories={lookups.expenseCategories}
             initial={{

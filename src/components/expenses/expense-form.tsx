@@ -1,5 +1,6 @@
 'use client'
 
+import { listHref } from '@/lib/list-return'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
@@ -106,7 +107,7 @@ export function ExpenseForm({ lookups }: { lookups: Lookups }) {
         return
       }
       toast.success('판관비가 저장되었습니다')
-      router.push('/expenses')
+      router.push(listHref('/expenses'))
     })
   }
 
@@ -255,7 +256,7 @@ export function ExpenseForm({ lookups }: { lookups: Lookups }) {
       </Card>
 
       <div className="mt-6 flex items-center justify-between">
-        <Button variant="ghost" onClick={() => router.push('/expenses')}>
+        <Button variant="ghost" onClick={() => router.push(listHref('/expenses'))}>
           ↩ 취소
         </Button>
         <Button disabled={pending} onClick={handleSave}>

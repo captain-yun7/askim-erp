@@ -1,5 +1,6 @@
 'use client'
 
+import { listHref } from '@/lib/list-return'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { FileSpreadsheet, Upload } from 'lucide-react'
@@ -73,7 +74,7 @@ export function ExpenseUploadForm({ categories }: { categories: { id: number; na
         return
       }
       toast.success(`${res.inserted.toLocaleString()}건 등록${res.skipped ? ` · 중복 ${res.skipped}건 제외` : ''}`)
-      router.push('/expenses')
+      router.push(listHref('/expenses'))
     })
   }
 
@@ -184,7 +185,7 @@ export function ExpenseUploadForm({ categories }: { categories: { id: number; na
               {unmatched > 0 && ' · 미매칭 행은 항목 없이 등록됩니다'}
             </span>
             <div className="flex gap-2">
-              <Button variant="ghost" onClick={() => router.push('/expenses')}>
+              <Button variant="ghost" onClick={() => router.push(listHref('/expenses'))}>
                 취소
               </Button>
               <Button disabled={pending || toInsert.length === 0} onClick={submit} className="gap-1.5">
