@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import { ListBackLink } from '@/components/list-return'
 import { isClientType } from '@/lib/client-type'
 import { notFound } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
@@ -18,12 +18,11 @@ export default async function EditCounterpartyPage({
   return (
     <div>
       <div className="border-b px-8 pb-4 pt-6">
-        <Link
-          href="/counterparties"
+        <ListBackLink path="/counterparties"
           className="mb-2 inline-flex items-center gap-1 text-[12.5px] text-muted-foreground hover:text-foreground"
         >
           <ChevronLeft className="size-3.5" />거래처 목록
-        </Link>
+        </ListBackLink>
         <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">{readOnly ? '거래처 상세' : '거래처 수정'}</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">{cp.name}</p>
       </div>

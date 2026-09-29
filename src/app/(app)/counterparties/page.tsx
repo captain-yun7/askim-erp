@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { RememberList } from '@/components/list-return'
 import { and, asc, eq, ilike, isNull, or, sql } from 'drizzle-orm'
 import { Plus } from 'lucide-react'
 import { db } from '@/lib/db/client'
@@ -93,6 +94,7 @@ export default async function CounterpartiesPage({
 
       <section className="mt-5 overflow-hidden rounded-2xl border bg-card">
         <div className="border-b p-4">
+          <RememberList path="/counterparties" />
           <CounterpartiesFilters initial={{ q, role, noBiz: Boolean(noBiz), ctype }} />
         </div>
 

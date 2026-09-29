@@ -1,5 +1,6 @@
 'use client'
 
+import { listHref } from '@/lib/list-return'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Trash2 } from 'lucide-react'
@@ -66,7 +67,7 @@ export function CounterpartyForm({
         return
       }
       toast.success('저장되었습니다')
-      router.push('/counterparties')
+      router.push(listHref('/counterparties'))
     })
   }
 
@@ -80,7 +81,7 @@ export function CounterpartyForm({
         return
       }
       toast.success('거래처를 삭제했습니다')
-      router.push('/counterparties')
+      router.push(listHref('/counterparties'))
     })
   }
 
@@ -250,7 +251,7 @@ export function CounterpartyForm({
           )}
         </div>
         <div className="flex gap-2">
-          <Button variant="ghost" onClick={() => router.push('/counterparties')}>
+          <Button variant="ghost" onClick={() => router.push(listHref('/counterparties'))}>
             {readOnly ? '목록으로' : '취소'}
           </Button>
           {!readOnly && (
