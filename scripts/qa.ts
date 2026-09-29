@@ -31,6 +31,17 @@ function check(name: string, cond: boolean, detail = '') {
   }
 }
 
+/** 맨 앞 여는 괄호가 맨 끝 닫는 괄호와 짝인지 */
+function wrapped(body: string) {
+  let depth = 0
+  for (let i = 0; i < body.length; i++) {
+    if (body[i] === '(') depth++
+    else if (body[i] === ')') depth--
+    if (depth === 0) return i === body.length - 1
+  }
+  return false
+}
+
 async function main() {
   const YEAR = 2026
 
@@ -107,6 +118,44 @@ async function main() {
   check('매입계산서 비어있음(-) → null', noInv.rows.every((r) => r.purchaseInvoiceDate == null), `${noInv.total}건`)
   const junk = await listDeals({ year: YEAR, fSales: 'abc', pageSize: 5 })
   check('잘못된 식은 무시(전체 반환)', junk.total === dl.total, `${junk.total} vs ${dl.total}`)
+
+  // 2026-09-29 사고: 결산예정 필터의 or 조건에 괄호가 없어 다른 조건이 전부 무시됐다.
+  // 어떤 열 필터든 "없는 거래코드"와 같이 걸면 0건이어야 한다 (and 가 깨지면 0건이 아니게 된다)
+  console.log('\n[4-3] 거래 목록 — 열 필터를 다른 조건과 같이 걸기')
+  const NONE = '__QA_없는_거래코드__'
+  const numberParams = ['fSales', 'fSalesVat', 'fSalesGross', 'fPurchase', 'fPurchaseVat', 'fPurchaseGross', 'fProfit'] as const
+  const dateParams = ['fSalesInvoice', 'fPurchaseInvoice', 'fSalesDate', 'fPurchaseDate', 'fSalesDue', 'fSalesPaid', 'fPurchaseDue', 'fPurchasePaid'] as const
+  const leaks: string[] = []
+  for (const [params, values] of [[numberParams, ['>0', '-', '0~999999999']], [dateParams, ['+', '-', '2026', '2026-09', '2026-01-01~2026-12-31']]] as const) {
+    for (const param of params) {
+      for (const v of values) {
+        const r = await listDeals({ fCode: NONE, [param]: v, pageSize: 10 })
+        if (r.total !== 0 || r.rows.length !== 0) leaks.push(`${param}=${v} → ${r.total}건`)
+      }
+    }
+  }
+  for (const extra of [{ fIssuer: '가' }, { fSupplier: '가' }, { fItem: '가' }, { q: '가' }, { fPaid: 'unpaid' as const }, { fSettled: 'unsettled' as const }, { paidStatuses: ['unpaid' as const, 'unsettled' as const] }]) {
+    const r = await listDeals({ fCode: NONE, ...extra, pageSize: 10 })
+    if (r.total !== 0) leaks.push(`${JSON.stringify(extra)} → ${r.total}건`)
+  }
+  check('모든 열 필터가 다른 조건과 and 로 걸림', leaks.length === 0, leaks.slice(0, 5).join(' / '))
+
+  // 소스 검사: raw sql 조각에 or 가 있으면 바깥이 괄호로 묶여 있어야 한다
+  const { readFileSync, readdirSync, statSync } = await import('node:fs')
+  const { join } = await import('node:path')
+  const walk = (dir: string): string[] => readdirSync(dir).flatMap((n) => { const f = join(dir, n); return statSync(f).isDirectory() ? walk(f) : /\.tsx?$/.test(n) ? [f] : [] })
+  const bare: string[] = []
+  for (const file of walk('src')) {
+    const src = readFileSync(file, 'utf8')
+    for (const m of src.matchAll(/sql(?:<[^>]*>)?`([^`]*)`/g)) {
+      const body = m[1].trim()
+      if (!/\bor\b/i.test(body)) continue
+      // 값 표현(case when, select …)이 아니라 조건 조각만 본다
+      if (/^(case|select|exists|coalesce|sum|count|\()/i.test(body) && (body.startsWith('(') ? wrapped(body) : true)) continue
+      bare.push(`${file}: ${body.slice(0, 50)}`)
+    }
+  }
+  check('or 가 든 raw sql 조건은 괄호로 묶임', bare.length === 0, bare.slice(0, 3).join(' / '))
 
   console.log('\n[5] 거래처 목록 — 역할 필터')
   const cpMedia = await listCounterparties({ role: 'media', limit: 100 })
