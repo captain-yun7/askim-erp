@@ -87,7 +87,8 @@ test('서버 응답이 2초 걸려도 토글은 즉시 반영된다 (낙관적 �
     .not.toBe(before)
   const flipMs = Date.now() - t0
   console.log(`OPTIMISTIC_FLIP_MS ${flipMs}`)
-  expect(flipMs).toBeLessThan(500) // 서버 2초 지연에도 즉시 반영
+  // 서버 2초 지연을 기다리지 않는지를 본다. 개발 서버에서는 900행 다시 그리기에 0.8~0.9초, 운영 빌드에서는 약 0.37초 (2026-09-29 측정)
+  expect(flipMs).toBeLessThan(1500)
 
   // 서버 응답 후에도 상태 유지 + 원복
   await page.waitForTimeout(3000)
