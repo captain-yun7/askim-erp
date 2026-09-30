@@ -295,17 +295,21 @@ export async function updateDealInline(
     if (!(await canEditDealScoped(user, existing)))
       return { error: '금액을 변경할 권한이 없습니다' }
     const net = value as number | null
-    const vat = net != null && existing.currency === 'KRW' ? Math.round(net * 0.1) : 0
+    // 부가세 없이 저장된 거래(2026-09-29: 해외영업 건)는 금액을 고쳐도 부가세를 채우지 않는다
+    const prevNet = Number(existing[field] ?? 0)
+    const prevVat = Number((field === 'salesAmountNet' ? existing.salesVat : existing.purchaseVat) ?? 0)
+    const noVat = prevNet !== 0 && prevVat === 0
+    const vat = net != null && existing.currency === 'KRW' && !noVat ? Math.round(net * 0.1) : 0
     const patch =
       field === 'salesAmountNet'
         ? {
             salesAmountNet: net != null ? String(net) : null,
-            salesVat: net != null ? String(vat) : null,
+            salesVat: net != null && !noVat ? String(vat) : null,
             salesAmountGross: net != null ? String(net + vat) : null,
           }
         : {
             purchaseAmountNet: net != null ? String(net) : null,
-            purchaseVat: net != null ? String(vat) : null,
+            purchaseVat: net != null && !noVat ? String(vat) : null,
             purchaseAmountGross: net != null ? String(net + vat) : null,
           }
     await db.update(deal).set({ ...patch, updatedBy: user.id }).where(eq(deal.id, id))
