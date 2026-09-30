@@ -23,7 +23,7 @@ import { CounterpartyCombobox } from './counterparty-combobox'
 import { CounterpartyQuickCreate } from '../counterparties/counterparty-quick-create'
 import { formatKRW } from '@/lib/format'
 import { formatAmountInput } from '@/lib/loose-date'
-import { AmountInput } from '@/components/ui/amount-input'
+import { AmountInput, truncAmount } from '@/components/ui/amount-input'
 import { cn } from '@/lib/utils'
 
 /**
@@ -134,15 +134,35 @@ export function DealForm({
 
   // 금액 입력 → 부가세 10% 자동, 총액 = 금액 + 부가세 자동 (2026-09-09 피드백). 부가세를 고치면 총액만 재계산
   const num = (v: string | null | undefined) => parseFloat(String(v ?? '').replace(/,/g, '')) || 0
+  // 부가세 없는 거래 (2026-09-29 요청: 해외영업 건) — "삭제"를 누르면 금액을 고쳐도 부가세를 다시 채우지 않는다
+  const hasAmount = (v: string | null | undefined) => v != null && v !== '' && num(v) !== 0
+  const [noVat, setNoVat] = useState({
+    sales: hasAmount(initial?.salesAmountNet) && !hasAmount(initial?.salesVat),
+    purchase: hasAmount(initial?.purchaseAmountNet) && !hasAmount(initial?.purchaseVat),
+  })
   function setMoney(side: 'sales' | 'purchase', field: 'net' | 'vat', v: string | null) {
     const netKey = side === 'sales' ? 'salesAmountNet' : 'purchaseAmountNet'
     const vatKey = side === 'sales' ? 'salesVat' : 'purchaseVat'
     const grossKey = side === 'sales' ? 'salesAmountGross' : 'purchaseAmountGross'
+    // 부가세를 직접 적으면 "부가세 없음" 상태는 풀린다
+    if (field === 'vat' && hasAmount(v)) setNoVat((p) => ({ ...p, [side]: false }))
     setForm((p) => {
       const net = field === 'net' ? v : p[netKey]
-      const vat = field === 'net' ? (v ? Math.round(num(v) * 0.1).toString() : null) : v
+      const vat = field === 'net' ? (noVat[side] ? null : v ? Math.round(num(v) * 0.1).toString() : null) : v
       const gross = net ? (num(net) + num(vat)).toString() : null
       return { ...p, [netKey]: net, [vatKey]: vat, [grossKey]: gross }
+    })
+  }
+  function toggleVat(side: 'sales' | 'purchase') {
+    const netKey = side === 'sales' ? 'salesAmountNet' : 'purchaseAmountNet'
+    const vatKey = side === 'sales' ? 'salesVat' : 'purchaseVat'
+    const grossKey = side === 'sales' ? 'salesAmountGross' : 'purchaseAmountGross'
+    const remove = !noVat[side]
+    setNoVat((p) => ({ ...p, [side]: remove }))
+    setForm((p) => {
+      const net = p[netKey]
+      const vat = remove || !net ? null : Math.round(num(net) * 0.1).toString()
+      return { ...p, [vatKey]: vat, [grossKey]: net ? (num(net) + num(vat)).toString() : null }
     })
   }
 
@@ -371,6 +391,9 @@ export function DealForm({
                 gross={form.salesAmountGross}
                 onNet={(v) => setMoney('sales', 'net', v)}
                 onVat={(v) => setMoney('sales', 'vat', v)}
+                noVat={noVat.sales}
+                onToggleVat={() => toggleVat('sales')}
+                integer={form.currency === 'KRW'}
               />
               <div className="grid grid-cols-2 gap-2">
                 <div className="grid gap-1.5">
@@ -480,6 +503,9 @@ export function DealForm({
                 gross={form.purchaseAmountGross}
                 onNet={(v) => setMoney('purchase', 'net', v)}
                 onVat={(v) => setMoney('purchase', 'vat', v)}
+                noVat={noVat.purchase}
+                onToggleVat={() => toggleVat('purchase')}
+                integer={form.currency === 'KRW'}
               />
               <div className="grid grid-cols-2 gap-2">
                 <div className="grid gap-1.5">
@@ -619,6 +645,9 @@ function MoneyRow({
   gross,
   onNet,
   onVat,
+  noVat,
+  onToggleVat,
+  integer,
 }: {
   netLabel: string
   vatLabel: string
@@ -628,6 +657,9 @@ function MoneyRow({
   gross: string | null | undefined
   onNet: (v: string | null) => void
   onVat: (v: string | null) => void
+  noVat: boolean
+  onToggleVat: () => void
+  integer: boolean
 }) {
   return (
     <div className="grid grid-cols-3 gap-2">
@@ -636,14 +668,29 @@ function MoneyRow({
         <AmountInput
           value={net}
           onChange={onNet}
+          integer={integer}
           className="text-right font-mono"
         />
       </div>
       <div className="grid gap-1.5">
-        <FL>{vatLabel}</FL>
+        <div className="flex items-center justify-between gap-2">
+          <FL>{vatLabel}</FL>
+          <button
+            type="button"
+            data-slot="vat-toggle"
+            aria-label={`${vatLabel} ${noVat ? '10% 계산' : '삭제'}`}
+            title={noVat ? '금액의 10%로 다시 계산합니다' : '부가세 없는 거래 — 부가세를 비우고, 금액을 고쳐도 다시 채우지 않습니다'}
+            onClick={onToggleVat}
+            className={cn('text-[11.5px] font-medium underline underline-offset-2', noVat ? 'text-primary' : 'text-destructive')}
+          >
+            {noVat ? '10% 계산' : '삭제'}
+          </button>
+        </div>
         <AmountInput
           value={vat}
           onChange={onVat}
+          integer={integer}
+          placeholder={noVat ? '부가세 없음' : undefined}
           className="text-right font-mono"
         />
       </div>
@@ -652,7 +699,7 @@ function MoneyRow({
         <Input
           type="text"
           inputMode="numeric"
-          value={formatAmountInput(gross)}
+          value={formatAmountInput(integer ? truncAmount(gross) : gross)}
           readOnly
           tabIndex={-1}
           title="금액 + 부가세 자동 계산"
