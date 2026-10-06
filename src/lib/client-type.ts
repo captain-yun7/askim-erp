@@ -1,6 +1,6 @@
 /**
  * 거래처 구분 (2026-09-28 매출분석보고서 요청) — 매출 거래처를 산업군으로 묶는 기준.
- * 고객 예시 표의 5가지 + 기타. DB 에는 코드(text)로 저장한다.
+ * 고객 예시 표의 5가지 + 매체사(2026-10-06 요청) + 기타. DB 에는 코드(text)로 저장한다.
  */
 export const CLIENT_TYPES = [
   { value: 'direct', label: '직거래' },
@@ -8,6 +8,7 @@ export const CLIENT_TYPES = [
   { value: 'china', label: '중국사업부' },
   { value: 'fanclub', label: '팬클럽' },
   { value: 'public', label: '공공기관' },
+  { value: 'media', label: '매체사' },
   { value: 'etc', label: '기타' },
 ] as const
 
