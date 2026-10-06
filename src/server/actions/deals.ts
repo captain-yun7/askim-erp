@@ -9,6 +9,7 @@ import {
   canCreateDeal,
   canDeleteDeal,
   getSessionUser,
+  isStaff,
 } from '@/server/auth/guards'
 import { canEditDealScoped } from '@/server/auth/deal-scope'
 import { recordDealChanges } from '@/server/deal-changes'
@@ -259,6 +260,11 @@ const inlineSchema = z.union([
     value: z.coerce.number().finite().min(0).nullable(),
   }),
   z.object({
+    // 인센티브 요율(%) — 비우면 기본 요율로 되돌린다 (2026-10-02 요청)
+    field: z.literal('commissionPct'),
+    value: z.coerce.number().finite().min(0, '0 이상으로 입력하세요').max(100, '100 이하로 입력하세요').nullable(),
+  }),
+  z.object({
     field: z.literal('accrual'),
     value: z.object({ year: z.coerce.number().int().min(2000).max(2100), month: z.coerce.number().int().min(1).max(12) }),
   }),
@@ -282,6 +288,16 @@ export async function updateDealInline(
   if (!(await canEditDealScoped(user, existing))) return { error: '이 거래를 수정할 권한이 없습니다' }
 
   const { field, value } = parsed.data
+  if (field === 'commissionPct') {
+    // 급여에 닿는 값이라 관리자·회계만 고친다
+    if (!isStaff(user.role)) return { error: '인센티브 요율은 관리자만 수정할 수 있습니다' }
+    const next = value === null ? null : (Math.round(value * 100) / 10000).toFixed(4)
+    await db.update(deal).set({ commissionPct: next, updatedBy: user.id }).where(eq(deal.id, id))
+    const pct = (v: string | null) => (v === null ? '기본' : `${Math.round(parseFloat(v) * 10000) / 100}%`)
+    await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} 인센티브 ${pct(existing.commissionPct)} → ${pct(next)}`, detail: { commissionPct: [existing.commissionPct ?? null, next] } })
+    revalidatePath('/deals')
+    return { ok: true }
+  }
   if (field === 'accrual') {
     // 귀속연월 인라인 수정 (2026-09-14 피드백)
     const patch = { accrualYear: value.year, accrualMonth: value.month }

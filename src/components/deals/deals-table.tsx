@@ -20,6 +20,7 @@ import { DateInput } from '@/components/ui/date-input'
 import { AttachmentButton } from '@/components/attachments/attachment-button'
 import { cn } from '@/lib/utils'
 import { formatDate, formatKRW } from '@/lib/format'
+import { incentiveAmount, incentivePercentText, incentiveRate } from '@/lib/incentive'
 import { changeTitle, columnChange, type LIST_COLUMN_FIELDS, type RecentChanges } from '@/lib/change-highlight'
 
 type Row = {
@@ -39,6 +40,9 @@ type Row = {
   salesMemo?: string | null
   purchaseMemo?: string | null
   profit: string | null
+  commissionPct?: string | null
+  canViewIncentive?: boolean
+  canEditIncentive?: boolean
   salesPaidStatus: string
   purchasePaidStatus: string
   salesDueDate: string | null
@@ -72,6 +76,7 @@ type InlineField =
   | 'salesPaidDate'
   | 'purchaseDueDate'
   | 'purchasePaidDate'
+  | 'commissionPct'
 
 function useInlineSave(dealId: string) {
   const [pending, start] = useTransition()
@@ -156,6 +161,58 @@ function InlineAmount({
     >
       {dot}
       {formatKRW(shown)}
+    </button>
+  )
+}
+
+/** 인센티브 요율 셀 (2026-10-02 요청) — 기본 5%, 관리자·회계는 클릭해서 고친다. 비우면 기본 요율로 */
+function InlineIncentive({ dealId, stored, enabled }: { dealId: string; stored: string | null; enabled: boolean }) {
+  const { pending, save } = useInlineSave(dealId)
+  const [shown, setShown] = useOptimistic(stored)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const text = `${incentivePercentText(incentiveRate(shown))}%`
+  const isDefault = shown === null || shown === ''
+  if (!enabled) return <span className={cn(isDefault && 'text-muted-foreground')}>{text}</span>
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        aria-label="인센티브 요율(%)"
+        className="h-6 w-14 rounded border border-primary bg-background px-1 text-right font-mono text-xs tabular-nums outline-none"
+        inputMode="decimal"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          setEditing(false)
+          const cleaned = draft.replace(/[%\s]/g, '')
+          const num = cleaned === '' ? null : Number(cleaned)
+          if (num !== null && (!Number.isFinite(num) || num < 0 || num > 100)) {
+            toast.error('인센티브는 0~100 사이 숫자로 입력하세요')
+            return
+          }
+          const next = num === null ? null : (Math.round(num * 100) / 10000).toFixed(4)
+          if ((next === null ? null : parseFloat(next)) === (isDefault ? null : parseFloat(shown!))) return
+          save('commissionPct', num, () => setShown(next))
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+          if (e.key === 'Escape') setEditing(false)
+        }}
+      />
+    )
+  }
+  return (
+    <button
+      type="button"
+      title={isDefault ? '기본 요율 5% — 클릭해서 수정' : '클릭해서 수정 · 비우면 기본 5%'}
+      className={cn('w-full rounded px-0.5 text-right hover:bg-accent/60', pending && 'opacity-70', isDefault && 'text-muted-foreground')}
+      onClick={() => {
+        setDraft(incentivePercentText(incentiveRate(shown)))
+        setEditing(true)
+      }}
+    >
+      {text}
     </button>
   )
 }
@@ -554,8 +611,15 @@ function FilterHeaderRow({ filters }: { filters: ColumnFilters }) {
       {/* 헤더가 두 줄(예정일/실제일)인 컬럼은 필터도 두 칸 (2026-09-16 피드백) */}
       {datePair('fSalesDue', '입금예정', 'fSalesPaid', '입금일')}
       {datePair('fPurchaseDue', '결산예정', 'fPurchasePaid', '결산일')}
+      <TableHead colSpan={2} />
     </TableRow>
   )
+}
+
+function IncentiveAmountCell({ show, profit, stored }: { show: boolean; profit: string | null; stored: string | null }) {
+  const amount = show ? incentiveAmount(profit, stored) : null
+  if (amount === null) return <span className="text-muted-foreground/60">-</span>
+  return <span className={cn(amount < 0 && 'text-destructive')}>{formatKRW(amount)}</span>
 }
 
 type Picked = { id: string; code: string; canEdit: boolean; canDelete: boolean }
@@ -727,13 +791,15 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
             <TableHead>매입계산서<br />발행일</TableHead>
             <TableHead>입금예정일<br />입금일</TableHead>
             <TableHead>결산예정일<br />결산일</TableHead>
+            <TableHead className="text-right" title="기본 5% · 거래마다 따로 정할 수 있습니다">인센티브<br />(%)</TableHead>
+            <TableHead className="text-right" title="인센티브(%) × 손익">성과급</TableHead>
           </TableRow>
           <FilterHeaderRow filters={columnFilters} />
         </TableHeader>
         <TableBody>
           {rows.length === 0 && (
             <TableRow>
-              <TableCell colSpan={20} className="py-14 text-center text-sm text-muted-foreground">
+              <TableCell colSpan={22} className="py-14 text-center text-sm text-muted-foreground">
                 검색 결과가 없습니다. 필터 입력을 비우고 Enter 를 누르면 해제됩니다.
               </TableCell>
             </TableRow>
@@ -918,6 +984,12 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
                       <InlineDate dealId={r.id} field="purchasePaidDate" value={r.purchasePaidDate} enabled={r.canTogglePaid} muted={!r.purchasePaidDate} />
                     </div>
                   </div>
+                </TableCell>
+                <TableCell className="text-right text-[13px] tabular-nums" data-col="incentiveRate">
+                  {r.canViewIncentive ? <InlineIncentive dealId={r.id} stored={r.commissionPct ?? null} enabled={Boolean(r.canEditIncentive)} /> : <span className="text-muted-foreground/60">-</span>}
+                </TableCell>
+                <TableCell className="text-right text-[13px] tabular-nums" data-col="incentiveAmount">
+                  <IncentiveAmountCell show={Boolean(r.canViewIncentive)} profit={r.profit} stored={r.commissionPct ?? null} />
                 </TableCell>
               </TableRow>
             )

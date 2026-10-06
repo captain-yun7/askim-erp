@@ -282,6 +282,7 @@ export async function listDeals(f: DealListFilters = {}) {
       salesMemo: deal.salesMemo,
       purchaseMemo: deal.purchaseMemo,
       profit: deal.profit,
+      commissionPct: deal.commissionPct,
       salesPaidStatus: deal.salesPaidStatus,
       purchasePaidStatus: deal.purchasePaidStatus,
       ownerUserId: deal.ownerUserId,
