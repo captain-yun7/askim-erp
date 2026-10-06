@@ -289,8 +289,8 @@ export async function updateDealInline(
 
   const { field, value } = parsed.data
   if (field === 'commissionPct') {
-    // 급여에 닿는 값이라 관리자·회계만 고친다
-    if (!isStaff(user.role)) return { error: '인센티브 요율은 관리자만 수정할 수 있습니다' }
+    // 거래를 수정할 수 있는 사람이면 요율도 고친다 — 영업 본인·묶음 팀 포함 (2026-10-06 고객: 영업도 수정 가능하게)
+    if (!(await canEditDealScoped(user, existing))) return { error: '이 거래의 인센티브를 수정할 권한이 없습니다' }
     const next = value === null ? null : (Math.round(value * 100) / 10000).toFixed(4)
     await db.update(deal).set({ commissionPct: next, updatedBy: user.id }).where(eq(deal.id, id))
     const pct = (v: string | null) => (v === null ? '기본' : `${Math.round(parseFloat(v) * 10000) / 100}%`)

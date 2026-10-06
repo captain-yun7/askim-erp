@@ -18,7 +18,7 @@ import { DealQuickAdd } from '@/components/deals/deal-quick-add'
 import { CollapseOnTableScroll } from '@/components/deals/collapse-on-table-scroll'
 import { listDeals } from '@/server/queries/deals'
 import { DEAL_SORT_LABEL, type DealSort } from '@/lib/deal-sort'
-import { canCreateDeal, canDeleteDeal, canViewCommission, getSessionUser, isStaff } from '@/server/auth/guards'
+import { canCreateDeal, canDeleteDeal, canViewCommission, getSessionUser } from '@/server/auth/guards'
 import { canEditDealShared, getShareTeams, resolveDealScope } from '@/server/auth/deal-scope'
 import { getAllLookups } from '@/server/queries/lookups'
 import { cn } from '@/lib/utils'
@@ -212,6 +212,7 @@ export default async function DealsPage({
           rows={rows.map((r) => {
             const ref = { status: r.status as 'draft' | 'confirmed' | 'closed', ownerUserId: r.ownerUserId }
             const canViewIncentive = me != null && canViewCommission(me, ref)
+            const canEditShared = me != null && canEditDealShared(me, ref, r.ownerTeam, shareTeams)
             return {
             ...r,
             // 볼 수 없는 거래의 요율은 화면으로 내려보내지 않는다
@@ -225,9 +226,9 @@ export default async function DealsPage({
                 shareTeams,
               ),
             canDelete: me != null && canDeleteDeal(me, { status: r.status as 'draft' | 'confirmed' | 'closed', ownerUserId: r.ownerUserId }),
-            // 인센티브·성과급 (2026-10-02): 관리자·회계는 전체, 영업은 본인 거래만 보고 요율 수정은 관리자·회계만
+            // 인센티브·성과급 (2026-10-02): 관리자·회계는 전체, 영업은 본인 거래만 본다. 요율 수정은 거래 수정 권한과 같다 (10/6)
             canViewIncentive,
-            canEditIncentive: me != null && isStaff(me.role),
+            canEditIncentive: canViewIncentive && canEditShared,
             }
           })}
         />
