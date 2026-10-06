@@ -30,7 +30,7 @@ test.describe('① 거래 목록 컬럼별 검색 (금액·상태·날짜)', () 
     await page.getByLabel('fProfit 검색').press('Enter')
     await page.waitForURL((u) => u.searchParams.get('fProfit') === '<0')
 
-    const profits = await cellTexts(page, 15)
+    const profits = await cellTexts(page, 20)
     expect(profits.length).toBeGreaterThan(0)
     for (const p of profits) expect(toNum(p)).toBeLessThan(0)
     // 새로고침 후에도 입력값 유지
@@ -61,7 +61,7 @@ test.describe('① 거래 목록 컬럼별 검색 (금액·상태·날짜)', () 
     await page.getByLabel('fSettled 검색').selectOption('settled')
     await page.waitForURL((u) => u.searchParams.get('fSettled') === 'settled')
 
-    const status = await cellTexts(page, 16)
+    const status = await cellTexts(page, 15)
     expect(status.length).toBeGreaterThan(0)
     for (const s of status) {
       expect(s).toContain('미입금')
@@ -77,7 +77,7 @@ test.describe('① 거래 목록 컬럼별 검색 (금액·상태·날짜)', () 
     await page.getByLabel('fSalesInvoice 검색').press('Enter')
     await page.waitForURL((u) => u.searchParams.get('fSalesInvoice') === '2026-06')
 
-    const dates = await cellTexts(page, 17)
+    const dates = await cellTexts(page, 16)
     expect(dates.length).toBeGreaterThan(0)
     for (const d of dates) expect(d.trim()).toMatch(/^2026-06-\d{2}$/)
   })
