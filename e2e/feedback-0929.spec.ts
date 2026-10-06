@@ -74,13 +74,14 @@ test('뒤로가기·새로고침 뒤에도 칸의 글자와 실제 필터가 같
   await expect.poll(() => rows(page).count()).toBeLessThan(all)
   const filtered = await rows(page).count()
 
+  // 뒤로/앞으로 가기는 개발 서버에서 900행을 다시 받아야 끝나므로 넉넉히 기다린다
   await page.goBack()
-  await expect(supplier(page)).toHaveValue('')
-  await expect.poll(() => rows(page).count()).toBe(all)
+  await expect(supplier(page)).toHaveValue('', { timeout: 30_000 })
+  await expect.poll(() => rows(page).count(), { timeout: 30_000 }).toBe(all)
 
   await page.goForward()
-  await expect(supplier(page)).toHaveValue('나스')
-  await expect.poll(() => rows(page).count()).toBe(filtered)
+  await expect(supplier(page)).toHaveValue('나스', { timeout: 30_000 })
+  await expect.poll(() => rows(page).count(), { timeout: 30_000 }).toBe(filtered)
 
   await page.reload()
   await expect(supplier(page)).toHaveValue('나스')
@@ -127,6 +128,7 @@ test('거래처: 수정 저장 뒤 검색 조건이 남는다', async ({ page })
   await page.goto('/counterparties?q=E2E거래처0916')
   await page.locator('tbody tr a').first().click()
   await page.waitForURL((u) => /^\/counterparties\/.+/.test(u.pathname))
+  await page.locator('#cp-client-type').selectOption('etc') // 거래처 구분 필수 (2026-10-02)
   await page.getByRole('button', { name: '저장' }).first().click()
   await page.waitForURL((u) => u.pathname === '/counterparties')
   expect(param(page, 'q')).toBe('E2E거래처0916')

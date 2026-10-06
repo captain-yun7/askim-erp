@@ -23,6 +23,7 @@ test('거래처 수정 → 목록으로 돌아오면 바뀐 이름이 보인다'
   const nameInput = page.locator('input').first()
   const renamed = `${original}_QA`
   await nameInput.fill(renamed)
+  await page.locator('#cp-client-type').selectOption('etc') // 거래처 구분 필수 (2026-10-02)
   await page.getByRole('button', { name: /저장/ }).first().click()
   await page.waitForURL('**/counterparties')
   await expect(page.getByText(renamed).first()).toBeVisible({ timeout: 10_000 })
@@ -30,6 +31,7 @@ test('거래처 수정 → 목록으로 돌아오면 바뀐 이름이 보인다'
   // 원복
   await page.goto(`${href}`)
   await page.locator('input').first().fill(original)
+  await page.locator('#cp-client-type').selectOption('etc') // 거래처 구분 필수 (2026-10-02)
   await page.getByRole('button', { name: /저장/ }).first().click()
   await page.waitForURL('**/counterparties')
   await expect(page.getByText(renamed)).toHaveCount(0)
