@@ -58,6 +58,11 @@ export function CounterpartyForm({
   }
 
   function submit() {
+    if (!form.clientType) {
+      toast.error('거래처 구분을 선택하세요')
+      document.getElementById('cp-client-type')?.focus()
+      return
+    }
     startTransition(async () => {
       const res = initial?.id
         ? await updateCounterparty(initial.id, form)
@@ -101,9 +106,27 @@ export function CounterpartyForm({
       <fieldset disabled={readOnly} className="contents">
       <Card>
         <CardContent className="grid gap-4 pt-6 md:grid-cols-2">
-          <div className="grid gap-1.5 md:col-span-2">
+          <div className="grid content-start gap-1.5">
             <Label>상호명 *</Label>
             <Input value={form.name} onChange={(e) => set('name', e.target.value)} />
+          </div>
+          {/* 2026-10-02 요청: 거래처 구분을 맨 위로, 필수 표시 */}
+          <div className="grid gap-1.5">
+            <Label htmlFor="cp-client-type">거래처 구분 *</Label>
+            <select
+              id="cp-client-type"
+              className="h-9 rounded-full border border-input bg-background px-3.5 text-sm"
+              value={form.clientType ?? ''}
+              onChange={(e) => set('clientType', e.target.value || null)}
+            >
+              <option value="">선택하세요</option>
+              {CLIENT_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11.5px] text-muted-foreground">매출분석보고서의 산업군 분석에 쓰입니다</p>
           </div>
           <div className="grid gap-1.5">
             <Label>사업자번호</Label>
@@ -212,23 +235,6 @@ export function CounterpartyForm({
               onChange={(e) => set('paymentTerm', e.target.value)}
               placeholder="익월말 / 당월말 / ..."
             />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="cp-client-type">거래처 구분</Label>
-            <select
-              id="cp-client-type"
-              className="h-9 rounded-full border border-input bg-background px-3.5 text-sm"
-              value={form.clientType ?? ''}
-              onChange={(e) => set('clientType', e.target.value || null)}
-            >
-              <option value="">미지정</option>
-              {CLIENT_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-            <p className="text-[11.5px] text-muted-foreground">매출분석보고서의 산업군 분석에 쓰입니다</p>
           </div>
           <div className="grid gap-1.5 md:col-span-2">
             <Label>메모</Label>
