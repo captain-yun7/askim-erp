@@ -35,9 +35,9 @@ test('① 거래 — 체크박스로 고른 거래의 계산서 발행일을 한
   await bar.getByLabel('일괄 발행일').fill('260917')
   await bar.getByRole('button', { name: '2건에 적용' }).click()
   await expect(page.getByText('매출계산서 발행일을 2건에')).toBeVisible()
-  await expect(rowOf(page, 'E2E0917-A').locator('td:nth-child(17)')).toContainText('2026-09-17')
-  await expect(rowOf(page, 'E2E0917-B').locator('td:nth-child(17)')).toContainText('2026-09-17')
-  await expect(rowOf(page, 'E2E0917-C').locator('td:nth-child(17)')).not.toContainText('2026-09-17')
+  await expect(rowOf(page, 'E2E0917-A').locator('td:nth-child(16)')).toContainText('2026-09-17')
+  await expect(rowOf(page, 'E2E0917-B').locator('td:nth-child(16)')).toContainText('2026-09-17')
+  await expect(rowOf(page, 'E2E0917-C').locator('td:nth-child(16)')).not.toContainText('2026-09-17')
   await expect(bar).toHaveCount(0) // 적용 후 선택 해제
 
   // 매입계산서 · 전체 선택
@@ -47,7 +47,7 @@ test('① 거래 — 체크박스로 고른 거래의 계산서 발행일을 한
   await bar.getByLabel('일괄 발행일').fill('2026-09-30')
   await bar.getByRole('button', { name: '4건에 적용' }).click()
   await expect(page.getByText('매입계산서 발행일을 4건에')).toBeVisible()
-  for (const c of ['A', 'B', 'C', 'ADMIN']) await expect(rowOf(page, `E2E0917-${c}`).locator('td:nth-child(18)')).toContainText('2026-09-30')
+  for (const c of ['A', 'B', 'C', 'ADMIN']) await expect(rowOf(page, `E2E0917-${c}`).locator('td:nth-child(17)')).toContainText('2026-09-30')
 })
 
 test('② 판관비 — 입력 화면 지출수단에서 개인카드·현금 제외, 목록 여러 건 삭제', async ({ page }) => {
@@ -153,13 +153,13 @@ test('④⑤⑦ 거래 입력 — 금액 쉼표, 숫자만 쳐도 되는 날짜,
 test('⑤-2 목록 인라인 날짜도 숫자만으로 입력', async ({ page }) => {
   await login(page, ADMIN)
   await page.goto('/deals?fCode=E2E0917-C')
-  const cell = rowOf(page, 'E2E0917-C').locator('td:nth-child(19)')
+  const cell = rowOf(page, 'E2E0917-C').locator('td:nth-child(18)')
   await cell.locator('button').first().click()
   await cell.getByLabel('salesDueDate 입력').fill('261005')
   await cell.getByLabel('salesDueDate 입력').press('Enter')
   await expect(cell).toContainText('2026-10-05')
   await page.reload()
-  await expect(rowOf(page, 'E2E0917-C').locator('td:nth-child(19)')).toContainText('2026-10-05')
+  await expect(rowOf(page, 'E2E0917-C').locator('td:nth-child(18)')).toContainText('2026-10-05')
 })
 
 test('⑥ 거래 삭제 — 영업 계정이 확정 저장한 본인 거래도 삭제, 목록에서 여러 건은 확인 한 번', async ({ page }) => {

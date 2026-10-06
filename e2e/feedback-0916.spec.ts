@@ -144,14 +144,14 @@ test('③ 거래 — 두 줄 헤더 컬럼은 필터도 두 칸 (입금예정/�
   await page.getByLabel('fSalesPaid 검색').fill('2026-06')
   await page.getByLabel('fSalesPaid 검색').press('Enter')
   await page.waitForURL((u) => u.searchParams.get('fSalesPaid') === '2026-06')
-  const cells = await page.locator('[data-slot=deals-scroll] tbody tr td:nth-child(19)').allInnerTexts()
+  const cells = await page.locator('[data-slot=deals-scroll] tbody tr td:nth-child(18)').allInnerTexts()
   expect(cells.length).toBeGreaterThan(0)
   // 둘째 줄(입금일)이 모두 2026-06
   for (const c of cells) expect(c.trim().split('\n').pop()).toMatch(/^2026-06-/)
 
   // 입금예정일만 따로
   await page.goto('/deals?fSalesDue=2026-07')
-  const due = await page.locator('[data-slot=deals-scroll] tbody tr td:nth-child(19)').allInnerTexts()
+  const due = await page.locator('[data-slot=deals-scroll] tbody tr td:nth-child(18)').allInnerTexts()
   expect(due.length).toBeGreaterThan(0)
   for (const c of due) expect(c.trim().split('\n')[0]).toMatch(/^2026-07-/)
 })

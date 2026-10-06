@@ -41,14 +41,14 @@ test('새 거래는 음영 없음 → 금액 인라인 수정 → 매출 칸만 
   await expect(row.locator('td:nth-child(9)')).toHaveText(/2,000,000/)
   await expect(row.locator('td:nth-child(9)[data-changed]')).toHaveCount(1)
   await expect(row.locator('td:nth-child(10)[data-changed]')).toHaveCount(1) // 부가세도 같이 재계산
-  await expect(row.locator('td:nth-child(16)[data-changed]')).toHaveCount(0)
+  await expect(row.locator('td:nth-child(15)[data-changed]')).toHaveCount(0)
   await expect(row.locator('td:nth-child(9)')).toHaveAttribute('title', /오늘 수정 · 관리자/)
 
   // 결산 토글
-  await row.locator('td:nth-child(16) button').nth(1).click()
-  await expect(row.locator('td:nth-child(16)')).toContainText('결산')
-  await expect(row.locator('td:nth-child(16)[data-changed]')).toHaveCount(1)
-  await expect(row.locator('td:nth-child(20)[data-changed]')).toHaveCount(1) // 결산일 자동 입력
+  await row.locator('td:nth-child(15) button').nth(1).click()
+  await expect(row.locator('td:nth-child(15)')).toContainText('결산')
+  await expect(row.locator('td:nth-child(15)[data-changed]')).toHaveCount(1)
+  await expect(row.locator('td:nth-child(19)[data-changed]')).toHaveCount(1) // 결산일 자동 입력
 
   // 상세 화면 내역
   await row.locator('td:first-child a').click()
