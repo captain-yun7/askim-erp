@@ -581,7 +581,6 @@ function FilterHeaderRow({ filters }: { filters: ColumnFilters }) {
       {amount('fPurchase')}
       {amount('fPurchaseVat')}
       {amount('fPurchaseGross')}
-      {amount('fProfit')}
       <TableHead className="py-1">
         <div className="flex gap-1">
           <ColumnFilterSelect
@@ -611,6 +610,7 @@ function FilterHeaderRow({ filters }: { filters: ColumnFilters }) {
       {/* 헤더가 두 줄(예정일/실제일)인 컬럼은 필터도 두 칸 (2026-09-16 피드백) */}
       {datePair('fSalesDue', '입금예정', 'fSalesPaid', '입금일')}
       {datePair('fPurchaseDue', '결산예정', 'fPurchasePaid', '결산일')}
+      {amount('fProfit')}
       <TableHead colSpan={2} />
     </TableRow>
   )
@@ -785,12 +785,13 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
             <TableHead className="text-right">매입</TableHead>
             <TableHead className="text-right">부가세</TableHead>
             <TableHead className="text-right" title="매입금 + 부가세">총매입<br />(VAT 포함)</TableHead>
-            <TableHead className="text-right">손익</TableHead>
             <TableHead className="text-center">입금 / 결산</TableHead>
             <TableHead>매출계산서<br />발행일</TableHead>
             <TableHead>매입계산서<br />발행일</TableHead>
             <TableHead>입금예정일<br />입금일</TableHead>
             <TableHead>결산예정일<br />결산일</TableHead>
+            {/* 손익 → 인센티브 → 성과급 순으로 맨 오른쪽 (2026-10-06 고객 요청) */}
+            <TableHead className="text-right">손익</TableHead>
             <TableHead className="text-right" title="기본 5% · 거래마다 따로 정할 수 있습니다">인센티브<br />(%)</TableHead>
             <TableHead className="text-right" title="인센티브(%) × 손익">성과급</TableHead>
           </TableRow>
@@ -915,14 +916,6 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
                 <TableCell className="text-right text-[13px] tabular-nums" data-col="purchaseGross">
                   {formatKRW(r.purchaseAmountGross ?? null)}
                 </TableCell>
-                <TableCell
-                  className={cn(
-                    'text-right text-[13px] font-medium tabular-nums',
-                    loss ? 'text-destructive' : 'text-success-foreground',
-                  )}
-                >
-                  {formatKRW(r.profit)}
-                </TableCell>
                 <TableCell {...cell('paid')}>
                   <div className="flex justify-center gap-3">
                     {/* 금액 없는 쪽은 입금/결산 표시 안 함 (2026-09-09 피드백) */}
@@ -984,6 +977,14 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
                       <InlineDate dealId={r.id} field="purchasePaidDate" value={r.purchasePaidDate} enabled={r.canTogglePaid} muted={!r.purchasePaidDate} />
                     </div>
                   </div>
+                </TableCell>
+                <TableCell
+                  className={cn(
+                    'text-right text-[13px] font-medium tabular-nums',
+                    loss ? 'text-destructive' : 'text-success-foreground',
+                  )}
+                >
+                  {formatKRW(r.profit)}
                 </TableCell>
                 <TableCell className="text-right text-[13px] tabular-nums" data-col="incentiveRate">
                   {r.canViewIncentive ? <InlineIncentive dealId={r.id} stored={r.commissionPct ?? null} enabled={Boolean(r.canEditIncentive)} /> : <span className="text-muted-foreground/60">-</span>}
