@@ -47,6 +47,9 @@ export const isStaff = (role: Role) => STAFF.includes(role)
 export const isAdmin = (role: Role) => role === 'admin'
 export const isViewer = (role: Role) => role === 'viewer'
 
+/** 인사관리(급여 정보) — 관리자만. 회계 역할도 볼 수 없다 (2026-10-02 요청) */
+export const canAccessHr = (role: Role) => role === 'admin'
+
 // ── 메뉴/데이터 범위 (2026-08-25 회의 → 2026-09-07 고객 구성원 명단 기준) ─────────
 // 관리자(회계+대표): 전체. 영업(sales): 거래·거래처·보증금 메뉴만,
 // 팀장은 모든 거래 조회(수정은 본인 것만), 팀원은 본인 것만.

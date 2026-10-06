@@ -37,6 +37,9 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   'lookup.update': '마스터 수정',
   'plan.save': '매출목표/잔액 저장',
   'setting.update': '설정 변경',
+  'hr.view': '인사관리 열람',
+  'hr.save': '인사 정보 저장',
+  'hr.delete': '인사 정보 삭제',
   'export.csv': 'CSV 내보내기',
   'export.xlsx': '엑셀 다운로드',
 }

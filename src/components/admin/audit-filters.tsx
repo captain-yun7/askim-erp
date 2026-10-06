@@ -29,7 +29,7 @@ export function AuditFilters({
     pushFilterParams(router, '/admin/audit', next)
   }
   const groups = [...new Set(Object.keys(actions).map((k) => k.split('.')[0]))]
-  const GROUP_LABEL: Record<string, string> = { auth: '로그인/아웃', deal: '거래', counterparty: '거래처', expense: '판관비', deposit: '보증금', contract: '전속계약·자산', attachment: '첨부', user: '사용자', profile: '프로필', lookup: '마스터', plan: '목표·잔액', setting: '설정', export: '내보내기' }
+  const GROUP_LABEL: Record<string, string> = { auth: '로그인/아웃', deal: '거래', counterparty: '거래처', expense: '판관비', deposit: '보증금', contract: '전속계약·자산', attachment: '첨부', user: '사용자', profile: '프로필', lookup: '마스터', plan: '목표·잔액', setting: '설정', hr: '인사관리', export: '내보내기' }
 
   return (
     <div className="flex flex-wrap items-center gap-2.5">
