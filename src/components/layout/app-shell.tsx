@@ -16,6 +16,7 @@ import {
   CalendarCheck,
   Landmark,
   Target,
+  IdCard,
   PieChart,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -68,7 +69,11 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
 
 const ADMIN_SECTION: { title: string; items: NavItem[] } = {
   title: '관리',
-  items: [{ href: '/admin', label: '사용자·설정', icon: Settings }],
+  items: [
+    { href: '/admin', label: '사용자·설정', icon: Settings },
+    // 급여 정보 — 관리자에게만 보인다 (2026-10-02 요청)
+    { href: '/hr', label: '인사관리', icon: IdCard },
+  ],
 }
 
 export function AppShell({
