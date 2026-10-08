@@ -71,7 +71,7 @@ export function DateInput({
         autoFocus={autoFocus}
         disabled={disabled}
         aria-label={ariaLabel}
-        placeholder={compact ? 'YYMMDD' : '예) 260917'}
+        placeholder={compact ? 'YYYY-MM-DD' : '예) 260917'}
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
