@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { fillRequiredDeal } from './helpers/deal-form'
 import { execSync } from 'node:child_process'
 
 /** 최근 수정 칸 음영 (2026-09-09 피드백) — 인라인 편집·토글 후 해당 칸만 음영, 상세에 수정 내역 */
@@ -21,10 +22,7 @@ test('새 거래는 음영 없음 → 금액 인라인 수정 → 매출 칸만 
   await login(page)
   await page.goto('/deals/new')
   // 거래코드 자동 채번 폐지(2026-09-17) — 직접 입력
-  await page.locator('div:has(> label:text-is("거래코드")) input').fill(`E2E${Date.now()}`)
-  await page.locator('div:has(> label:text-is("품목명")) input').fill(ITEM)
-  await page.locator('div:has(> label:has-text("매출금")) input').first().fill('1000000')
-  await page.locator('div:has(> label:has-text("매입금")) input').first().fill('300000') // 매입이 있어야 결산 토글 표시
+  await fillRequiredDeal(page, { code: `E2E${Date.now()}`, item: ITEM, sales: '1000000', purchase: '300000' }) // 매입이 있어야 결산 토글 표시
   await page.getByRole('button', { name: '확정저장' }).click()
   await page.waitForURL((u) => u.pathname === '/deals')
 
@@ -48,7 +46,7 @@ test('새 거래는 음영 없음 → 금액 인라인 수정 → 매출 칸만 
   await row.locator('td:nth-child(15) button').nth(1).click()
   await expect(row.locator('td:nth-child(15)')).toContainText('결산')
   await expect(row.locator('td:nth-child(15)[data-changed]')).toHaveCount(1)
-  await expect(row.locator('td:nth-child(19)[data-changed]')).toHaveCount(1) // 결산일 자동 입력
+  await expect(row.locator('td:nth-child(20)[data-changed]')).toHaveCount(1) // 결산일 자동 입력
 
   // 상세 화면 내역
   await row.locator('td:first-child a').click()

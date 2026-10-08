@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { fillRequiredDeal } from './helpers/deal-form'
 import { execSync } from 'node:child_process'
 
 /** 2026-09-17 고객 수정 요청 (명철 외) 9건 */
@@ -28,16 +29,19 @@ test('① 거래 — 체크박스로 고른 거래의 계산서 발행일을 한
   await login(page, ADMIN)
   await page.goto('/deals?fCode=E2E0917')
   await expect(page.locator('[data-slot=deals-bulk-bar]')).toHaveCount(0)
+  await page.locator('[data-bulk-ready]').waitFor()
   await page.getByLabel('E2E0917-A 선택').check()
+  // 첫 체크로 일괄 작업 줄이 생기며 표가 아래로 밀린다 — 자리를 잡은 뒤 다음 체크
+  await expect(page.locator('[data-slot=deals-bulk-bar]')).toContainText('1건 선택')
   await page.getByLabel('E2E0917-B 선택').check()
   const bar = page.locator('[data-slot=deals-bulk-bar]')
   await expect(bar).toContainText('2건 선택')
   await bar.getByLabel('일괄 발행일').fill('260917')
   await bar.getByRole('button', { name: '2건에 적용' }).click()
   await expect(page.getByText('매출계산서 발행일을 2건에')).toBeVisible()
-  await expect(rowOf(page, 'E2E0917-A').locator('td:nth-child(16)')).toContainText('2026-09-17')
-  await expect(rowOf(page, 'E2E0917-B').locator('td:nth-child(16)')).toContainText('2026-09-17')
-  await expect(rowOf(page, 'E2E0917-C').locator('td:nth-child(16)')).not.toContainText('2026-09-17')
+  await expect(rowOf(page, 'E2E0917-A').locator('td:nth-child(17)')).toContainText('2026-09-17')
+  await expect(rowOf(page, 'E2E0917-B').locator('td:nth-child(17)')).toContainText('2026-09-17')
+  await expect(rowOf(page, 'E2E0917-C').locator('td:nth-child(17)')).not.toContainText('2026-09-17')
   await expect(bar).toHaveCount(0) // 적용 후 선택 해제
 
   // 매입계산서 · 전체 선택
@@ -47,7 +51,7 @@ test('① 거래 — 체크박스로 고른 거래의 계산서 발행일을 한
   await bar.getByLabel('일괄 발행일').fill('2026-09-30')
   await bar.getByRole('button', { name: '4건에 적용' }).click()
   await expect(page.getByText('매입계산서 발행일을 4건에')).toBeVisible()
-  for (const c of ['A', 'B', 'C', 'ADMIN']) await expect(rowOf(page, `E2E0917-${c}`).locator('td:nth-child(17)')).toContainText('2026-09-30')
+  for (const c of ['A', 'B', 'C', 'ADMIN']) await expect(rowOf(page, `E2E0917-${c}`).locator('td:nth-child(18)')).toContainText('2026-09-30')
 })
 
 test('② 판관비 — 입력 화면 지출수단에서 개인카드·현금 제외, 목록 여러 건 삭제', async ({ page }) => {
@@ -132,7 +136,7 @@ test('④⑤⑦ 거래 입력 — 금액 쉼표, 숫자만 쳐도 되는 날짜,
   await expect(page.getByText('날짜를 알 수 없습니다')).toBeVisible()
   await expect(bad).toHaveValue('')
 
-  await field(page, '거래코드').fill('E2E0917-NEW')
+  await fillRequiredDeal(page, { code: 'E2E0917-NEW', item: 'E2E거래0917-입력', sales: '1230000000' })
   await page.getByRole('button', { name: '확정저장' }).click()
   await page.waitForURL((u) => u.pathname === '/deals')
 
@@ -153,13 +157,13 @@ test('④⑤⑦ 거래 입력 — 금액 쉼표, 숫자만 쳐도 되는 날짜,
 test('⑤-2 목록 인라인 날짜도 숫자만으로 입력', async ({ page }) => {
   await login(page, ADMIN)
   await page.goto('/deals?fCode=E2E0917-C')
-  const cell = rowOf(page, 'E2E0917-C').locator('td:nth-child(18)')
+  const cell = rowOf(page, 'E2E0917-C').locator('td:nth-child(19)')
   await cell.locator('button').first().click()
   await cell.getByLabel('salesDueDate 입력').fill('261005')
   await cell.getByLabel('salesDueDate 입력').press('Enter')
   await expect(cell).toContainText('2026-10-05')
   await page.reload()
-  await expect(rowOf(page, 'E2E0917-C').locator('td:nth-child(18)')).toContainText('2026-10-05')
+  await expect(rowOf(page, 'E2E0917-C').locator('td:nth-child(19)')).toContainText('2026-10-05')
 })
 
 test('⑥ 거래 삭제 — 영업 계정이 확정 저장한 본인 거래도 삭제, 목록에서 여러 건은 확인 한 번', async ({ page }) => {
@@ -171,7 +175,10 @@ test('⑥ 거래 삭제 — 영업 계정이 확정 저장한 본인 거래도 �
   await expect(page.getByRole('button', { name: '삭제', exact: true })).toBeVisible()
   await page.goBack()
 
+  await page.locator('[data-bulk-ready]').waitFor()
   await page.getByLabel('E2E0917-A 선택').check()
+  // 첫 체크로 일괄 작업 줄이 생기며 표가 아래로 밀린다 — 자리를 잡은 뒤 다음 체크
+  await expect(page.locator('[data-slot=deals-bulk-bar]')).toContainText('1건 선택')
   await page.getByLabel('E2E0917-B 선택').check()
   let dialogs = 0
   page.on('dialog', (d) => {

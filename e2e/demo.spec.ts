@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { fillRequiredDeal } from './helpers/deal-form'
 import { execSync } from 'node:child_process'
 
 const ADMIN = { email: 'admin@askim.local', password: 'askim2026!' }
@@ -34,11 +35,7 @@ test.describe.serial('관리자 핵심 쓰기 플로우', () => {
 
     // 거래코드 자동 채번 폐지(2026-09-17) — 직접 입력
 
-    await page.locator('div:has(> label:text-is("거래코드")) input').fill(`E2E${Date.now()}`)
-
-    await page.locator('div:has(> label:text-is("품목명")) input').fill(DEAL_ITEM)
-    await page.locator('div:has(> label:has-text("매출금")) input').first().fill('1000000')
-    await page.locator('div:has(> label:has-text("매입금")) input').first().fill('700000')
+    await fillRequiredDeal(page, { code: `E2E${Date.now()}`, item: DEAL_ITEM, sales: '1000000', purchase: '700000' })
 
     // 자동계산 손익 표시 확인 (1,000,000 - 700,000 = 300,000)
     await expect(page.getByText('300,000').first()).toBeVisible()

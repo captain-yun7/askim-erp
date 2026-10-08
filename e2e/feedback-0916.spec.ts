@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { fillRequiredDeal } from './helpers/deal-form'
 import { execSync } from 'node:child_process'
 
 /** 2026-09-16 고객 수정 요청 통합본 11건 */
@@ -144,14 +145,14 @@ test('③ 거래 — 두 줄 헤더 컬럼은 필터도 두 칸 (입금예정/�
   await page.getByLabel('fSalesPaid 검색').fill('2026-06')
   await page.getByLabel('fSalesPaid 검색').press('Enter')
   await page.waitForURL((u) => u.searchParams.get('fSalesPaid') === '2026-06')
-  const cells = await page.locator('[data-slot=deals-scroll] tbody tr td:nth-child(18)').allInnerTexts()
+  const cells = await page.locator('[data-slot=deals-scroll] tbody tr td:nth-child(19)').allInnerTexts()
   expect(cells.length).toBeGreaterThan(0)
   // 둘째 줄(입금일)이 모두 2026-06
   for (const c of cells) expect(c.trim().split('\n').pop()).toMatch(/^2026-06-/)
 
   // 입금예정일만 따로
   await page.goto('/deals?fSalesDue=2026-07')
-  const due = await page.locator('[data-slot=deals-scroll] tbody tr td:nth-child(18)').allInnerTexts()
+  const due = await page.locator('[data-slot=deals-scroll] tbody tr td:nth-child(19)').allInnerTexts()
   expect(due.length).toBeGreaterThan(0)
   for (const c of due) expect(c.trim().split('\n')[0]).toMatch(/^2026-07-/)
 })
@@ -241,7 +242,8 @@ test('⑧ 복사 — 목록에서 거래 복사, 거래코드는 새로 입력',
   // 복사본은 코드를 새로 입력해야 저장된다 (2026-09-17: 자동 채번 폐지)
   await page.getByRole('button', { name: '확정저장' }).click()
   await expect(page.getByText('거래코드를 입력하세요')).toBeVisible()
-  await page.locator('div:has(> label:text-is("거래코드")) input').fill('E2E0916-LEAD-COPY')
+  // 복사본도 필수 항목이 비면 확정저장이 막힌다 (2026-10-06) — 복사된 값은 두고 빈 칸만 채운다
+  await fillRequiredDeal(page, { code: 'E2E0916-LEAD-COPY', item: 'E2E거래0916-팀장', sales: '1000000' })
   await page.getByRole('button', { name: '확정저장' }).click()
   await page.waitForURL((u) => u.pathname === '/deals')
   await page.goto('/deals?q=E2E거래0916-팀장')

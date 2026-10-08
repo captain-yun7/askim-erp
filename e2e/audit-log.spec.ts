@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { fillRequiredDeal } from './helpers/deal-form'
 import { execSync } from 'node:child_process'
 
 /** 감사 로그 (2026-09-15) — 로그인·거래 등록·인라인 수정·로그아웃·로그인 실패가 관리자 화면에 남는다 */
@@ -28,9 +29,7 @@ test('행위가 감사 로그에 순서대로 기록되고 필터가 동작한�
   await login(page)
   await page.goto('/deals/new')
   // 거래코드 자동 채번 폐지(2026-09-17) — 직접 입력
-  await page.locator('div:has(> label:text-is("거래코드")) input').fill(`E2E${Date.now()}`)
-  await page.locator('div:has(> label:text-is("품목명")) input').fill(ITEM)
-  await page.locator('div:has(> label:has-text("매출금")) input').first().fill('1000000')
+  await fillRequiredDeal(page, { code: `E2E${Date.now()}`, item: ITEM, sales: '1000000' })
   await page.getByRole('button', { name: '확정저장' }).click()
   await page.waitForURL((u) => u.pathname === '/deals')
 

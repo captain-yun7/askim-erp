@@ -160,6 +160,7 @@ test('거래 목록에서 여러 건 삭제해도 필터가 남는다', async ({
   await page.goto('/deals?fCode=E2ESORT-1')
   await expect(rows(page).first()).toBeVisible()
   const before = await rows(page).count()
+  await page.locator('[data-bulk-ready]').waitFor()
   await rows(page).first().getByRole('checkbox').check()
   page.once('dialog', (d) => d.accept())
   await page.getByRole('button', { name: /선택 삭제/ }).click()
