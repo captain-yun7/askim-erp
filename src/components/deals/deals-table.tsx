@@ -59,6 +59,7 @@ type Row = {
   recentChanges?: RecentChanges
   attachmentCount?: number
   categoryName: string | null
+  salesMethodName?: string | null
   ownerName: string | null
   ownerEmail?: string | null
   issuerName: string | null
@@ -77,6 +78,7 @@ type InlineField =
   | 'purchaseDueDate'
   | 'purchasePaidDate'
   | 'commissionPct'
+  | 'settlement'
 
 function useInlineSave(dealId: string) {
   const [pending, start] = useTransition()
@@ -312,6 +314,46 @@ function InlineAccrual({ dealId, year, month, enabled }: { dealId: string; year:
   )
 }
 
+/** 결산연월 인라인 편집 (2026-10-06 요청) — 'YYYY-MM' 표시, 클릭 → month 입력. 비우면 삭제 */
+function InlineSettlement({ dealId, year, month, enabled }: { dealId: string; year: number | null; month: number | null; enabled: boolean }) {
+  const [pending, start] = useTransition()
+  const [shown, setShown] = useOptimistic({ year, month })
+  const [editing, setEditing] = useState(false)
+  const text = shown.year && shown.month ? `${shown.year}-${String(shown.month).padStart(2, '0')}` : '-'
+  if (!enabled) return <span className="text-muted-foreground">{text}</span>
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        type="month"
+        aria-label="결산연월 입력"
+        defaultValue={shown.year && shown.month ? `${shown.year}-${String(shown.month).padStart(2, '0')}` : ''}
+        className="h-6 rounded border border-primary bg-background px-1 font-mono text-[11px] outline-none"
+        onBlur={(e) => {
+          setEditing(false)
+          const m = /^(\d{4})-(\d{2})$/.exec(e.target.value)
+          const next = m ? { year: Number(m[1]), month: Number(m[2]) } : e.target.value === '' ? { year: null, month: null } : null
+          if (!next || (next.year === year && next.month === month)) return
+          start(async () => {
+            setShown(next)
+            const res = await updateDealInline(dealId, { field: 'settlement', value: next })
+            if ('error' in res) toast.error(res.error)
+          })
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+          if (e.key === 'Escape') setEditing(false)
+        }}
+      />
+    )
+  }
+  return (
+    <button type="button" title="클릭해서 결산연월 수정" className={cn('rounded px-0.5 font-mono tabular-nums text-muted-foreground hover:bg-accent/60', pending && 'opacity-70')} onClick={() => setEditing(true)}>
+      {text}
+    </button>
+  )
+}
+
 function PaidToggle({
   dealId,
   side,
@@ -536,7 +578,7 @@ function FilterHeaderRow({ filters }: { filters: ColumnFilters }) {
     return (
       <TableHead className="py-1">
         <div className="flex flex-col gap-1">
-          <ColumnFilterInput param={param} value={mode ? '' : v} placeholder="YYYY-MM" title={DATE_HINT} />
+          <ColumnFilterInput param={param} value={mode ? '' : v} placeholder="YYYY-MM-DD" title={DATE_HINT} />
           <ColumnFilterSelect
             param={param}
             value={mode}
@@ -605,11 +647,12 @@ function FilterHeaderRow({ filters }: { filters: ColumnFilters }) {
           />
         </div>
       </TableHead>
+      <TableHead />
       {date('fSalesInvoice')}
       {date('fPurchaseInvoice')}
       {/* 헤더가 두 줄(예정일/실제일)인 컬럼은 필터도 두 칸 (2026-09-16 피드백) */}
       {datePair('fSalesDue', '입금예정', 'fSalesPaid', '입금일')}
-      {datePair('fPurchaseDue', '결산예정', 'fPurchasePaid', '결산일')}
+      {datePair('fPurchaseDue', '결산연월', 'fPurchasePaid', '결산일')}
       {amount('fProfit')}
       <TableHead colSpan={2} />
     </TableRow>
@@ -654,7 +697,12 @@ function BulkBar({ container }: { container: React.RefObject<HTMLDivElement | nu
       read()
     }
     root.addEventListener('change', onChange)
-    return () => root.removeEventListener('change', onChange)
+    // 체크박스 이벤트를 받기 시작했다는 표시 — 화면이 뜬 직후 눌린 체크가 무시되는 걸 테스트에서 피하려고
+    root.dataset.bulkReady = ''
+    return () => {
+      root.removeEventListener('change', onChange)
+      delete root.dataset.bulkReady
+    }
   }, [container])
 
   function clear() {
@@ -786,10 +834,11 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
             <TableHead className="text-right">부가세</TableHead>
             <TableHead className="text-right" title="매입금 + 부가세">총매입<br />(VAT 포함)</TableHead>
             <TableHead className="text-center">입금 / 결산</TableHead>
+            <TableHead>매출수단</TableHead>
             <TableHead>매출계산서<br />발행일</TableHead>
             <TableHead>매입계산서<br />발행일</TableHead>
             <TableHead>입금예정일<br />입금일</TableHead>
-            <TableHead>결산예정일<br />결산일</TableHead>
+            <TableHead>결산연월<br />결산일</TableHead>
             {/* 손익 → 인센티브 → 성과급 순으로 맨 오른쪽 (2026-10-06 고객 요청) */}
             <TableHead className="text-right">손익</TableHead>
             <TableHead className="text-right" title="기본 5% · 거래마다 따로 정할 수 있습니다">인센티브<br />(%)</TableHead>
@@ -800,7 +849,7 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
         <TableBody>
           {rows.length === 0 && (
             <TableRow>
-              <TableCell colSpan={22} className="py-14 text-center text-sm text-muted-foreground">
+              <TableCell colSpan={23} className="py-14 text-center text-sm text-muted-foreground">
                 검색 결과가 없습니다. 필터 입력을 비우고 Enter 를 누르면 해제됩니다.
               </TableCell>
             </TableRow>
@@ -918,8 +967,8 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
                 </TableCell>
                 <TableCell {...cell('paid')}>
                   <div className="flex justify-center gap-3">
-                    {/* 금액 없는 쪽은 입금/결산 표시 안 함 (2026-09-09 피드백) */}
-                    {parseFloat(r.salesAmountNet ?? '0') > 0 ? (
+                    {/* 금액 없는 쪽은 입금/결산 표시 안 함 (2026-09-09 피드백). 마이너스 금액(상계·환불)도 표시 (2026-10-06) */}
+                    {parseFloat(r.salesAmountNet ?? '0') !== 0 ? (
                       <PaidToggle
                         dealId={r.id}
                         side="sales"
@@ -931,7 +980,7 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
                     ) : (
                       <span className="w-12 text-center text-[12px] text-muted-foreground/50">-</span>
                     )}
-                    {parseFloat(r.purchaseAmountNet ?? '0') > 0 ? (
+                    {parseFloat(r.purchaseAmountNet ?? '0') !== 0 ? (
                       <PaidToggle
                         dealId={r.id}
                         side="purchase"
@@ -945,6 +994,7 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
                     )}
                   </div>
                 </TableCell>
+                <TableCell className="whitespace-nowrap text-[12px] text-muted-foreground" data-col="salesMethod">{r.salesMethodName ?? '-'}</TableCell>
                 <TableCell {...cell('salesInvoice', 'text-[12px] tabular-nums')}>
                   <InlineDate dealId={r.id} field="salesInvoiceDate" value={r.salesInvoiceDate} enabled={r.canTogglePaid} muted />
                 </TableCell>
@@ -964,14 +1014,8 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
                 <TableCell {...cell('purchaseDates')}>
                   <div className="text-[12px] leading-tight tabular-nums">
                     <div>
-                      <InlineDate
-                        dealId={r.id}
-                        field="purchaseDueDate"
-                        value={r.purchaseDueDate}
-                        enabled={r.canTogglePaid}
-                        muted
-                        fallback={r.settlementYear && r.settlementMonth ? `${r.settlementYear}-${String(r.settlementMonth).padStart(2, '0')}` : null}
-                      />
+                      {/* 결산예정일 대신 결산연월 (2026-10-06 요청) — 클릭해서 YYYY-MM 으로 수정 */}
+                      <InlineSettlement dealId={r.id} year={r.settlementYear} month={r.settlementMonth} enabled={r.canTogglePaid} />
                     </div>
                     <div>
                       <InlineDate dealId={r.id} field="purchasePaidDate" value={r.purchasePaidDate} enabled={r.canTogglePaid} muted={!r.purchasePaidDate} />

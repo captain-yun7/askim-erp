@@ -117,7 +117,7 @@ export default async function DealsPage({
           icon={<Database className="size-[15px]" />}
           tone="primary"
           label="매출 합계"
-          value={`₩ ${formatKRW(aggregate.sales)}`}
+          value={<VatPair net={aggregate.sales} gross={aggregate.salesGross} />}
           sub={
             prevAggregate ? (
               <Delta current={aggregate.sales} prev={prevAggregate.sales} />
@@ -130,7 +130,7 @@ export default async function DealsPage({
           icon={<ShoppingCart className="size-[15px]" />}
           tone="muted"
           label="매입 합계"
-          value={`₩ ${formatKRW(aggregate.purchase)}`}
+          value={<VatPair net={aggregate.purchase} gross={aggregate.purchaseGross} />}
           sub={
             prevAggregate ? (
               <Delta current={aggregate.purchase} prev={prevAggregate.purchase} />
@@ -260,6 +260,22 @@ const TONE = {
   warn: 'bg-background text-accent-foreground',
 } as const
 
+/** 매출·매입 합계를 VAT 미포함 / 포함으로 나눠 보여 준다 (2026-10-06 요청) */
+function VatPair({ net, gross }: { net: number; gross: number }) {
+  return (
+    <span className="grid gap-0.5 text-[15px] leading-tight" data-slot="vat-pair">
+      <span className="flex items-baseline justify-between gap-3">
+        <span className="text-[11px] font-normal text-muted-foreground">VAT 미포함</span>
+        <span className="tabular-nums">₩ {formatKRW(net)}</span>
+      </span>
+      <span className="flex items-baseline justify-between gap-3">
+        <span className="text-[11px] font-normal text-muted-foreground">VAT 포함</span>
+        <span className="tabular-nums">₩ {formatKRW(gross)}</span>
+      </span>
+    </span>
+  )
+}
+
 function SummaryCard({
   icon,
   tone,
@@ -271,7 +287,7 @@ function SummaryCard({
   icon: React.ReactNode
   tone: keyof typeof TONE
   label: string
-  value: string
+  value: React.ReactNode
   valueClass?: string
   sub: React.ReactNode
 }) {

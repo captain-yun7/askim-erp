@@ -12,7 +12,7 @@ import {
   deal,
   dealCategory,
   users,
-} from '@/lib/db/schema'
+salesMethod } from '@/lib/db/schema'
 
 export type DealListFilters = {
   q?: string
@@ -255,6 +255,9 @@ export async function listDeals(f: DealListFilters = {}) {
     .select({
       sales: sql<string>`coalesce(sum(${deal.salesAmountNet}), 0)::text`,
       purchase: sql<string>`coalesce(sum(${deal.purchaseAmountNet}), 0)::text`,
+      // VAT 포함 합계 (2026-10-06 요청: 카드에 미포함/포함 따로)
+      salesGross: sql<string>`coalesce(sum(coalesce(${deal.salesAmountGross}, ${deal.salesAmountNet})), 0)::text`,
+      purchaseGross: sql<string>`coalesce(sum(coalesce(${deal.purchaseAmountGross}, ${deal.purchaseAmountNet})), 0)::text`,
       profit: sql<string>`coalesce(sum(${deal.profit}), 0)::text`,
       unpaidCount: sql<number>`(count(*) filter (where ${deal.salesPaidStatus} = 'pending' and ${hasSales}))::int`,
       unpaidAmount: sql<string>`coalesce(sum(${deal.salesAmountNet}) filter (where ${deal.salesPaidStatus} = 'pending' and ${hasSales}), 0)::text`,
@@ -295,6 +298,7 @@ export async function listDeals(f: DealListFilters = {}) {
       settlementYear: deal.settlementYear,
       settlementMonth: deal.settlementMonth,
       categoryName: dealCategory.nameKo,
+      salesMethodName: salesMethod.nameKo,
       ownerName: users.name,
       ownerEmail: users.email,
       ownerTeam: users.team,
@@ -304,6 +308,7 @@ export async function listDeals(f: DealListFilters = {}) {
     })
     .from(deal)
     .leftJoin(dealCategory, eq(dealCategory.id, deal.categoryId))
+    .leftJoin(salesMethod, eq(salesMethod.id, deal.salesMethodId))
     .leftJoin(users, eq(users.id, deal.ownerUserId))
     .where(where)
     .orderBy(...orderFor(f.sort ?? 'created', f.dir ?? 'desc'))
@@ -322,6 +327,8 @@ export async function listDeals(f: DealListFilters = {}) {
     aggregate: {
       sales: parseFloat(aggr.sales),
       purchase: parseFloat(aggr.purchase),
+      salesGross: parseFloat(aggr.salesGross),
+      purchaseGross: parseFloat(aggr.purchaseGross),
       profit: parseFloat(aggr.profit),
       unpaidCount: aggr.unpaidCount,
       unpaidAmount: parseFloat(aggr.unpaidAmount),

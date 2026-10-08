@@ -76,8 +76,9 @@ const dealSchema = z.object({
   salesMemo: z.string().trim().optional().nullable(),
   // 매입
   supplierCounterpartyId: z.string().uuid().nullable().optional(),
-  settlementYear: z.coerce.number().int().nullable().optional(),
-  settlementMonth: z.coerce.number().int().nullable().optional(),
+  // 결산연도를 '26' 처럼 두 자리로 넣은 거래가 운영에 6건 있었다 (2026-10-08) → 2000년대로 보정
+  settlementYear: z.coerce.number().int().nullable().optional().transform((v) => (v != null && v >= 0 && v < 100 ? 2000 + v : v)),
+  settlementMonth: z.coerce.number().int().min(1).max(12).nullable().optional(),
   purchasePricingRaw: z.string().trim().optional().nullable(),
   purchaseAmountNet: numStrSchema.optional(),
   purchaseVat: numStrSchema.optional(),
@@ -265,6 +266,11 @@ const inlineSchema = z.union([
     value: z.coerce.number().finite().min(0, '0 이상으로 입력하세요').max(100, '100 이하로 입력하세요').nullable(),
   }),
   z.object({
+    // 결산연월 인라인 수정 (2026-10-06 요청) — 둘 다 비우면 삭제
+    field: z.literal('settlement'),
+    value: z.object({ year: z.coerce.number().int().min(2000).max(2100).nullable(), month: z.coerce.number().int().min(1).max(12).nullable() }),
+  }),
+  z.object({
     field: z.literal('accrual'),
     value: z.object({ year: z.coerce.number().int().min(2000).max(2100), month: z.coerce.number().int().min(1).max(12) }),
   }),
@@ -295,6 +301,15 @@ export async function updateDealInline(
     await db.update(deal).set({ commissionPct: next, updatedBy: user.id }).where(eq(deal.id, id))
     const pct = (v: string | null) => (v === null ? '기본' : `${Math.round(parseFloat(v) * 10000) / 100}%`)
     await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} 인센티브 ${pct(existing.commissionPct)} → ${pct(next)}`, detail: { commissionPct: [existing.commissionPct ?? null, next] } })
+    revalidatePath('/deals')
+    return { ok: true }
+  }
+  if (field === 'settlement') {
+    const patch = { settlementYear: value.year, settlementMonth: value.month }
+    await db.update(deal).set({ ...patch, updatedBy: user.id }).where(eq(deal.id, id))
+    await recordDealChanges(id, existing, patch, user.id)
+    const ym = (y: number | null, m: number | null) => (y && m ? `${y}-${String(m).padStart(2, '0')}` : '-')
+    await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} 결산연월 ${ym(existing.settlementYear, existing.settlementMonth)} → ${ym(value.year, value.month)}`, detail: diffFields(existing as Record<string, unknown>, patch) })
     revalidatePath('/deals')
     return { ok: true }
   }

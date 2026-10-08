@@ -166,6 +166,29 @@ export function DealForm({
     })
   }
 
+  /**
+   * 비어 있는 필수 항목 이름. 매출·매입은 한쪽만 있는 거래(매입건·매출만)도 있어서
+   * 그 쪽에 무언가(거래처·금액) 입력했을 때만 그 쪽 항목을 요구한다.
+   */
+  function missingRequired(): string[] {
+    const empty = (v: unknown) => v == null || String(v).trim() === ''
+    const out: string[] = []
+    const base: [string, unknown][] = [['거래코드', form.dealCode], ['귀속연도', form.accrualYear], ['귀속월', form.accrualMonth], ['담당자', form.ownerUserId], ['상품구분', form.categoryId], ['계정항목', form.accountId], ['통화', form.currency]]
+    for (const [label, v] of base) if (empty(v)) out.push(label)
+    const salesUsed = !empty(form.issuerCounterpartyId) || !empty(form.salesAmountNet)
+    const purchaseUsed = !empty(form.supplierCounterpartyId) || !empty(form.purchaseAmountNet)
+    if (!salesUsed && !purchaseUsed) out.push('매출 또는 매입 중 하나')
+    if (salesUsed) {
+      const s: [string, unknown][] = [['발행처', form.issuerCounterpartyId], ['실광고주', form.advertiserName], ['품목명', form.itemName], ['광고 시작', form.adStart], ['광고 종료', form.adEnd], ['매출수단', form.salesMethodId], ['매출금', form.salesAmountNet], ['입금예정일', form.salesDueDate]]
+      for (const [label, v] of s) if (empty(v)) out.push(label)
+    }
+    if (purchaseUsed) {
+      const p: [string, unknown][] = [['매체사', form.supplierCounterpartyId], ['수수료', form.purchasePricingRaw], ['결산연도', form.settlementYear], ['결산월', form.settlementMonth], ['매입금', form.purchaseAmountNet]]
+      for (const [label, v] of p) if (empty(v)) out.push(label)
+    }
+    return out
+  }
+
   function handleSubmit(status: 'draft' | 'confirmed') {
     if (codeDup) {
       toast.error('거래코드가 중복됩니다. 다른 코드를 입력하세요.')
@@ -174,6 +197,13 @@ export function DealForm({
     // 거래코드 자동 채번 폐지 (2026-09-17 피드백) — 등록 시 직접 입력
     if (!initial?.id && !form.dealCode?.trim()) {
       toast.error('거래코드를 입력하세요')
+      return
+    }
+    // 필수(*) 항목이 비면 저장하지 않는다 (2026-10-06 요청). 회계팀 입력 항목과 나중에 생기는 날짜(입금일·발행일·지급일)는 제외
+    // 새 거래의 확정저장만 막는다. 임시저장(초안)과 기존 거래 수정은 비어 있어도 저장 — 엑셀에서 온 거래는 빈 칸이 많아 수정까지 막으면 아무것도 고칠 수 없다
+    const missing = !initial?.id && status === 'confirmed' ? missingRequired() : []
+    if (missing.length) {
+      toast.error(`필수 항목이 비어 있습니다: ${missing.join(', ')}`, { description: '별표(*) 항목을 모두 채운 뒤 저장해 주세요', duration: 8000 })
       return
     }
     const payload = { ...form, status }
@@ -476,9 +506,12 @@ export function DealForm({
                   <Input
                     type="number"
                     value={form.settlementYear ?? ''}
-                    onChange={(e) =>
-                      set('settlementYear', e.target.value ? Number(e.target.value) : null)
-                    }
+                    onChange={(e) => set('settlementYear', e.target.value ? Number(e.target.value) : null)}
+                    // '26' 처럼 두 자리로 치면 2026 으로
+                    onBlur={(e) => {
+                      const n = Number(e.target.value)
+                      if (e.target.value && n >= 0 && n < 100) set('settlementYear', 2000 + n)
+                    }}
                   />
                 </div>
                 <div className="grid gap-1.5">
@@ -508,10 +541,7 @@ export function DealForm({
                 integer={form.currency === 'KRW'}
               />
               <div className="grid grid-cols-2 gap-2">
-                <div className="grid gap-1.5">
-                  <FL>결산예정일</FL>
-                  <DateInput aria-label="purchaseDueDate" value={form.purchaseDueDate} onChange={(v) => set('purchaseDueDate', v)} />
-                </div>
+                {/* 결산예정일은 결산연월로 대체 (2026-10-06 요청) — 월별 수금결산의 매입 예정은 결산연월 기준 */}
                 <div className="grid gap-1.5">
                   <FL accounting>지급일</FL>
                   <DateInput aria-label="purchasePaidDate" value={form.purchasePaidDate} onChange={(v) => set('purchasePaidDate', v)} />
