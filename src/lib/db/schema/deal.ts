@@ -38,6 +38,8 @@ export const deal = pgTable(
     currency: char('currency', { length: 3 }).notNull().default('KRW'),
     fxRate: numeric('fx_rate', { precision: 10, scale: 4 }),
     status: dealStatusEnum('status').notNull().default('draft'),
+    // 수정요청/완료 표시 (2026-10-08 요청): null → 'requested'(빨강) → 'done'(초록) → null 순환
+    reviewStatus: text('review_status', { enum: ['requested', 'done'] }),
 
     // ── 매출 (Sales) ──────────────────────────
     salesMethodId: integer('sales_method_id').references(() => salesMethod.id),

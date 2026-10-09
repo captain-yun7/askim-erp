@@ -1,0 +1,1 @@
+ALTER TABLE "deal" ADD COLUMN "review_status" text;
