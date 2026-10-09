@@ -972,6 +972,7 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
                   )}
                   <span>
                   <Link
+                    prefetch={false}
                     href={detailHref(r.id)}
                     className="text-[13px] font-medium tabular-nums text-foreground hover:text-brand"
                   >
@@ -996,6 +997,7 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
                   />
                   {canCopy && (
                     <Link
+                      prefetch={false}
                       href={`/deals/new?copy=${r.id}`}
                       aria-label={`${r.dealCode} 복사`}
                       title="이 거래를 복사해 새 거래 등록 (거래코드는 새로 채번)"

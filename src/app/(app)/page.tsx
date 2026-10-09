@@ -101,6 +101,7 @@ export default async function DashboardPage() {
               return (
                 <li key={r.id}>
                   <Link
+                    prefetch={false}
                     href={`/deals/${r.id}`}
                     className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-muted/60"
                   >
