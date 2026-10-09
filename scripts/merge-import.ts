@@ -19,6 +19,8 @@ import { parseAllExpenses } from './import-expenses'
  *     DRY_RUN=1 XLSX_FILE=... npx tsx scripts/merge-import.ts
  */
 const DRY = process.env.DRY_RUN === '1'
+/** ADD_ONLY=1 — 없는 거래·판관비만 추가하고 기존 거래는 고치지 않는다 (오래된 백업 파일을 넣을 때: 2025 파일의 IP 거래 9건은 2026 파일보다 옛 값) */
+const ADD_ONLY = process.env.ADD_ONLY === '1'
 const CONFLICT_XL = process.env.CONFLICT === 'xl'
 const CONFLICT_SAFE = process.env.CONFLICT === 'safe'
 
@@ -75,6 +77,7 @@ async function mergeDeals() {
   for (const x of xl) {
     const d = dbBy.get(x.dealCode)
     if (!d) continue
+    if (ADD_ONLY) continue
     if (d.deletedAt) continue // ERP 에서 삭제한 거래는 되살리지 않음
     let diff = FIELDS.filter((f) => norm((x as Rec)[f]) !== norm((d as Rec)[f]))
     // 거래처 FK 가 엑셀 쪽에서 null 이 되는 건 대개 ERP 개명으로 이름 매칭이 실패한 것 → 끊지 않는다
@@ -134,7 +137,7 @@ async function mergeExpenses() {
 }
 
 async function main() {
-  console.log(`${DRY ? '🔍 DRY RUN' : '✍️  MERGE'} — ${process.env.XLSX_FILE}`)
+  console.log(`${DRY ? '🔍 DRY RUN' : '✍️  MERGE'}${ADD_ONLY ? ' (추가만)' : ''} — ${process.env.XLSX_FILE}`)
   await mergeCounterparties()
   await mergeDeals()
   await mergeExpenses()
