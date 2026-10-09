@@ -11,9 +11,11 @@ export async function fillRequiredDeal(page: Page, opts: { code?: string; item: 
     if ((await trigger.innerText()).trim()) return
     await trigger.click()
     // 담당자는 관리자 계정이면 '관리자' 본인으로 — 다른 테스트의 영업 계정 목록에 섞이지 않게
-    await page.getByRole('option').first().waitFor()
-    const preferred = page.getByRole('option', { name: /관리자/ })
-    const option = label === '담당자' && (await preferred.count()) ? preferred.first() : page.getByRole('option').first()
+    // 법인 선택의 숨은 <option> 과 섞이지 않게 열린 목록(listbox) 안에서만 고른다
+    const listbox = page.getByRole('listbox')
+    await listbox.getByRole('option').first().waitFor()
+    const preferred = listbox.getByRole('option', { name: /관리자/ })
+    const option = label === '담당자' && (await preferred.count()) ? preferred.first() : listbox.getByRole('option').first()
     await option.click()
     await page.getByRole('listbox').waitFor({ state: 'hidden' }).catch(() => {})
   }

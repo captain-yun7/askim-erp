@@ -169,7 +169,7 @@ test('⑨ 계정항목에 실측비 · ⑩ 새로고침하면 필터가 지워�
   await login(page)
   await page.goto('/deals/new')
   await page.locator('div:has(> label:text-is("계정항목")) [role=combobox]').click()
-  await expect(page.getByRole('option', { name: '실측비' })).toBeVisible()
+  await expect(page.getByRole('listbox').getByRole('option', { name: '실측비' })).toBeVisible()
   await page.keyboard.press('Escape')
 
   await page.goto('/deals?fCode=E2E0916&year=2026')
