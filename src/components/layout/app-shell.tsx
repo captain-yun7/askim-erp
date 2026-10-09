@@ -30,6 +30,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { EntitySwitcher } from '@/components/layout/entity-switcher'
+import type { Entity } from '@/lib/entity'
 
 type NavItem = {
   href: string
@@ -78,9 +80,11 @@ const ADMIN_SECTION: { title: string; items: NavItem[] } = {
 
 export function AppShell({
   user,
+  entity,
   children,
 }: {
   user: { name: string; email: string; role: string; team?: string }
+  entity: Entity
   children: React.ReactNode
 }) {
   const pathname = usePathname()
@@ -112,6 +116,8 @@ export function AppShell({
           />
           <span className="text-[12px] font-medium tracking-wide text-subtle-foreground">ERP</span>
         </Link>
+        {/* 법인 선택 (2026-10-08) — 한국/미국/중국 */}
+        <EntitySwitcher entity={entity} />
         {/* 메뉴가 화면보다 길면(작은 화면·큰 글자) 메뉴만 스크롤 — 프로필은 항상 하단에 보임 */}
         <nav className="-mr-1 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
           {sections.map((section) => (
