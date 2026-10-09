@@ -10,6 +10,8 @@ import { cn } from '@/lib/utils'
 import { formatKRW } from '@/lib/format'
 import { sumAmounts, type DrillDetail, type DrillFormula } from '@/lib/ledger-drill'
 import { getReportCellDetail } from '@/server/actions/report-detail'
+import { XlsxExportButton } from '@/components/xlsx-export-button'
+import { exportReportCellXlsx } from '@/server/actions/report-export'
 
 /** 화면에 있는 행: 이름과 12개월 값 */
 export type DrillLine = { label: string; values: number[] }
@@ -84,7 +86,7 @@ export function ReportDrill({ year, lines, formulas = {}, children }: { year: nu
               ) : 'error' in detail ? (
                 <div className="py-12 text-center text-sm text-destructive">{detail.error}</div>
               ) : (
-                <DetailView detail={detail} cellValue={cellValue} query={query} setQuery={setQuery} />
+                <DetailView detail={detail} cellValue={cellValue} query={query} setQuery={setQuery} exportArgs={{ year, months: current.months, key: current.key, title: lines[current.key]?.label ?? current.key }} />
               )}
             </>
           )}
@@ -160,7 +162,7 @@ function FormulaView({ formula, lines, months, valueOf, onPick }: { formula: Dri
   )
 }
 
-function DetailView({ detail, cellValue, query, setQuery }: { detail: DrillDetail; cellValue: number; query: string; setQuery: (v: string) => void }) {
+function DetailView({ detail, cellValue, query, setQuery, exportArgs }: { detail: DrillDetail; cellValue: number; query: string; setQuery: (v: string) => void; exportArgs: { year: number; months: number[]; key: string; title: string } }) {
   const q = query.trim().toLowerCase()
   const match = (...texts: (string | null)[]) => !q || texts.some((t) => t?.toLowerCase().includes(q))
   const ok = Math.abs(detail.total - cellValue) < 1
@@ -178,6 +180,8 @@ function DetailView({ detail, cellValue, query, setQuery }: { detail: DrillDetai
         <span className="text-muted-foreground">
           {detail.rows.length.toLocaleString()}건{q ? ` 중 ${count.toLocaleString()}건` : ''}
         </span>
+        {/* 창 안에서 바로 엑셀로 (2026-10-08 요청) */}
+        <XlsxExportButton action={exportReportCellXlsx} filters={exportArgs} label="엑셀" />
         <span
           data-slot="drill-check"
           data-ok={ok || undefined}

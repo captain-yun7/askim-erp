@@ -3,6 +3,7 @@
 import * as XLSX from 'xlsx'
 import { getSessionUser, canAccessBackoffice } from '@/server/auth/guards'
 import { buildLedgerLines, getSalesLedger } from '@/server/queries/reports-ledger'
+import { getReportCellDetail } from '@/server/actions/report-detail'
 import { getMonthlyCollection } from '@/server/queries/reports-collection'
 import { getPlanReport } from '@/server/queries/reports-plan'
 import { getMonthlyPnl } from '@/server/queries/reports-pnl'
@@ -36,6 +37,28 @@ async function guard(): Promise<{ error: string } | null> {
 
 const r0 = (v: number) => Math.round(v)
 const MONTHS = Array.from({ length: 12 }, (_, i) => `${i + 1}월`)
+
+/** 리포트 근거 내역 창의 엑셀 다운로드 (2026-10-08 요청) */
+export async function exportReportCellXlsx(raw: { year: number; months: number[]; key: string; title: string }): Promise<XlsxResult> {
+  const g = await guard()
+  if (g) return g
+  const detail = await getReportCellDetail({ year: raw.year, months: raw.months, key: raw.key })
+  if ('error' in detail) return detail
+  const title = String(raw.title ?? '').slice(0, 60)
+  const period = raw.months.length === 1 ? `${raw.year}년 ${raw.months[0]}월` : raw.months.length === 12 ? `${raw.year}년 전체` : `${raw.year}년 ${raw.months[0]}~${raw.months[raw.months.length - 1]}월`
+  const note: Cell[][] = [[`${title} · ${period}`], [detail.basis], []]
+  const rows: Cell[][] =
+    detail.kind === 'deals'
+      ? [
+          ['거래코드', '귀속', '담당', '발행처', '매체사', '품목명', detail.dateLabel, detail.side === 'sales' ? '입금여부' : '결산여부', detail.side === 'sales' ? '매출금' : '매입금', '부가세', detail.side === 'sales' ? '총매출' : '총매입'],
+          ...detail.rows.map((r) => [r.dealCode, r.accrual, r.owner ?? '', r.issuer ?? '', r.supplier ?? '', r.itemName ?? '', r.basisDate ?? '', r.status === 'completed' ? '완료' : '미완료', r0(r.net), r0(r.vat), r0(r.amount)]),
+          ['합계', '', '', '', '', '', '', '', '', '', r0(detail.total)],
+        ]
+      : [['지출일', '품목', '거래처', '항목', '금액'], ...detail.rows.map((r) => [r.date, r.itemName ?? '', r.counterparty ?? '', r.category ?? '', r0(r.amount)]), ['합계', '', '', '', r0(detail.total)]]
+  const filename = `근거내역_${title.replace(/[\\/:*?"<>|\s]/g, '_')}_${raw.year}-${raw.months.length === 1 ? String(raw.months[0]).padStart(2, '0') : 'all'}.xlsx`
+  await audit({ action: 'export.xlsx', targetType: 'export', targetLabel: filename, summary: `엑셀 다운로드 ${filename} (${detail.rows.length}건)` })
+  return { ok: true, filename, base64: toXlsx([{ name: '근거내역', rows: [...note, ...rows], widths: detail.kind === 'deals' ? [16, 9, 10, 24, 24, 36, 12, 9, 14, 12, 14] : [12, 36, 24, 14, 14] }]) }
+}
 
 export async function exportLedgerXlsx({ year }: { year: number }): Promise<XlsxResult> {
   const g = await guard()
