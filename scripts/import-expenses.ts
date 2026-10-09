@@ -1,5 +1,5 @@
 import './_env'
-import { sql } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { db } from '../src/lib/db/client'
 import { counterparty, expense, expenseCategory } from '../src/lib/db/schema'
 import {
@@ -12,13 +12,14 @@ import {
   parseNumber,
   sheetToRows,
 } from './import-utils'
+import { ENTITY } from './import-utils'
 
 /** 판관비 외 + 개인카드/현금 시트를 expense insert 행으로 파싱 (DB 쓰기 없음) — 전량 적재·병합 공용 */
 export async function parseAllExpenses() {
   const catRows = await db.select().from(expenseCategory)
   const catCodeToId = new Map(catRows.map((c) => [c.code, c.id]))
 
-  const cpRows = await db.select({ id: counterparty.id, name: counterparty.name }).from(counterparty)
+  const cpRows = await db.select({ id: counterparty.id, name: counterparty.name }).from(counterparty).where(eq(counterparty.entity, ENTITY))
   const cpNameToId = new Map(cpRows.map((c) => [c.name, c.id]))
   const cpKeyToId = new Map(cpRows.map((c) => [counterpartyKey(c.name), c.id]))
 

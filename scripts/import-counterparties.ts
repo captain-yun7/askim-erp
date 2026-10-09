@@ -1,5 +1,5 @@
 import './_env'
-import { sql } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { db } from '../src/lib/db/client'
 import { counterparty, users } from '../src/lib/db/schema'
 import {
@@ -10,6 +10,7 @@ import {
   loadWorkbook,
   sheetToRows,
 } from './import-utils'
+import { ENTITY } from './import-utils'
 
 /**
  * Counterparty import
@@ -64,7 +65,7 @@ async function importMaster(rows: unknown[][]): Promise<number> {
 /** 거래시트에 등장하지만 미등록인 거래처만 생성 (기존 행은 건드리지 않음) */
 export async function autoCreateFromDeals(wb: ReturnType<typeof loadWorkbook>) {
   // 이미 등록된 거래처 set
-  const existing = await db.select({ name: counterparty.name }).from(counterparty)
+  const existing = await db.select({ name: counterparty.name }).from(counterparty).where(eq(counterparty.entity, ENTITY))
   const existingKeys = new Set(existing.map((c) => counterpartyKey(c.name)))
   const existingNames = new Set(existing.map((c) => c.name))
 

@@ -1,8 +1,9 @@
 import './_env'
-import { isNull } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
 import { deal, users } from '@/lib/db/schema'
 import { parseAllDeals } from './import-deals'
+import { ENTITY } from './import-utils'
 
 /**
  * 엑셀(XLSX_FILE) vs 현재 DB 거래 차이 — 병합 적재 전 검토용 (쓰기 없음)
@@ -13,7 +14,7 @@ const norm = (v: unknown) => (v == null || v === '' ? null : /^-?\d+(\.\d+)?$/.t
 
 async function main() {
   const { rows: xl, warnings } = await parseAllDeals()
-  const dbRows = await db.select().from(deal).where(isNull(deal.deletedAt))
+  const dbRows = await db.select().from(deal).where(and(eq(deal.entity, ENTITY), isNull(deal.deletedAt)))
   const userNames = new Map((await db.select({ id: users.id, name: users.name }).from(users)).map((u) => [u.id, u.name]))
   const xlBy = new Map(xl.map((r) => [r.dealCode, r]))
   const dbBy = new Map(dbRows.map((r) => [r.dealCode, r]))

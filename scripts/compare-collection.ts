@@ -1,10 +1,10 @@
 import './_env'
 import * as XLSX from 'xlsx'
-import { isNull } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
 import { counterparty, deal, dealFieldChange, users } from '@/lib/db/schema'
 import { parseAllDeals } from './import-deals'
-import { XLSX_FILE } from './import-utils'
+import { ENTITY, XLSX_FILE } from './import-utils'
 
 /**
  * 월별 수금·결산: 엑셀(XLSX_FILE) vs 현재 DB — 칸별 차이와 그 차이를 만든 거래 (쓰기 없음)
@@ -84,7 +84,7 @@ const sum = (m?: Map<string, number>) => [...(m?.values() ?? [])].reduce((a, b) 
 
 async function main() {
   const { rows: xl } = await parseAllDeals()
-  const dbRows = (await db.select().from(deal).where(isNull(deal.deletedAt))) as unknown as Row[]
+  const dbRows = (await db.select().from(deal).where(and(eq(deal.entity, ENTITY), isNull(deal.deletedAt)))) as unknown as Row[]
   const X = cells(xl as unknown as Row[])
   const D = cells(dbRows)
   const S = sheetValues()

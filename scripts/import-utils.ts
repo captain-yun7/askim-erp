@@ -88,6 +88,9 @@ export function loadWorkbook(path: string = XLSX_FILE): XLSX.WorkBook {
 
 /** 시트를 2D 배열로 (헤더 그대로) */
 /** SKIP_SHEETS='IP&협찬건,외화매출매입' — 건너뛸 시트 (2025 파일은 IP 시트가 2026 과 같은 내용이라 이중 집계를 막으려고) */
+/** 스크립트가 다루는 법인 — 기본 한국. 미국법인은 scripts/import-us.ts 가 따로 */
+export const ENTITY = process.env.ENTITY ?? 'kr'
+
 export const SKIP_SHEETS = new Set((process.env.SKIP_SHEETS ?? '').split(',').map((s) => s.trim()).filter(Boolean))
 
 /** 시트를 2D 배열로 (헤더 그대로). 없거나 SKIP_SHEETS 에 있으면 빈 배열 — 2025 파일처럼 시트가 없는 통합본도 읽을 수 있게 (2026-10-09) */

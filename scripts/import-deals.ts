@@ -26,6 +26,7 @@ import {
   parseYear,
   sheetToRows,
 } from './import-utils'
+import { ENTITY } from './import-utils'
 
 type LookupMaps = {
   catCodeToId: Map<string, number>
@@ -41,7 +42,7 @@ async function buildLookupMaps(): Promise<LookupMaps> {
   const accs = await db.select().from(account)
   const sms = await db.select().from(salesMethod)
   const us = await db.select().from(users)
-  const cps = await db.select().from(counterparty)
+  const cps = await db.select().from(counterparty).where(eq(counterparty.entity, ENTITY))
 
   return {
     catCodeToId: new Map(cats.map((c) => [c.code, c.id])),

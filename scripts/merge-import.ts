@@ -3,7 +3,7 @@ import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
 import { counterparty, deal, dealFieldChange, expense } from '@/lib/db/schema'
 import { dupKey } from '@/lib/expense-upload'
-import { counterpartyKey, loadWorkbook, sheetToRows } from './import-utils'
+import { ENTITY, counterpartyKey, loadWorkbook, sheetToRows } from './import-utils'
 import { parseMaster, autoCreateFromDeals } from './import-counterparties'
 import { parseAllDeals } from './import-deals'
 import { parseAllExpenses } from './import-expenses'
@@ -30,7 +30,7 @@ type Rec = Record<string, unknown>
 
 async function mergeCounterparties() {
   const wb = loadWorkbook()
-  const existing = await db.select({ name: counterparty.name }).from(counterparty)
+  const existing = await db.select({ name: counterparty.name }).from(counterparty).where(eq(counterparty.entity, ENTITY))
   const keys = new Set(existing.map((c) => counterpartyKey(c.name)))
   const names = new Set(existing.map((c) => c.name))
   // ERP 에서 거래처명을 바꾼 경우("AK부동산" → "성수나우(AK부동산)") 엑셀 옛 이름이 신규로 잡히므로, 기존 이름에 포함되는 이름은 만들지 않고 보고만 한다
@@ -49,7 +49,7 @@ async function mergeCounterparties() {
 
 async function mergeDeals() {
   const { rows: xl, warnings } = await parseAllDeals()
-  const dbRows = await db.select().from(deal)
+  const dbRows = await db.select().from(deal).where(eq(deal.entity, ENTITY))
   const dbBy = new Map(dbRows.map((r) => [r.dealCode, r]))
   const touched = new Map<string, Set<string>>() // dealId → ERP 에서 수정한 필드
   for (const c of await db.select({ dealId: dealFieldChange.dealId, field: dealFieldChange.field }).from(dealFieldChange)) (touched.get(c.dealId) ?? touched.set(c.dealId, new Set()).get(c.dealId)!).add(c.field)
@@ -118,7 +118,7 @@ async function mergeDeals() {
 async function mergeExpenses() {
   const { corporate, personal } = await parseAllExpenses()
   const all = [...corporate, ...personal].map((r) => ({ ...r, itemName: r.itemName ?? null, counterpartyText: r.counterpartyText ?? null }))
-  const dbRows = await db.select({ expenseDate: expense.expenseDate, amount: expense.amount, itemName: expense.itemName, counterpartyText: expense.counterpartyText }).from(expense)
+  const dbRows = await db.select({ expenseDate: expense.expenseDate, amount: expense.amount, itemName: expense.itemName, counterpartyText: expense.counterpartyText }).from(expense).where(eq(expense.entity, ENTITY))
   // 동일 키(같은 날 같은 금액·품목·거래처)가 정당하게 여러 건일 수 있으므로 개수 기준(multiset) 차이만 추가
   const have = new Map<string, number>()
   for (const r of dbRows) have.set(dupKey(r), (have.get(dupKey(r)) ?? 0) + 1)
@@ -141,9 +141,9 @@ async function main() {
   await mergeCounterparties()
   await mergeDeals()
   await mergeExpenses()
-  const [d] = await db.select({ c: sql<number>`count(*)::int` }).from(deal).where(isNull(deal.deletedAt))
-  const [e] = await db.select({ c: sql<number>`count(*)::int` }).from(expense).where(isNull(expense.deletedAt))
-  const [c] = await db.select({ c: sql<number>`count(*)::int` }).from(counterparty)
+  const [d] = await db.select({ c: sql<number>`count(*)::int` }).from(deal).where(and(eq(deal.entity, ENTITY), isNull(deal.deletedAt)))
+  const [e] = await db.select({ c: sql<number>`count(*)::int` }).from(expense).where(and(eq(expense.entity, ENTITY), isNull(expense.deletedAt)))
+  const [c] = await db.select({ c: sql<number>`count(*)::int` }).from(counterparty).where(eq(counterparty.entity, ENTITY))
   console.log(`\n📊 거래 ${d.c} / 판관비 ${e.c} / 거래처 ${c.c}`)
   process.exit(0)
 }
