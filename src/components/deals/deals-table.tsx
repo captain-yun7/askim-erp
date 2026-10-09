@@ -3,7 +3,7 @@
 import { currentFilterParams, pushFilterParams } from '@/lib/filter-nav'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useOptimistic, useRef, useState, useTransition } from 'react'
+import { useCallback, useEffect, useOptimistic, useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { bulkSetInvoiceDate, deleteDeals, toggleDealPaid, updateDealInline } from '@/server/actions/deals'
 import { Badge } from '@/components/ui/badge'
@@ -544,6 +544,9 @@ export type ColumnFilters = {
   fPurchasePaid?: string
 }
 
+/** 처음에 그리는 행 수 · 스크롤마다 더 그리는 행 수 */
+const ROW_STEP = 150
+
 const AMOUNT_HINT = '금액 검색: 800000 정확히 · >1000000 · <=500000 · 100000~500000 범위 · - 비어있음'
 const DATE_HINT = '날짜 검색: 2026 · 2026-09 · 2026-09-05 · 2026-09-01~2026-09-15 범위 · - 비어있음 · + 입력된 것만'
 
@@ -758,7 +761,7 @@ type Picked = { id: string; code: string; canEdit: boolean; canDelete: boolean }
  * 체크박스로 고른 거래 일괄 작업 (2026-09-17 피드백): 계산서 발행일 한 번에 지정 · 여러 건 삭제.
  * 선택 상태를 표 컴포넌트에 두면 체크할 때마다 수백 행이 다시 그려지므로, 체크박스는 비제어로 두고 여기서 change 이벤트만 모아 센다.
  */
-function BulkBar({ container }: { container: React.RefObject<HTMLDivElement | null> }) {
+function BulkBar({ container, showAll }: { container: React.RefObject<HTMLDivElement | null>; showAll: () => boolean }) {
   const router = useRouter()
   const [picked, setPicked] = useState<Picked[]>([])
   const [side, setSide] = useState<'sales' | 'purchase'>('sales')
@@ -779,8 +782,11 @@ function BulkBar({ container }: { container: React.RefObject<HTMLDivElement | nu
       )
     const onChange = (e: Event) => {
       const t = e.target as HTMLInputElement
-      if (t.matches?.('input[data-select-all]')) for (const b of boxes()) b.checked = t.checked
-      else if (!t.matches?.('input[data-row-select]')) return
+      if (t.matches?.('input[data-select-all]')) {
+        // 아직 그리지 않은 행이 있으면 먼저 다 그리고(렌더 뒤 이 이벤트가 다시 온다) 그때 선택한다
+        if (t.checked && showAll()) return
+        for (const b of boxes()) b.checked = t.checked
+      } else if (!t.matches?.('input[data-row-select]')) return
       read()
     }
     root.addEventListener('change', onChange)
@@ -790,7 +796,7 @@ function BulkBar({ container }: { container: React.RefObject<HTMLDivElement | nu
       root.removeEventListener('change', onChange)
       delete root.dataset.bulkReady
     }
-  }, [container])
+  }, [container, showAll])
 
   function clear() {
     const root = container.current
@@ -876,6 +882,35 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
   // 상세에서 돌아올 때 필터 유지 (2026-09-14 피드백)
   const search = useSearchParams().toString()
   const container = useRef<HTMLDivElement>(null)
+  // 성능(2026-10-09): 1,800행을 한 번에 그리면 HTML 20MB·6초. 처음 150행만 그리고 끝에 닿으면 이어 그린다
+  const [limit, setLimit] = useState(ROW_STEP)
+  const wantAll = useRef(false)
+  const moreRef = useRef<HTMLTableRowElement>(null)
+  useEffect(() => setLimit(ROW_STEP), [search])
+  useEffect(() => {
+    const el = moreRef.current
+    if (!el) return
+    const io = new IntersectionObserver((es) => {
+      if (es.some((e) => e.isIntersecting)) setLimit((l) => l + ROW_STEP)
+    }, { root: container.current?.querySelector('[data-slot=deals-scroll]'), rootMargin: '600px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [limit, rows.length])
+  const showAll = useCallback(() => {
+    if (limit >= rows.length) return false
+    wantAll.current = true
+    setLimit(rows.length)
+    return true
+  }, [limit, rows.length])
+  useEffect(() => {
+    if (!wantAll.current || limit < rows.length) return
+    wantAll.current = false
+    const all = container.current?.querySelector<HTMLInputElement>('input[data-select-all]')
+    if (all) {
+      all.checked = true
+      all.dispatchEvent(new Event('change', { bubbles: true }))
+    }
+  }, [limit, rows.length])
   const detailHref = (id: string) => `/deals/${id}${search ? `?back=${encodeURIComponent('/deals?' + search)}` : ''}`
   if (rows.length === 0 && !hasFilter) {
     return (
@@ -887,7 +922,7 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
   return (
     <div ref={container} className="flex min-h-0 flex-1 flex-col">
     {/* 필터·검색이 바뀌면 선택을 비운다 */}
-    <BulkBar key={search} container={container} />
+    <BulkBar key={search} container={container} showAll={showAll} />
     {/* 표 자체가 가로·세로 스크롤 상자(남은 화면 높이를 채움) — 헤더 두 줄은 상자 상단에 고정, 가로 스크롤바는 상자 하단(항상 화면 안)에 보임. */}
     <div
       data-slot="deals-scroll"
@@ -941,7 +976,7 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
               </TableCell>
             </TableRow>
           )}
-          {rows.map((r) => {
+          {rows.slice(0, limit).map((r) => {
             const owner = r.ownerName ?? '-'
             const loss = parseFloat(r.profit ?? '0') < 0
             /** 최근 수정된 칸 음영 + 툴팁 */
@@ -1134,6 +1169,16 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
               </TableRow>
             )
           })}
+          {limit < rows.length && (
+            <TableRow ref={moreRef} data-slot="deals-more" className="hover:bg-transparent">
+              <TableCell colSpan={23} className="py-3 text-center text-[12.5px] text-muted-foreground">
+                {rows.length.toLocaleString()}건 중 {Math.min(limit, rows.length).toLocaleString()}건 표시 · 스크롤하면 이어서 보입니다 ·{' '}
+                <button type="button" className="font-medium text-foreground underline-offset-2 hover:underline" onClick={() => setLimit(rows.length)}>
+                  전부 보기
+                </button>
+              </TableCell>
+            </TableRow>
+          )}
         </TableBody>
       </table>
     </div>
