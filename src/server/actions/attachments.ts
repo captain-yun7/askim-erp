@@ -9,8 +9,9 @@ import { attachment, users } from '@/lib/db/schema'
 import { getSessionUser, isViewer } from '@/server/auth/guards'
 import { audit, diffFields } from '@/server/audit'
 
-export type AttachmentTarget = 'deposit' | 'contract' | 'deal'
-const targetSchema = z.enum(['deposit', 'contract', 'deal'])
+// counterparty: 사업자등록증·통장사본 (2026-10-08 요청)
+export type AttachmentTarget = 'deposit' | 'contract' | 'deal' | 'counterparty'
+const targetSchema = z.enum(['deposit', 'contract', 'deal', 'counterparty'])
 
 const ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024
 const ALLOWED = /\.(pdf|png|jpe?g|gif|webp|heic|docx?|xlsx?|pptx?|hwpx?|txt|zip)$/i

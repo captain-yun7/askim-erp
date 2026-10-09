@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { AttachmentButton } from '@/components/attachments/attachment-button'
 import { deleteCounterparties, setCounterpartyClientType } from '@/server/actions/counterparties'
 import { CLIENT_TYPES, clientTypeLabel } from '@/lib/client-type'
 
@@ -30,6 +31,7 @@ export type CounterpartyRow = {
   accountHolder: string | null
   accountNo: string | null
   memo: string | null
+  attachmentCount?: number
 }
 
 /** 거래처 목록 — 체크박스로 여러 건 삭제 (2026-09-16 피드백) */
@@ -129,6 +131,7 @@ export function CounterpartiesTable({ rows, showBank, canDelete, canEdit = false
                   />
                 </TableHead>
               )}
+              <TableHead className="w-10" title="첨부파일 (사업자등록증·통장사본)">📎</TableHead>
               <TableHead>상호명</TableHead>
               <TableHead>사업자번호</TableHead>
               <TableHead>역할</TableHead>
@@ -153,6 +156,9 @@ export function CounterpartiesTable({ rows, showBank, canDelete, canEdit = false
                     <Checkbox aria-label={`${r.name} 선택`} checked={selected.has(r.id)} onCheckedChange={() => toggle(r.id)} />
                   </TableCell>
                 )}
+                <TableCell className="py-1">
+                  <AttachmentButton targetType="counterparty" targetId={r.id} title={`${r.name} 첨부`} count={r.attachmentCount ?? 0} canEdit={canEdit} />
+                </TableCell>
                 <TableCell>
                   <Link href={`/counterparties/${r.id}`} className="font-medium text-primary hover:underline">
                     {r.name}

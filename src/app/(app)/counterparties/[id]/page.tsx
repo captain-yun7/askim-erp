@@ -3,6 +3,7 @@ import { isClientType } from '@/lib/client-type'
 import { notFound } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import { CounterpartyForm } from '@/components/counterparties/counterparty-form'
+import { getAttachmentCounts } from '@/server/actions/attachments'
 import { getCounterpartyById } from '@/server/queries/counterparties'
 import { canDeleteCounterparty, canEditCounterparty, getSessionUser } from '@/server/auth/guards'
 
@@ -31,6 +32,7 @@ export default async function EditCounterpartyPage({
         canDelete={me != null && canDeleteCounterparty(me.role)}
         initial={{
           id: cp.id,
+          attachmentCount: (await getAttachmentCounts('counterparty', [cp.id]))[cp.id] ?? 0,
           name: cp.name,
           businessNo: cp.businessNo,
           ceo: cp.ceo,

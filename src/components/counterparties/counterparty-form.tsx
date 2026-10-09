@@ -4,6 +4,7 @@ import { listHref } from '@/lib/list-return'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Trash2 } from 'lucide-react'
+import { AttachmentButton } from '@/components/attachments/attachment-button'
 import { toast } from 'sonner'
 import { CLIENT_TYPES } from '@/lib/client-type'
 import { Button } from '@/components/ui/button'
@@ -23,7 +24,7 @@ export function CounterpartyForm({
   readOnly = false,
   canDelete = true,
 }: {
-  initial?: Partial<CounterpartyInput> & { id?: string }
+  initial?: Partial<CounterpartyInput> & { id?: string; attachmentCount?: number }
   /** 조회 전용(viewer, 남의 등록건 영업) */
   readOnly?: boolean
   /** 비활성화 버튼 노출 (회계/admin) */
@@ -103,6 +104,16 @@ export function CounterpartyForm({
           </Button>
         </div>
       )}
+      {/* 사업자등록증·통장사본 첨부 (2026-10-08 요청) — 저장된 거래처에만 붙일 수 있다 */}
+      <div className="mb-3 flex items-center gap-3 rounded-2xl border bg-card px-4 py-3 text-[12.5px]" data-slot="cp-attachments">
+        <span className="font-medium">첨부파일</span>
+        <span className="text-muted-foreground">사업자등록증 · 통장사본 등</span>
+        {initial?.id ? (
+          <AttachmentButton targetType="counterparty" targetId={initial.id} title={`${initial.name ?? '거래처'} 첨부`} count={initial.attachmentCount ?? 0} canEdit={!readOnly} />
+        ) : (
+          <span className="text-muted-foreground">먼저 저장한 뒤 첨부할 수 있습니다</span>
+        )}
+      </div>
       <fieldset disabled={readOnly} className="contents">
       <Card>
         <CardContent className="grid gap-4 pt-6 md:grid-cols-2">

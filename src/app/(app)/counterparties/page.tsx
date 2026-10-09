@@ -7,6 +7,7 @@ import { counterparty } from '@/lib/db/schema'
 import { buttonVariants } from '@/components/ui/button'
 import { CsvExportButton } from '@/components/csv-export-button'
 import { exportCounterpartiesCsv } from '@/server/actions/export'
+import { getAttachmentCounts } from '@/server/actions/attachments'
 import { isClientType } from '@/lib/client-type'
 import { CounterpartiesTable } from '@/components/counterparties/counterparties-table'
 import { CounterpartiesFilters } from '@/components/counterparties/counterparties-filters'
@@ -67,6 +68,10 @@ export default async function CounterpartiesPage({
       .where(and(...conds)),
   ])
 
+  // 첨부 개수 (2026-10-08: 사업자등록증·통장사본)
+  const attachmentCounts = await getAttachmentCounts('counterparty', rows.map((r) => r.id))
+  const rowsWithAttachments = rows.map((r) => ({ ...r, attachmentCount: attachmentCounts[r.id] ?? 0 }))
+
   return (
     <div className="flex flex-col px-8 pb-8 pt-6">
       <div className="flex items-start justify-between">
@@ -103,7 +108,7 @@ export default async function CounterpartiesPage({
           {rows.length < total && <span>· 앞 200건만 표시</span>}
         </div>
 
-        <CounterpartiesTable rows={rows} showBank={showBank} canDelete={user != null && canDeleteCounterparty(user.role)} canEdit={user != null && user.role !== 'viewer'} />
+        <CounterpartiesTable rows={rowsWithAttachments} showBank={showBank} canDelete={user != null && canDeleteCounterparty(user.role)} canEdit={user != null && user.role !== 'viewer'} />
       </section>
     </div>
   )

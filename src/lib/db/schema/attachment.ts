@@ -6,8 +6,8 @@ export const attachment = pgTable(
   'attachment',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    /** deposit | contract(전속·보유자산) | deal */
-    targetType: text('target_type', { enum: ['deposit', 'contract', 'deal'] }).notNull(),
+    /** deposit | contract(전속·보유자산) | deal | counterparty(사업자등록증·통장사본) */
+    targetType: text('target_type', { enum: ['deposit', 'contract', 'deal', 'counterparty'] }).notNull(),
     targetId: text('target_id').notNull(),
     filename: text('filename').notNull(),
     contentType: text('content_type').notNull(),
