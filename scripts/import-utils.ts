@@ -87,9 +87,20 @@ export function loadWorkbook(path: string = XLSX_FILE): XLSX.WorkBook {
 }
 
 /** 시트를 2D 배열로 (헤더 그대로) */
+/** SKIP_SHEETS='IP&협찬건,외화매출매입' — 건너뛸 시트 (2025 파일은 IP 시트가 2026 과 같은 내용이라 이중 집계를 막으려고) */
+export const SKIP_SHEETS = new Set((process.env.SKIP_SHEETS ?? '').split(',').map((s) => s.trim()).filter(Boolean))
+
+/** 시트를 2D 배열로 (헤더 그대로). 없거나 SKIP_SHEETS 에 있으면 빈 배열 — 2025 파일처럼 시트가 없는 통합본도 읽을 수 있게 (2026-10-09) */
 export function sheetToRows(wb: XLSX.WorkBook, sheetName: string): unknown[][] {
+  if (SKIP_SHEETS.has(sheetName)) {
+    console.log(`  (시트 건너뜀: ${sheetName})`)
+    return []
+  }
   const ws = wb.Sheets[sheetName]
-  if (!ws) throw new Error(`Sheet not found: ${sheetName}`)
+  if (!ws) {
+    console.log(`  (시트 없음: ${sheetName} — 비어 있는 것으로 처리)`)
+    return []
+  }
   return XLSX.utils.sheet_to_json(ws, { header: 1, defval: null }) as unknown[][]
 }
 
@@ -115,6 +126,7 @@ export const ACCOUNT_MAP: Record<string, string> = {
   '계약금': 'contract_advance',
   '선금': 'advance',
   '잔금': 'balance',
+  '실측비': 'survey_fee',
 }
 
 export function mapAccount(raw: unknown): string {
@@ -128,6 +140,7 @@ export const SALES_METHOD_MAP: Record<string, string> = {
   '세금계산서': 'tax_invoice',
   '현금영수증': 'cash_receipt',
   '카드결제': 'card',
+  '카드매출': 'card',
   '알리페이': 'alipay',
   '계좌이체': 'bank_transfer',
 }
@@ -150,6 +163,7 @@ export const DEAL_CAT_MAP: Record<string, string> = {
   '팬클럽/대행': 'fanclub_agency',
   '팬클럽매체': 'fanclub_self', // 외화시트의 변종
   '팝업': 'popup',
+  '팝업/자사': 'popup',
   '해외매체': 'overseas',
   '영업대행': 'sales_agency',
   '매입건': 'purchase_only',

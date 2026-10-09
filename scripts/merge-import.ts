@@ -51,7 +51,23 @@ async function mergeDeals() {
   const dbBy = new Map(dbRows.map((r) => [r.dealCode, r]))
   const touched = new Map<string, Set<string>>() // dealId → ERP 에서 수정한 필드
   for (const c of await db.select({ dealId: dealFieldChange.dealId, field: dealFieldChange.field }).from(dealFieldChange)) (touched.get(c.dealId) ?? touched.set(c.dealId, new Set()).get(c.dealId)!).add(c.field)
-  const toInsert = xl.filter((r) => !dbBy.has(r.dealCode))
+  // 코드만 다른 같은 거래 (예: 엑셀 AZ260802 ↔ ERP AZ260802-S): 발행처·품목·금액이 같은 ERP 전용 거래가 있으면 새로 넣지 않고 보고만 한다 (2026-10-09)
+  const xlCodes = new Set(xl.map((r) => r.dealCode))
+  // 같은 거래 판정: 귀속연월 + 발행처 + 품목 + 매출금 + 매입금 (매달 같은 금액이 반복되는 거래가 많아 귀속연월까지 같아야 한다)
+  const twinKey = (r: Rec) => [r.accrualYear ?? '', r.accrualMonth ?? '', r.issuerCounterpartyId ?? '', String(r.itemName ?? '').trim(), norm(r.salesAmountNet) ?? '', norm(r.purchaseAmountNet) ?? ''].join('|')
+  const erpOnlyByKey = new Map<string, string>()
+  for (const d of dbRows) if (!xlCodes.has(d.dealCode) && !d.deletedAt) erpOnlyByKey.set(twinKey(d as Rec), d.dealCode)
+  const twins: string[] = []
+  const toInsert = xl.filter((r) => {
+    if (dbBy.has(r.dealCode)) return false
+    const twin = erpOnlyByKey.get(twinKey(r as Rec))
+    if (twin && (r.salesAmountNet != null || r.purchaseAmountNet != null)) {
+      twins.push(`${r.dealCode} ↔ ERP ${twin}`)
+      return false
+    }
+    return true
+  })
+  if (twins.length) console.log(`  코드만 다른 같은 거래로 보여 추가하지 않음 ${twins.length}건: ${twins.join(', ')}`)
   let updated = 0
   const conflicts: string[] = []
   const unlinkSkipped: string[] = []

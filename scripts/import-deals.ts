@@ -136,7 +136,8 @@ function parseDealRow(
   const purchaseNet = parseNumber(r[31])
   const purchaseVat = parseNumber(r[32])
   const purchaseGross = parseNumber(r[33])
-  const purchaseDue = parseDate(r[14]) // 결산예정일 — 날짜형만 (텍스트 '3월'은 null)
+  // 결산예정일 — 날짜형만. 텍스트 '3월' 과 1~12 숫자(2025 파일에 10행)는 결산월로만 쓰고 날짜로는 안 본다 (숫자를 날짜로 읽으면 1900년이 된다)
+  const purchaseDue = typeof r[14] === 'number' && r[14] >= 1 && r[14] <= 12 ? null : parseDate(r[14])
   const purchasePaidDate = parseDate(r[17])
   const purchasePaidStatus = mapPaidStatus(r[16])
   const purchaseInvoice = parseDate(r[15])
@@ -202,6 +203,12 @@ function deduplicateDealCodes(rows: DealRow[]): { rows: DealRow[]; warnings: str
   for (const r of rows) {
     let code = r.dealCode
     if (seen.has(code)) {
+      // 금액이 전혀 없는 중복 행은 엑셀의 성과급 분배용 그림자 행(2025 파일 17행) → 거래로 만들지 않는다
+      const amounts = [r.salesAmountNet, r.purchaseAmountNet].map((v) => Number(v ?? 0) || 0)
+      if (amounts.every((v) => v === 0)) {
+        warnings.push(`거래코드 중복(금액 없음) 제외: ${code}`)
+        continue
+      }
       // 이미 -N 형태면 N+1 시도, 아니면 -2부터
       const match = code.match(/^(.*?)-(\d+)$/)
       const base = match ? match[1] : code
