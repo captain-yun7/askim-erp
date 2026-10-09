@@ -36,6 +36,8 @@ export function DealsFilters({
     categoryIds?: number[]
     ownerUserIds?: string[]
     paid?: string[]
+    changedOnly?: boolean
+    review?: string[]
     sort?: DealSort
     dir?: 'asc' | 'desc'
   }
@@ -105,6 +107,28 @@ export function DealsFilters({
         ]}
         selected={initial.paid ?? []}
         onChange={(v) => update({ paid: v.length ? v.join(',') : undefined })}
+        summaryUnit=""
+      />
+
+      {/* 수정 모아보기 (2026-10-08 요청): 최근 수정 음영이 하나라도 있는 거래만 */}
+      <button
+        type="button"
+        data-active={Boolean(initial.changedOnly)}
+        aria-pressed={Boolean(initial.changedOnly)}
+        className={chip}
+        title="최근 수정 표시 기간 안에 바뀐 칸이 있는 거래만 봅니다"
+        onClick={() => update({ changed: initial.changedOnly ? undefined : '1' })}
+      >
+        수정 모아보기
+      </button>
+      <MultiSelect
+        label="수정 표시"
+        options={[
+          { value: 'requested', label: '수정요청' },
+          { value: 'done', label: '수정완료' },
+        ]}
+        selected={initial.review ?? []}
+        onChange={(v) => update({ review: v.length ? v.join(',') : undefined })}
         summaryUnit=""
       />
 

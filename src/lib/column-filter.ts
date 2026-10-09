@@ -8,6 +8,7 @@
 
 export type NumberFilter =
   | { kind: 'empty' }
+  | { kind: 'nonempty' }
   | { kind: 'cmp'; op: '=' | '>' | '>=' | '<' | '<='; value: number }
   | { kind: 'range'; min: number; max: number }
 
@@ -28,6 +29,8 @@ export function parseNumberFilter(raw: string | undefined): NumberFilter | null 
   const s = (raw ?? '').trim()
   if (!s) return null
   if (s === '-') return { kind: 'empty' }
+  // '+' = 금액이 입력된 것만 (2026-10-08 요청: 공백 / 공백 아님 각각 보기)
+  if (s === '+') return { kind: 'nonempty' }
 
   const range = s.split('~')
   if (range.length === 2) {

@@ -266,6 +266,11 @@ const inlineSchema = z.union([
     value: z.coerce.number().finite().min(0, '0 이상으로 입력하세요').max(100, '100 이하로 입력하세요').nullable(),
   }),
   z.object({
+    // 수정요청/완료 표시 (2026-10-08 요청) — 보는 사람 누구나(조회 전용 제외) 바꿀 수 있다
+    field: z.literal('reviewStatus'),
+    value: z.enum(['requested', 'done']).nullable(),
+  }),
+  z.object({
     // 결산연월 인라인 수정 (2026-10-06 요청) — 둘 다 비우면 삭제
     field: z.literal('settlement'),
     value: z.object({ year: z.coerce.number().int().min(2000).max(2100).nullable(), month: z.coerce.number().int().min(1).max(12).nullable() }),
@@ -301,6 +306,14 @@ export async function updateDealInline(
     await db.update(deal).set({ commissionPct: next, updatedBy: user.id }).where(eq(deal.id, id))
     const pct = (v: string | null) => (v === null ? '기본' : `${Math.round(parseFloat(v) * 10000) / 100}%`)
     await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} 인센티브 ${pct(existing.commissionPct)} → ${pct(next)}`, detail: { commissionPct: [existing.commissionPct ?? null, next] } })
+    revalidatePath('/deals')
+    return { ok: true }
+  }
+  if (field === 'reviewStatus') {
+    if (user.role === 'viewer') return { error: '조회 전용 계정은 표시할 수 없습니다' }
+    await db.update(deal).set({ reviewStatus: value, updatedBy: user.id }).where(eq(deal.id, id))
+    const label = (v: string | null) => (v === 'requested' ? '수정요청' : v === 'done' ? '수정완료' : '없음')
+    await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} 표시 ${label(existing.reviewStatus)} → ${label(value)}`, detail: { reviewStatus: [existing.reviewStatus ?? null, value] } })
     revalidatePath('/deals')
     return { ok: true }
   }

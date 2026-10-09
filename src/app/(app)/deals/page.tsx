@@ -16,7 +16,8 @@ import { DealsTable } from '@/components/deals/deals-table'
 import { DealsFilters } from '@/components/deals/deals-filters'
 import { DealQuickAdd } from '@/components/deals/deal-quick-add'
 import { CollapseOnTableScroll } from '@/components/deals/collapse-on-table-scroll'
-import { listDeals } from '@/server/queries/deals'
+import { listDeals, listOverdueSalesDue } from '@/server/queries/deals'
+import { OverdueNotice } from '@/components/deals/overdue-notice'
 import { DEAL_SORT_LABEL, type DealSort } from '@/lib/deal-sort'
 import { canCreateDeal, canDeleteDeal, canViewCommission, getSessionUser } from '@/server/auth/guards'
 import { canEditDealShared, getShareTeams, resolveDealScope } from '@/server/auth/deal-scope'
@@ -69,6 +70,8 @@ export default async function DealsPage({
     categoryIds: intList(sp.categoryId),
     ownerUserIds: typeof sp.owner === 'string' && sp.owner ? sp.owner.split(',').filter(Boolean) : undefined,
     paidStatuses: typeof sp.paid === 'string' && sp.paid ? (sp.paid.split(',').filter((v): v is 'unpaid' | 'unsettled' => v === 'unpaid' || v === 'unsettled')) : undefined,
+    changedOnly: sp.changed === '1',
+    reviewStatuses: typeof sp.review === 'string' && sp.review ? sp.review.split(',').filter((v): v is 'requested' | 'done' => v === 'requested' || v === 'done') : undefined,
     // 50건 페이지 대신 전체 세로 스크롤 (2026-09-09 피드백) — 상한 5,000
     page: 1,
     pageSize: 5000,
@@ -76,8 +79,8 @@ export default async function DealsPage({
     dir: (sp.dir === 'asc' ? 'asc' : 'desc') as 'asc' | 'desc',
   }
 
-  const [{ rows, total, aggregate, prevAggregate }, lookups, me] =
-    await Promise.all([listDeals(filters), getAllLookups(), getSessionUser()])
+  const [{ rows, total, aggregate, prevAggregate }, lookups, me, overdue] =
+    await Promise.all([listDeals(filters), getAllLookups(), getSessionUser(), listOverdueSalesDue()])
 
   // 담당자 필터 옵션도 조회 범위에 맞춤 (팀장=팀원, 팀원=본인)
   const scope = me ? await resolveDealScope(me) : ({ kind: 'all' } as const)
@@ -110,6 +113,9 @@ export default async function DealsPage({
           )}
         </div>
       </div>
+
+      {/* 입금예정월 지난 미입금 안내 (2026-10-08) */}
+      <OverdueNotice deals={overdue} />
 
       <CollapseOnTableScroll>
       <section className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
@@ -182,6 +188,8 @@ export default async function DealsPage({
               categoryIds: filters.categoryIds,
               ownerUserIds: filters.ownerUserIds,
               paid: filters.paidStatuses,
+              changedOnly: filters.changedOnly,
+              review: filters.reviewStatuses,
               sort: filters.sort,
               dir: filters.dir,
             }}
@@ -229,6 +237,7 @@ export default async function DealsPage({
             // 인센티브·성과급 (2026-10-02): 관리자·회계는 전체, 영업은 본인 거래만 본다. 요율 수정은 거래 수정 권한과 같다 (10/6)
             canViewIncentive,
             canEditIncentive: canViewIncentive && canEditShared,
+            canReview: me != null && me.role !== 'viewer',
             }
           })}
         />

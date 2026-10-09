@@ -1,8 +1,9 @@
 import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm'
-import type { PgColumn } from 'drizzle-orm/pg-core'
+import { alias, type PgColumn } from 'drizzle-orm/pg-core'
 import { db } from '@/lib/db/client'
 import { parseDateFilter, parseNumberFilter } from '@/lib/column-filter'
 import { getRecentChanges } from '@/server/deal-changes'
+import { getChangeHighlightDays } from '@/server/queries/app-settings'
 import { getAttachmentCounts } from '@/server/actions/attachments'
 import type { DealSort } from '@/lib/deal-sort'
 import { getSessionUser } from '@/server/auth/guards'
@@ -13,6 +14,9 @@ import {
   dealCategory,
   users,
 salesMethod } from '@/lib/db/schema'
+
+// 매체사 계좌정보용 별칭 조인
+const supplierCp = alias(counterparty, 'supplier_cp')
 
 export type DealListFilters = {
   q?: string
@@ -56,6 +60,10 @@ export type DealListFilters = {
   paidStatus?: 'pending' | 'completed' | 'partial' | 'unpaid' | 'unsettled' | 'all'
   /** 상태 다중 선택 — 미입금 OR 미결산 */
   paidStatuses?: ('unpaid' | 'unsettled')[]
+  /** 수정 모아보기 (2026-10-08): 최근 수정 표시 기간 안에 바뀐 칸이 있는 거래만 */
+  changedOnly?: boolean
+  /** 수정요청/완료 표시로 거르기 (2026-10-08) */
+  reviewStatuses?: ('requested' | 'done')[]
   page?: number
   pageSize?: number
   /** 정렬 기준 (2026-09-15 고객 확정: 기본 작성순, 귀속월·입금일·거래코드 등 선택) */
@@ -69,6 +77,7 @@ function numberCond(col: PgColumn, raw: string | undefined): SQL | undefined {
   const f = parseNumberFilter(raw)
   if (!f) return undefined
   if (f.kind === 'empty') return isNull(col)
+  if (f.kind === 'nonempty') return isNotNull(col)
   if (f.kind === 'range') return sql`${col} between ${f.min} and ${f.max}`
   // 정확히 일치는 원 단위 반올림 비교 (소수 자리 무시)
   if (f.op === '=') return sql`round(${col}) = ${Math.round(f.value)}`
@@ -140,6 +149,39 @@ async function scopeConds() {
   return []
 }
 
+export type OverdueDeal = { id: string; dealCode: string; issuerName: string | null; salesDueDate: string; amount: number; ownerName: string | null }
+
+/**
+ * 입금예정월이 지났는데 입금 완료가 아닌 거래 (2026-10-08 요청: "귀속월과 입금예정월을 바꿔주세요" 안내).
+ * 일이 아니라 월 기준 — 이번 달 1일(한국 시간) 이전 달의 예정일. 보는 사람의 조회 범위를 따른다.
+ */
+export async function listOverdueSalesDue(): Promise<OverdueDeal[]> {
+  const kst = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul' }).format(new Date())
+  const monthStart = `${kst.slice(0, 7)}-01`
+  const rows = await db
+    .select({
+      id: deal.id,
+      dealCode: deal.dealCode,
+      issuerName: sql<string | null>`(select name from counterparty where id = ${deal.issuerCounterpartyId})`,
+      salesDueDate: deal.salesDueDate,
+      amount: sql<string>`coalesce(${deal.salesAmountGross}, ${deal.salesAmountNet}, 0)::text`,
+      ownerName: users.name,
+    })
+    .from(deal)
+    .leftJoin(users, eq(users.id, deal.ownerUserId))
+    .where(
+      and(
+        isNull(deal.deletedAt),
+        ...(await scopeConds()),
+        sql`${deal.salesPaidStatus} <> 'completed'`,
+        sql`coalesce(${deal.salesAmountNet}, 0) <> 0`,
+        sql`${deal.salesDueDate} < ${monthStart}::date`,
+      ),
+    )
+    .orderBy(asc(deal.salesDueDate))
+  return rows.map((r) => ({ ...r, salesDueDate: r.salesDueDate!, amount: parseFloat(r.amount) || 0 }))
+}
+
 export async function listDeals(f: DealListFilters = {}) {
   const page = Math.max(1, f.page ?? 1)
   const pageSize = Math.min(5000, Math.max(10, f.pageSize ?? 50))
@@ -151,6 +193,11 @@ export async function listDeals(f: DealListFilters = {}) {
   if (f.months?.length) conds.push(inArray(deal.accrualMonth, f.months))
   if (f.categoryId) conds.push(eq(deal.categoryId, f.categoryId))
   if (f.categoryIds?.length) conds.push(inArray(deal.categoryId, f.categoryIds))
+  if (f.changedOnly) {
+    const days = await getChangeHighlightDays()
+    conds.push(sql`${deal.id} in (select deal_id from deal_field_change where changed_at >= now() - make_interval(days => ${days}))`)
+  }
+  if (f.reviewStatuses?.length) conds.push(inArray(deal.reviewStatus, f.reviewStatuses))
   if (f.paidStatuses?.length) {
     const parts = []
     if (f.paidStatuses.includes('unpaid')) parts.push(and(eq(deal.salesPaidStatus, 'pending'), hasSales)!)
@@ -299,16 +346,22 @@ export async function listDeals(f: DealListFilters = {}) {
       settlementMonth: deal.settlementMonth,
       categoryName: dealCategory.nameKo,
       salesMethodName: salesMethod.nameKo,
+      reviewStatus: deal.reviewStatus,
+      // 매체사 계좌정보 (2026-10-08 요청: 아이콘을 눌러 보고, 내보내기에 포함)
+      supplierBankName: supplierCp.bankName,
+      supplierAccountNo: supplierCp.accountNo,
+      supplierAccountHolder: supplierCp.accountHolder,
       ownerName: users.name,
       ownerEmail: users.email,
       ownerTeam: users.team,
       issuerName: sql<string | null>`(select name from counterparty where id = ${deal.issuerCounterpartyId})`,
       advertiserName: sql<string | null>`coalesce(${deal.advertiserName}, (select name from counterparty where id = ${deal.advertiserCounterpartyId}))`,
-      supplierName: sql<string | null>`(select name from counterparty where id = ${deal.supplierCounterpartyId})`,
+      supplierName: supplierCp.name,
     })
     .from(deal)
     .leftJoin(dealCategory, eq(dealCategory.id, deal.categoryId))
     .leftJoin(salesMethod, eq(salesMethod.id, deal.salesMethodId))
+    .leftJoin(supplierCp, eq(supplierCp.id, deal.supplierCounterpartyId))
     .leftJoin(users, eq(users.id, deal.ownerUserId))
     .where(where)
     .orderBy(...orderFor(f.sort ?? 'created', f.dir ?? 'desc'))

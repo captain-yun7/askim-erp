@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Copy, Trash2 } from 'lucide-react'
+import { Copy, Landmark, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DateInput } from '@/components/ui/date-input'
 import { AttachmentButton } from '@/components/attachments/attachment-button'
@@ -56,10 +56,15 @@ type Row = {
   ownerUserId: string | null
   canTogglePaid: boolean
   canDelete?: boolean
+  canReview?: boolean
   recentChanges?: RecentChanges
   attachmentCount?: number
   categoryName: string | null
   salesMethodName?: string | null
+  reviewStatus?: 'requested' | 'done' | null
+  supplierBankName?: string | null
+  supplierAccountNo?: string | null
+  supplierAccountHolder?: string | null
   ownerName: string | null
   ownerEmail?: string | null
   issuerName: string | null
@@ -79,6 +84,7 @@ type InlineField =
   | 'purchasePaidDate'
   | 'commissionPct'
   | 'settlement'
+  | 'reviewStatus'
 
 function useInlineSave(dealId: string) {
   const [pending, start] = useTransition()
@@ -311,6 +317,69 @@ function InlineAccrual({ dealId, year, month, enabled }: { dealId: string; year:
     <button type="button" title="클릭해서 귀속연월 수정" className={cn('rounded px-0.5 text-xs text-muted-foreground hover:bg-accent/60', pending && 'opacity-70')} onClick={() => setEditing(true)}>
       {text}
     </button>
+  )
+}
+
+/**
+ * 수정요청/완료 표시 (2026-10-08 요청) — 거래 왼쪽의 네모를 누를 때마다 없음 → 수정요청(빨강) → 수정완료(초록) → 없음.
+ * 요청한 사람과 처리한 사람이 다르므로 누구나(조회 전용 제외) 바꿀 수 있다.
+ */
+function ReviewMark({ dealId, value, enabled }: { dealId: string; value: 'requested' | 'done' | null; enabled: boolean }) {
+  const [pending, start] = useTransition()
+  const [shown, setShown] = useOptimistic(value)
+  const next = shown === null ? 'requested' : shown === 'requested' ? 'done' : null
+  const label = shown === 'requested' ? '수정요청' : shown === 'done' ? '수정완료' : ''
+  return (
+    <button
+      type="button"
+      disabled={!enabled || pending}
+      data-review={shown ?? 'none'}
+      aria-label={`${label || '표시 없음'} — 눌러서 ${next === 'requested' ? '수정요청' : next === 'done' ? '수정완료' : '표시 지우기'}`}
+      title={enabled ? `한 번 누르면 수정요청, 한 번 더 누르면 수정완료, 다시 누르면 지움` : label}
+      className={cn(
+        'inline-flex h-5 min-w-5 shrink-0 items-center justify-center gap-1 rounded border px-1 text-[10.5px] font-semibold leading-none',
+        shown === 'requested' && 'border-red-300 bg-red-50 text-red-600',
+        shown === 'done' && 'border-emerald-300 bg-emerald-50 text-emerald-700',
+        shown === null && 'border-slate-300 bg-white text-transparent hover:border-slate-500',
+        pending && 'opacity-60',
+      )}
+      onClick={() => {
+        if (!enabled) return
+        start(async () => {
+          setShown(next)
+          const res = await updateDealInline(dealId, { field: 'reviewStatus', value: next })
+          if ('error' in res) toast.error(res.error)
+        })
+      }}
+    >
+      {label || '·'}
+    </button>
+  )
+}
+
+/** 매체사 계좌정보 (2026-10-08 요청) — 평소엔 숨기고 아이콘을 누르면 펼친다 */
+function BankInfo({ name, bank, account, holder }: { name: string | null; bank: string | null; account: string | null; holder: string | null }) {
+  const [open, setOpen] = useState(false)
+  if (!bank && !account && !holder) return null
+  return (
+    <span className="relative inline-flex">
+      <button
+        type="button"
+        aria-label={`${name ?? '매체사'} 계좌정보`}
+        title="계좌정보 보기"
+        className={cn('rounded p-0.5 text-slate-400 hover:bg-accent/60 hover:text-foreground', open && 'text-foreground')}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <Landmark className="size-3.5" />
+      </button>
+      {open && (
+        <span data-slot="bank-info" className="absolute left-0 top-full z-30 mt-1 w-max rounded-lg border bg-popover px-3 py-2 text-[12px] text-popover-foreground shadow-md">
+          <span className="block"><span className="text-muted-foreground">은행</span> {bank ?? '-'}</span>
+          <span className="block font-mono"><span className="font-sans text-muted-foreground">계좌</span> {account ?? '-'}</span>
+          <span className="block"><span className="text-muted-foreground">예금주</span> {holder ?? '-'}</span>
+        </span>
+      )}
+    </span>
   )
 }
 
@@ -566,11 +635,29 @@ function ColumnFilterSelect({
 }
 
 function FilterHeaderRow({ filters }: { filters: ColumnFilters }) {
-  const amount = (param: keyof ColumnFilters) => (
-    <TableHead className="py-1">
-      <ColumnFilterInput param={param} value={filters[param]} placeholder="금액" title={AMOUNT_HINT} align="right" />
-    </TableHead>
-  )
+  // 금액도 "공백 / 입력됨"으로 거를 수 있게 (2026-10-08 요청) — 셀렉트가 검색식 '-' / '+' 를 대신 넣는다
+  const amount = (param: keyof ColumnFilters) => {
+    const v = filters[param]
+    const mode = v === '-' ? '-' : v === '+' ? '+' : ''
+    return (
+      <TableHead className="py-1">
+        <div className="flex flex-col gap-1">
+          <ColumnFilterInput param={param} value={mode ? '' : v} placeholder="금액" title={AMOUNT_HINT} align="right" />
+          <ColumnFilterSelect
+            param={param}
+            value={mode}
+            ariaLabel={`${param} 공백 여부`}
+            title="공백 여부"
+            options={[
+              { value: '', label: '전체' },
+              { value: '-', label: '공백' },
+              { value: '+', label: '입력됨' },
+            ]}
+          />
+        </div>
+      </TableHead>
+    )
+  }
   // 계산서 발행일은 "공백 / 입력됨"으로도 거를 수 있게 (2026-09-22 피드백) — 셀렉트가 검색식 '-' / '+' 를 대신 넣는다
   const date = (param: keyof ColumnFilters) => {
     const v = filters[param]
@@ -870,6 +957,7 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
               <TableRow key={r.id} className="hover:bg-muted/60">
                 <TableCell {...cell('code')}>
                   <span className="flex items-center gap-2">
+                  <ReviewMark dealId={r.id} value={r.reviewStatus ?? null} enabled={r.canReview !== false} />
                   {(r.canTogglePaid || r.canDelete) && (
                     <input
                       type="checkbox"
@@ -943,7 +1031,12 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
                     <div className="text-muted-foreground">→ {r.advertiserName}</div>
                   )}
                 </TableCell>
-                <TableCell {...cell('supplier', 'text-[13px] text-muted-foreground')}>{r.supplierName ?? '-'}</TableCell>
+                <TableCell {...cell('supplier', 'text-[13px] text-muted-foreground')}>
+                  <span className="flex items-center gap-1.5">
+                    <span>{r.supplierName ?? '-'}</span>
+                    <BankInfo name={r.supplierName} bank={r.supplierBankName ?? null} account={r.supplierAccountNo ?? null} holder={r.supplierAccountHolder ?? null} />
+                  </span>
+                </TableCell>
                 <TableCell {...cell('item', 'max-w-56 truncate text-[12.5px]')} title={r.itemName ?? undefined}>
                   {r.itemName ?? <span className="text-muted-foreground">-</span>}
                 </TableCell>
