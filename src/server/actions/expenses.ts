@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '@/lib/db/client'
+import { getCurrentEntity } from '@/server/entity'
 import { expense } from '@/lib/db/schema'
 import { canCreateExpense, canDeleteExpense, canEditExpense, getSessionUser } from '@/server/auth/guards'
 import { audit, diffFields } from '@/server/audit'
@@ -64,8 +65,10 @@ export async function createExpenses(raw: unknown) {
   }
 
   try {
+    const entity = await getCurrentEntity()
     await db.insert(expense).values(
       rows.map((r) => ({
+        entity,
         expenseDate: r.expenseDate as string,
         itemName: r.itemName ?? null,
         counterpartyText: r.counterpartyText ?? null,

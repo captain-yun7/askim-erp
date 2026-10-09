@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '@/lib/db/client'
+import { getCurrentEntity } from '@/server/entity'
 import { counterparty } from '@/lib/db/schema'
 import {
   canCreateCounterparty,
@@ -77,7 +78,7 @@ export async function createCounterparty(raw: unknown) {
   const data = emptyToNull(parsed.data)
   const [row] = await db
     .insert(counterparty)
-    .values({ ...data, createdBy: user.id })
+    .values({ ...data, entity: await getCurrentEntity(), createdBy: user.id })
     .returning({ id: counterparty.id, name: counterparty.name })
   await audit({ action: 'counterparty.create', targetType: 'counterparty', targetId: row.id, targetLabel: row.name, summary: `거래처 등록 ${row.name}` })
   revalidatePath('/counterparties')

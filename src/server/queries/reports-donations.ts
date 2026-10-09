@@ -1,5 +1,6 @@
 import { and, asc, eq, isNull } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
+import { getCurrentEntity } from '@/server/entity'
 import { expense, expenseCategory } from '@/lib/db/schema'
 
 /** 기부금 월별 사용내역 (2026-09-09 피드백) — 판관비 중 거래항목 '기부금' */
@@ -27,7 +28,7 @@ export async function getDonations({ year }: { year: number }): Promise<{ months
     })
     .from(expense)
     .innerJoin(expenseCategory, eq(expenseCategory.id, expense.expenseCategoryId))
-    .where(and(isNull(expense.deletedAt), eq(expense.year, year), eq(expenseCategory.code, 'donation')))
+    .where(and(eq(expense.entity, await getCurrentEntity()), isNull(expense.deletedAt), eq(expense.year, year), eq(expenseCategory.code, 'donation')))
     .orderBy(asc(expense.expenseDate), asc(expense.createdAt))
 
   const months: DonationMonth[] = Array.from({ length: 12 }, (_, i) => ({ month: i + 1, rows: [], total: 0 }))

@@ -1,5 +1,6 @@
 import { and, eq, isNull, sql, type SQLWrapper } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
+import { getCurrentEntity } from '@/server/entity'
 import { annualPlan, deal } from '@/lib/db/schema'
 
 /**
@@ -32,14 +33,16 @@ export type CollectionReport = {
 
 const num = (v: string | null | undefined) => parseFloat(v ?? '0') || 0
 
-function byMonth(col: SQLWrapper, year: number) {
+function byMonth(col: SQLWrapper, year: number, entity: string) {
   return and(
+    eq(deal.entity, entity),
     isNull(deal.deletedAt),
     sql`extract(year from ${col})::int = ${year}`,
   )
 }
 
 export async function getMonthlyCollection({ year }: { year: number }): Promise<CollectionReport> {
+  const entity = await getCurrentEntity()
   const monthOf = (col: SQLWrapper) => sql<number>`extract(month from ${col})::int`
   // 매입 예정: 결산연월 우선, 없으면 결산예정일
   const settleYear = sql`coalesce(${deal.settlementYear}, extract(year from ${deal.purchaseDueDate})::int)`
@@ -55,7 +58,7 @@ export async function getMonthlyCollection({ year }: { year: number }): Promise<
         outstanding: sql<string>`coalesce(sum(${salesGross}) filter (where ${deal.salesPaidStatus} <> 'completed'), 0)::text`,
       })
       .from(deal)
-      .where(byMonth(deal.salesDueDate, year))
+      .where(byMonth(deal.salesDueDate, year, entity))
       .groupBy(monthOf(deal.salesDueDate)),
     db
       .select({
@@ -63,7 +66,7 @@ export async function getMonthlyCollection({ year }: { year: number }): Promise<
         amount: sql<string>`coalesce(sum(${salesGross}), 0)::text`,
       })
       .from(deal)
-      .where(and(byMonth(deal.salesPaidDate, year), eq(deal.salesPaidStatus, 'completed')))
+      .where(and(byMonth(deal.salesPaidDate, year, entity), eq(deal.salesPaidStatus, 'completed')))
       .groupBy(monthOf(deal.salesPaidDate)),
     db
       .select({
@@ -72,7 +75,7 @@ export async function getMonthlyCollection({ year }: { year: number }): Promise<
         outstanding: sql<string>`coalesce(sum(${purchaseGross}) filter (where ${deal.purchasePaidStatus} <> 'completed'), 0)::text`,
       })
       .from(deal)
-      .where(and(isNull(deal.deletedAt), sql`${settleYear} = ${year}`))
+      .where(and(eq(deal.entity, entity), isNull(deal.deletedAt), sql`${settleYear} = ${year}`))
       .groupBy(settleMonth),
     db
       .select({
@@ -80,9 +83,9 @@ export async function getMonthlyCollection({ year }: { year: number }): Promise<
         amount: sql<string>`coalesce(sum(${purchaseGross}), 0)::text`,
       })
       .from(deal)
-      .where(and(byMonth(deal.purchasePaidDate, year), eq(deal.purchasePaidStatus, 'completed')))
+      .where(and(byMonth(deal.purchasePaidDate, year, entity), eq(deal.purchasePaidStatus, 'completed')))
       .groupBy(monthOf(deal.purchasePaidDate)),
-    db.select().from(annualPlan).where(eq(annualPlan.year, year)).limit(1),
+    db.select().from(annualPlan).where(and(eq(annualPlan.entity, entity), eq(annualPlan.year, year))).limit(1),
   ])
 
   const months: CollectionMonth[] = Array.from({ length: 12 }, (_, i) => ({

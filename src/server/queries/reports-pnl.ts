@@ -1,5 +1,6 @@
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
+import { getCurrentEntity } from '@/server/entity'
 import { deal, expense, expenseCategory } from '@/lib/db/schema'
 
 export type MonthlyPnlRow = {
@@ -25,6 +26,7 @@ function tithe(operatingProfit: number) {
 }
 
 export async function getMonthlyPnl({ year }: { year: number }): Promise<MonthlyPnl> {
+  const entity = await getCurrentEntity()
   const [dealRows, expenseRows] = await Promise.all([
     // 매출총이익 = SUM(salesAmountNet) - SUM(purchaseAmountNet), 귀속월 기준
     db
@@ -33,7 +35,7 @@ export async function getMonthlyPnl({ year }: { year: number }): Promise<Monthly
         grossProfit: sql<string>`coalesce(sum(coalesce(${deal.salesAmountNet}, 0) - coalesce(${deal.purchaseAmountNet}, 0)), 0)::text`,
       })
       .from(deal)
-      .where(and(isNull(deal.deletedAt), eq(deal.accrualYear, year)))
+      .where(and(eq(deal.entity, entity), isNull(deal.deletedAt), eq(deal.accrualYear, year)))
       .groupBy(deal.accrualMonth),
     // 판관비 = SUM(amount), expense.year/month 기준
     db
@@ -45,6 +47,7 @@ export async function getMonthlyPnl({ year }: { year: number }): Promise<Monthly
       .innerJoin(expenseCategory, eq(expenseCategory.id, expense.expenseCategoryId))
       .where(
         and(
+          eq(expense.entity, entity),
           isNull(expense.deletedAt),
           eq(expense.year, year),
           sql`${expenseCategory.costGroup} in ('fixed', 'variable')`,

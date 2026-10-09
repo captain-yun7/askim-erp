@@ -1,5 +1,6 @@
 import { and, asc, eq, inArray, isNull, or, sql, type SQL } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
+import { getCurrentEntity } from '@/server/entity'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import { deposit, exclusiveContract, users } from '@/lib/db/schema'
 import type { SessionUser } from '@/server/auth/guards'
@@ -29,7 +30,7 @@ async function ownScope(user: SessionUser | null, ownerUserId: AnyPgColumn, owne
 }
 
 export async function listDeposits(user: SessionUser | null = null) {
-  const where = and(isNull(deposit.deletedAt), await ownScope(user, deposit.ownerUserId, deposit.ownerName))
+  const where = and(eq(deposit.entity, await getCurrentEntity()), isNull(deposit.deletedAt), await ownScope(user, deposit.ownerUserId, deposit.ownerName))
   const rows = await db
     .select()
     .from(deposit)
@@ -61,7 +62,7 @@ export async function listExclusiveContracts(user: SessionUser | null = null, ki
   return db
     .select()
     .from(exclusiveContract)
-    .where(and(isNull(exclusiveContract.deletedAt), eq(exclusiveContract.kind, kind), await ownScope(user, exclusiveContract.ownerUserId, exclusiveContract.ownerName)))
+    .where(and(eq(exclusiveContract.entity, await getCurrentEntity()), isNull(exclusiveContract.deletedAt), eq(exclusiveContract.kind, kind), await ownScope(user, exclusiveContract.ownerUserId, exclusiveContract.ownerName)))
     .orderBy(asc(exclusiveContract.displayOrder), asc(exclusiveContract.id))
 }
 

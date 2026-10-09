@@ -1,5 +1,6 @@
 import { and, asc, eq, isNull, sql } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
+import { getCurrentEntity } from '@/server/entity'
 import { annualPlan, cashBalance, deal, dealCategory, salesTarget } from '@/lib/db/schema'
 import { PLAN_GROUPS, type PlanGroupCode, type Priority } from '@/lib/plan-groups'
 
@@ -50,8 +51,9 @@ export type PlanReport = {
 const num = (v: string | null | undefined) => parseFloat(v ?? '0') || 0
 
 export async function getPlanReport({ year }: { year: number }): Promise<PlanReport> {
+  const entity = await getCurrentEntity()
   const [targets, byCategory, categories, [plan], cashRows, [future]] = await Promise.all([
-    db.select().from(salesTarget).where(eq(salesTarget.year, year)),
+    db.select().from(salesTarget).where(and(eq(salesTarget.entity, entity), eq(salesTarget.year, year))),
     db
       .select({
         categoryId: deal.categoryId,
@@ -59,14 +61,14 @@ export async function getPlanReport({ year }: { year: number }): Promise<PlanRep
         profit: sql<string>`coalesce(sum(${deal.profit}), 0)::text`,
       })
       .from(deal)
-      .where(and(isNull(deal.deletedAt), eq(deal.accrualYear, year)))
+      .where(and(eq(deal.entity, entity), isNull(deal.deletedAt), eq(deal.accrualYear, year)))
       .groupBy(deal.categoryId),
     db
       .select({ id: dealCategory.id, nameKo: dealCategory.nameKo, planGroup: dealCategory.planGroup })
       .from(dealCategory)
       .orderBy(asc(dealCategory.displayOrder)),
-    db.select().from(annualPlan).where(eq(annualPlan.year, year)).limit(1),
-    db.select().from(cashBalance).where(eq(cashBalance.year, year)).orderBy(asc(cashBalance.displayOrder)),
+    db.select().from(annualPlan).where(and(eq(annualPlan.entity, entity), eq(annualPlan.year, year))).limit(1),
+    db.select().from(cashBalance).where(and(eq(cashBalance.entity, entity), eq(cashBalance.year, year))).orderBy(asc(cashBalance.displayOrder)),
     // 완료체크 안 된 건 — 연도 무관 (엑셀 SUMIFS 전체열)
     db
       .select({
@@ -74,7 +76,7 @@ export async function getPlanReport({ year }: { year: number }): Promise<PlanRep
         purchase: sql<string>`coalesce(sum(coalesce(${deal.purchaseAmountGross}, ${deal.purchaseAmountNet})) filter (where ${deal.purchasePaidStatus} <> 'completed'), 0)::text`,
       })
       .from(deal)
-      .where(isNull(deal.deletedAt)),
+      .where(and(eq(deal.entity, entity), isNull(deal.deletedAt))),
   ])
 
   const catById = new Map(categories.map((c) => [c.id, c]))

@@ -4,6 +4,7 @@ import { and, desc, eq, inArray, isNull, sql, type SQL, type SQLWrapper } from '
 import { alias } from 'drizzle-orm/pg-core'
 import { z } from 'zod'
 import { db } from '@/lib/db/client'
+import { getCurrentEntity } from '@/server/entity'
 import { counterparty, deal, expense, expenseCategory, users } from '@/lib/db/schema'
 import { LEAF_BASIS, sumAmounts, type DrillDetail } from '@/lib/ledger-drill'
 import { canAccessBackoffice, getSessionUser } from '@/server/auth/guards'
@@ -35,7 +36,7 @@ export async function getReportCellDetail(raw: unknown): Promise<DrillDetail | {
       .select({ id: expense.id, date: expense.expenseDate, itemName: expense.itemName, counterparty: expense.counterpartyText, category: expenseCategory.nameKo, amount: expense.amount })
       .from(expense)
       .leftJoin(expenseCategory, eq(expenseCategory.id, expense.expenseCategoryId))
-      .where(and(isNull(expense.deletedAt), eq(expense.year, year), inArray(expense.month, months), eq(expense.expenseCategoryId, categoryId)))
+      .where(and(eq(expense.entity, await getCurrentEntity()), isNull(expense.deletedAt), eq(expense.year, year), inArray(expense.month, months), eq(expense.expenseCategoryId, categoryId)))
       .orderBy(desc(expense.amount))
     const list = rows.map((r) => ({ ...r, amount: num(r.amount) }))
     return { kind: 'expenses', basis: '지출일의 연·월이 이 달이고 거래항목이 이 과목인 판관비', rows: list, total: sumAmounts(list.map((r) => r.amount)) }
@@ -88,7 +89,7 @@ export async function getReportCellDetail(raw: unknown): Promise<DrillDetail | {
     .leftJoin(users, eq(users.id, deal.ownerUserId))
     .leftJoin(issuer, eq(issuer.id, deal.issuerCounterpartyId))
     .leftJoin(supplier, eq(supplier.id, deal.supplierCounterpartyId))
-    .where(and(isNull(deal.deletedAt), s.where))
+    .where(and(eq(deal.entity, await getCurrentEntity()), isNull(deal.deletedAt), s.where))
   const list = rows
     .map((r) => ({ ...r, net: num(r.net), vat: num(r.vat), amount: num(r.amount) }))
     // 합계에 영향이 없는 0원 거래는 빼고, 큰 금액부터

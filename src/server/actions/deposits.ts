@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '@/lib/db/client'
+import { getCurrentEntity } from '@/server/entity'
 import { deposit, exclusiveContract } from '@/lib/db/schema'
 import { getSessionUser, type SessionUser } from '@/server/auth/guards'
 import { audit, diffFields } from '@/server/audit'
@@ -46,7 +47,7 @@ export async function saveDeposit(id: number | null, raw: unknown): Promise<Resu
     await db.update(deposit).set(values).where(eq(deposit.id, id))
   } else {
     // 등록자를 담당자로 (팀원 본인 것만 조회 기준)
-    await db.insert(deposit).values({ ...values, ownerUserId: guard.user.id, ownerName: values.ownerName ?? guard.user.name ?? null })
+    await db.insert(deposit).values({ ...values, entity: await getCurrentEntity(), ownerUserId: guard.user.id, ownerName: values.ownerName ?? guard.user.name ?? null })
   }
   await audit({ action: 'deposit.save', targetType: 'deposit', targetId: id, targetLabel: values.counterpartyName, summary: `보증금 ${id != null ? '수정' : '등록'} ${values.counterpartyName} ${Number(values.amount).toLocaleString()}원`, detail: values })
   revalidatePath('/deposits')
@@ -91,7 +92,7 @@ export async function saveExclusiveContract(id: number | null, raw: unknown): Pr
   if (id != null) {
     await db.update(exclusiveContract).set(values).where(eq(exclusiveContract.id, id))
   } else {
-    await db.insert(exclusiveContract).values({ ...values, ownerUserId: guard.user.id, ownerName: values.ownerName ?? guard.user.name ?? null })
+    await db.insert(exclusiveContract).values({ ...values, entity: await getCurrentEntity(), ownerUserId: guard.user.id, ownerName: values.ownerName ?? guard.user.name ?? null })
   }
   await audit({ action: 'contract.save', targetType: 'contract', targetId: id, targetLabel: values.mediaName, summary: `${values.kind === 'asset' ? '보유자산' : '전속계약'} ${id != null ? '수정' : '등록'} ${values.mediaName}`, detail: values })
   revalidatePath('/deposits')

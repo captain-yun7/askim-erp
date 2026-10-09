@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm'
 import { alias, type PgColumn } from 'drizzle-orm/pg-core'
 import { db } from '@/lib/db/client'
+import { getCurrentEntity } from '@/server/entity'
 import { parseDateFilter, parseNumberFilter } from '@/lib/column-filter'
 import { getRecentChanges } from '@/server/deal-changes'
 import { getChangeHighlightDays } from '@/server/queries/app-settings'
@@ -137,16 +138,19 @@ export const hasSales = sql`coalesce(${deal.salesAmountNet}, 0) > 0`
 export const hasPurchase = sql`coalesce(${deal.purchaseAmountNet}, 0) > 0`
 
 /** 세션 기준 행 단위 범위 조건 (팀장=자기팀, 팀원=본인) */
+/** 현재 법인 + 조회 범위 조건 — 거래를 읽는 모든 쿼리의 공통 앞머리 */
 async function scopeConds() {
+  const entityCond = eq(deal.entity, await getCurrentEntity())
   const user = await getSessionUser()
-  if (!user) return []
+  if (!user) return [entityCond]
   const scope = await resolveDealScope(user)
   if (scope.kind === 'team')
     return [
+      entityCond,
       sql`${deal.ownerUserId} in (select id from users where ${inArray(users.team, scope.teams)})`,
     ]
-  if (scope.kind === 'own') return [eq(deal.ownerUserId, scope.userId)]
-  return []
+  if (scope.kind === 'own') return [entityCond, eq(deal.ownerUserId, scope.userId)]
+  return [entityCond]
 }
 
 export type OverdueDeal = { id: string; dealCode: string; issuerName: string | null; salesDueDate: string; amount: number; ownerName: string | null }

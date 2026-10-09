@@ -1,5 +1,6 @@
 import { and, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
+import { getCurrentEntity } from '@/server/entity'
 import { counterparty, deal } from '@/lib/db/schema'
 
 export type TopSort = 'sales' | 'profit'
@@ -24,7 +25,7 @@ export async function getTopCounterparties(
   const limit = Math.min(100, Math.max(1, f.limit ?? 20))
   const sort: TopSort = f.sort === 'profit' ? 'profit' : 'sales'
 
-  const conds = [isNull(deal.deletedAt), isNotNull(deal.issuerCounterpartyId)]
+  const conds = [eq(deal.entity, await getCurrentEntity()), isNull(deal.deletedAt), isNotNull(deal.issuerCounterpartyId)]
   if (f.year) conds.push(eq(deal.accrualYear, f.year))
 
   // 매출은 VAT 포함(총매출금), 손익은 공급가 (2026-09-15 고객 확정)

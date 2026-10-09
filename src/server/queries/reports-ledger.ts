@@ -1,5 +1,6 @@
 import { and, asc, eq, isNull, sql } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
+import { getCurrentEntity } from '@/server/entity'
 import { deal, expense, expenseCategory } from '@/lib/db/schema'
 import type { CostGroup } from '@/lib/cost-groups'
 
@@ -49,6 +50,7 @@ export type LedgerReport = {
 const num = (v: string | null | undefined) => parseFloat(v ?? '0') || 0
 
 export async function getSalesLedger({ year }: { year: number }): Promise<LedgerReport> {
+  const entity = await getCurrentEntity()
   const salesGross = sql`coalesce(${deal.salesAmountGross}, ${deal.salesAmountNet})`
   const purchaseGross = sql`coalesce(${deal.purchaseAmountGross}, ${deal.purchaseAmountNet})`
   const [accrualRows, cashSales, cashPurchase, expenseRows, categories] = await Promise.all([
@@ -61,7 +63,7 @@ export async function getSalesLedger({ year }: { year: number }): Promise<Ledger
         purchaseNet: sql<string>`coalesce(sum(${deal.purchaseAmountNet}), 0)::text`,
       })
       .from(deal)
-      .where(and(isNull(deal.deletedAt), eq(deal.accrualYear, year)))
+      .where(and(eq(deal.entity, entity), isNull(deal.deletedAt), eq(deal.accrualYear, year)))
       .groupBy(deal.accrualMonth),
     db
       .select({
@@ -72,6 +74,7 @@ export async function getSalesLedger({ year }: { year: number }): Promise<Ledger
       .from(deal)
       .where(
         and(
+          eq(deal.entity, entity),
           isNull(deal.deletedAt),
           eq(deal.salesPaidStatus, 'completed'),
           sql`extract(year from ${deal.salesPaidDate})::int = ${year}`,
@@ -87,6 +90,7 @@ export async function getSalesLedger({ year }: { year: number }): Promise<Ledger
       .from(deal)
       .where(
         and(
+          eq(deal.entity, entity),
           isNull(deal.deletedAt),
           eq(deal.purchasePaidStatus, 'completed'),
           sql`extract(year from ${deal.purchasePaidDate})::int = ${year}`,
@@ -100,7 +104,7 @@ export async function getSalesLedger({ year }: { year: number }): Promise<Ledger
         amount: sql<string>`coalesce(sum(${expense.amount}), 0)::text`,
       })
       .from(expense)
-      .where(and(isNull(expense.deletedAt), eq(expense.year, year)))
+      .where(and(eq(expense.entity, entity), isNull(expense.deletedAt), eq(expense.year, year)))
       .groupBy(expense.month, expense.expenseCategoryId),
     db
       .select({

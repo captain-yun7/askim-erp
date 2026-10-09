@@ -1,5 +1,6 @@
 import { and, desc, eq, isNull, lt, sql } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
+import { getCurrentEntity } from '@/server/entity'
 import { hasPurchase, hasSales } from '@/server/queries/deals'
 import { deal, dealCategory, users } from '@/lib/db/schema'
 
@@ -13,7 +14,8 @@ export async function getDashboard() {
   const month = now.getMonth() + 1
   const today = now.toISOString().slice(0, 10)
 
-  const notDeleted = isNull(deal.deletedAt)
+  // 현재 법인의 거래만
+  const notDeleted = and(eq(deal.entity, await getCurrentEntity()), isNull(deal.deletedAt))!
 
   const sums = {
     sales: sql<string>`coalesce(sum(${deal.salesAmountNet}), 0)::text`,

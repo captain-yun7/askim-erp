@@ -1,9 +1,10 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { and, gte, inArray, isNull, lte } from 'drizzle-orm'
+import { and, gte, inArray, isNull, lte, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '@/lib/db/client'
+import { getCurrentEntity } from '@/server/entity'
 import { expense, expenseCategory } from '@/lib/db/schema'
 import { dupKey, parseExpenseWorkbook, type UploadIssue, type UploadRow } from '@/lib/expense-upload'
 import { canCreateExpense, getSessionUser } from '@/server/auth/guards'
@@ -51,7 +52,7 @@ export async function previewExpenseUpload(formData: FormData): Promise<{ previe
   const existing = await db
     .select({ expenseDate: expense.expenseDate, amount: expense.amount, itemName: expense.itemName, counterpartyText: expense.counterpartyText })
     .from(expense)
-    .where(and(isNull(expense.deletedAt), gte(expense.expenseDate, dates[0]), lte(expense.expenseDate, dates[dates.length - 1])))
+    .where(and(eq(expense.entity, await getCurrentEntity()), isNull(expense.deletedAt), gte(expense.expenseDate, dates[0]), lte(expense.expenseDate, dates[dates.length - 1])))
   const existingKeys = new Set(existing.map(dupKey))
   const seenInFile = new Set<string>()
 
@@ -116,9 +117,11 @@ export async function commitExpenseUpload(raw: unknown): Promise<{ ok: true; ins
   if (target.length === 0) return { error: '등록할 행이 없습니다 (전부 중복)' }
 
   const CHUNK = 500
+  const entity = await getCurrentEntity()
   for (let i = 0; i < target.length; i += CHUNK) {
     await db.insert(expense).values(
       target.slice(i, i + CHUNK).map((r) => ({
+        entity,
         expenseDate: r.expenseDate,
         itemName: r.itemName,
         amount: r.amount.toString(),

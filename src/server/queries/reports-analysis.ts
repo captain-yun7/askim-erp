@@ -1,5 +1,6 @@
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
+import { getCurrentEntity } from '@/server/entity'
 import { counterparty, deal, dealCategory, users } from '@/lib/db/schema'
 import { clientTypeLabel } from '@/lib/client-type'
 
@@ -54,7 +55,8 @@ function withRatio<T extends { amount: number }>(rows: T[]): (T & { ratio: numbe
 
 export async function getSalesAnalysis({ year, month }: { year: number; month?: number | null }): Promise<SalesAnalysis> {
   const m = month && month >= 1 && month <= 12 ? month : null
-  const period = and(isNull(deal.deletedAt), eq(deal.accrualYear, year), m ? eq(deal.accrualMonth, m) : undefined)
+  const entity = await getCurrentEntity()
+  const period = and(eq(deal.entity, entity), isNull(deal.deletedAt), eq(deal.accrualYear, year), m ? eq(deal.accrualMonth, m) : undefined)
   const sumSales = sql<string>`coalesce(sum(${salesGross}), 0)::text`
   const sumPurchase = sql<string>`coalesce(sum(${purchaseGross}), 0)::text`
   const hasSales = sql`${salesGross} is not null and ${salesGross} <> 0`
@@ -95,7 +97,7 @@ export async function getSalesAnalysis({ year, month }: { year: number; month?: 
       })
       .from(deal)
       .leftJoin(users, eq(users.id, deal.ownerUserId))
-      .where(and(isNull(deal.deletedAt), eq(deal.accrualYear, year)))
+      .where(and(eq(deal.entity, entity), isNull(deal.deletedAt), eq(deal.accrualYear, year)))
       .groupBy(users.name, users.team),
   ])
 

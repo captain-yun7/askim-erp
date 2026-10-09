@@ -1,5 +1,6 @@
 import { and, asc, eq, ilike, isNull, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
+import { getCurrentEntity } from '@/server/entity'
 import { counterparty } from '@/lib/db/schema'
 
 export async function listCounterparties(opts?: {
@@ -7,7 +8,7 @@ export async function listCounterparties(opts?: {
   role?: 'media' | 'advertiser' | 'agency'
   limit?: number
 }) {
-  const conds = [isNull(counterparty.deletedAt), eq(counterparty.isActive, true)]
+  const conds = [eq(counterparty.entity, await getCurrentEntity()), isNull(counterparty.deletedAt), eq(counterparty.isActive, true)]
   if (opts?.q) {
     conds.push(ilike(counterparty.name, `%${opts.q}%`))
   }
@@ -30,7 +31,7 @@ export async function getCounterpartyById(id: string, opts: { includeDeleted?: b
   const [row] = await db
     .select()
     .from(counterparty)
-    .where(and(eq(counterparty.id, id), opts.includeDeleted ? undefined : isNull(counterparty.deletedAt)))
+    .where(and(eq(counterparty.id, id), eq(counterparty.entity, await getCurrentEntity()), opts.includeDeleted ? undefined : isNull(counterparty.deletedAt)))
     .limit(1)
   return row ?? null
 }
@@ -44,7 +45,7 @@ function normalizeName(s: string) {
 /** 거래처 자동완성. 빈 검색어면 상호순 상위 목록 반환 */
 export async function searchCounterparties(q: string, limit = 20) {
   const term = normalizeName(q)
-  const conds = [isNull(counterparty.deletedAt), eq(counterparty.isActive, true)]
+  const conds = [eq(counterparty.entity, await getCurrentEntity()), isNull(counterparty.deletedAt), eq(counterparty.isActive, true)]
   if (term) {
     const like = `%${term}%`
     conds.push(

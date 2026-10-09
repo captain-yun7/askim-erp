@@ -3,6 +3,7 @@ import { RememberList } from '@/components/list-return'
 import { and, desc, eq, ilike, isNull, or, sql } from 'drizzle-orm'
 import { Plus, Receipt, Upload, Wallet } from 'lucide-react'
 import { db } from '@/lib/db/client'
+import { getCurrentEntity } from '@/server/entity'
 import { expense, expenseCategory } from '@/lib/db/schema'
 import { buttonVariants } from '@/components/ui/button'
 import { CsvExportButton } from '@/components/csv-export-button'
@@ -54,7 +55,7 @@ export default async function ExpensesPage({
     method: typeof sp.method === 'string' ? sp.method : undefined,
   }
 
-  const conds = [isNull(expense.deletedAt)]
+  const conds = [eq(expense.entity, await getCurrentEntity()), isNull(expense.deletedAt)]
   if (filters.year) conds.push(eq(expense.year, filters.year))
   if (filters.month) conds.push(eq(expense.month, filters.month))
   if (filters.categoryId)

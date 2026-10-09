@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '@/lib/db/client'
+import { getCurrentEntity } from '@/server/entity'
 import { deal, users } from '@/lib/db/schema'
 import {
   canCreateDeal,
@@ -115,6 +116,7 @@ export async function createDeal(raw: unknown) {
         .insert(deal)
         .values({
           ...data,
+          entity: await getCurrentEntity(),
           dealCode,
           createdBy: user.id,
           updatedBy: user.id,
@@ -147,7 +149,7 @@ export async function updateDeal(id: string, raw: unknown) {
   if (!(await canEditDealScoped(user, existing))) return { error: '이 거래를 수정할 권한이 없습니다' }
 
   if (parsed.data.dealCode && parsed.data.dealCode !== existing.dealCode) {
-    const [dup] = await db.select({ id: deal.id }).from(deal).where(and(eq(deal.dealCode, parsed.data.dealCode), isNull(deal.deletedAt))).limit(1)
+    const [dup] = await db.select({ id: deal.id }).from(deal).where(and(eq(deal.entity, await getCurrentEntity()), eq(deal.dealCode, parsed.data.dealCode), isNull(deal.deletedAt))).limit(1)
     if (dup && dup.id !== id) return { error: `거래코드 중복: ${parsed.data.dealCode} 은(는) 이미 있는 코드입니다` }
   }
 
@@ -375,7 +377,7 @@ export async function updateDealInline(
 export async function checkDealCode(code: unknown, excludeId?: unknown): Promise<{ duplicate: boolean }> {
   const c = typeof code === 'string' ? code.trim() : ''
   if (!c) return { duplicate: false }
-  const rows = await db.select({ id: deal.id }).from(deal).where(and(eq(deal.dealCode, c), isNull(deal.deletedAt))).limit(1)
+  const rows = await db.select({ id: deal.id }).from(deal).where(and(eq(deal.entity, await getCurrentEntity()), eq(deal.dealCode, c), isNull(deal.deletedAt))).limit(1)
   const other = rows.find((r) => r.id !== excludeId)
   return { duplicate: Boolean(other) }
 }

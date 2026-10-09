@@ -2,6 +2,7 @@
 
 import { and, asc, desc, eq, ilike, isNull, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
+import { getCurrentEntity } from '@/server/entity'
 import {
   counterparty,
   expense,
@@ -112,6 +113,7 @@ export async function exportCounterpartiesCsv(
 
   try {
     const conds = [
+      eq(counterparty.entity, await getCurrentEntity()),
       isNull(counterparty.deletedAt),
       eq(counterparty.isActive, true),
     ]
@@ -192,7 +194,7 @@ export async function exportExpensesCsv(
   if (!user) return { error: '로그인 필요' }
 
   try {
-    const conds = [isNull(expense.deletedAt)]
+    const conds = [eq(expense.entity, await getCurrentEntity()), isNull(expense.deletedAt)]
     if (filters.year) conds.push(eq(expense.year, filters.year))
     if (filters.month) conds.push(eq(expense.month, filters.month))
     if (filters.categoryId)

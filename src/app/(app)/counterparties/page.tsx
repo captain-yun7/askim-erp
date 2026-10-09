@@ -3,6 +3,7 @@ import { RememberList } from '@/components/list-return'
 import { and, asc, eq, ilike, isNull, or, sql } from 'drizzle-orm'
 import { Plus } from 'lucide-react'
 import { db } from '@/lib/db/client'
+import { getCurrentEntity } from '@/server/entity'
 import { counterparty } from '@/lib/db/schema'
 import { buttonVariants } from '@/components/ui/button'
 import { CsvExportButton } from '@/components/csv-export-button'
@@ -22,7 +23,7 @@ export default async function CounterpartiesPage({
   const { q, role, noBiz, ctype } = await searchParams
   const user = await getSessionUser()
   const showBank = user ? canViewBankInfo(user.role) : false
-  const conds = [isNull(counterparty.deletedAt), eq(counterparty.isActive, true)]
+  const conds = [eq(counterparty.entity, await getCurrentEntity()), isNull(counterparty.deletedAt), eq(counterparty.isActive, true)]
   if (q)
     conds.push(
       or(
