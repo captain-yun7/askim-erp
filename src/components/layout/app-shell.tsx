@@ -146,6 +146,7 @@ export function AppShell({
                   : pathname.startsWith(item.href)
                 return (
                   <Link
+                    prefetch={false}
                     key={item.href}
                     href={item.href}
                     className={cn(

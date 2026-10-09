@@ -120,6 +120,11 @@ export const deal = pgTable(
     index('deal_purchase_paid_idx').on(t.purchasePaidStatus, t.purchaseDueDate),
     index('deal_owner_idx').on(t.ownerUserId, t.accrualYear),
     index('deal_code_base_idx').on(t.dealCodeBase),
+    // 2026-10-09 성능: 기본 정렬(작성순)·거래처 필터·결산연월 집계용 부분 인덱스 (삭제되지 않은 행만)
+    index('deal_live_created_idx').on(t.entity, t.createdAt, t.id).where(sql`${t.deletedAt} is null`),
+    index('deal_supplier_idx').on(t.supplierCounterpartyId).where(sql`${t.deletedAt} is null`),
+    index('deal_issuer_idx').on(t.issuerCounterpartyId).where(sql`${t.deletedAt} is null`),
+    index('deal_settlement_idx').on(t.settlementYear, t.settlementMonth).where(sql`${t.deletedAt} is null`),
   ],
 )
 
