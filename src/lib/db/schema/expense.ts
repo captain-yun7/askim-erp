@@ -19,6 +19,8 @@ export const expense = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     expenseDate: date('expense_date').notNull(),
+    // 법인 (2026-10-08 요청: 한국/미국/중국 분리) — 'kr' | 'us' | 'cn'
+    entity: text('entity').notNull().default('kr'),
     year: integer('year').generatedAlwaysAs(
       sql`extract(year from expense_date)::int`,
     ),
@@ -56,7 +58,7 @@ export const expense = pgTable(
     }),
   },
   (t) => [
-    index('expense_year_month_idx').on(t.year, t.month, t.expenseCategoryId),
+    index('expense_year_month_idx').on(t.entity, t.year, t.month, t.expenseCategoryId),
     index('expense_date_idx').on(t.expenseDate),
   ],
 )

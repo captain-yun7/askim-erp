@@ -134,6 +134,13 @@
       "when": 1791469259840,
       "tag": "0018_deal_review_status",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791508805867,
+      "tag": "0019_entity",
+      "breakpoints": true
     }
   ]
 }

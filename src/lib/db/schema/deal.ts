@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import {
+  uniqueIndex,
   boolean,
   char,
   date,
@@ -22,7 +23,8 @@ export const deal = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
 
     // 식별
-    dealCode: text('deal_code').notNull().unique(),
+    // 거래코드는 법인 안에서만 유일 (미국법인 시트에 한국과 같은 코드가 있음) — uniqueIndex 참조
+    dealCode: text('deal_code').notNull(),
     dealCodeBase: text('deal_code_base').generatedAlwaysAs(
       sql`regexp_replace(deal_code, '-\\d+$', '')`,
     ),
@@ -37,6 +39,8 @@ export const deal = pgTable(
     accountId: integer('account_id').references(() => account.id),
     currency: char('currency', { length: 3 }).notNull().default('KRW'),
     fxRate: numeric('fx_rate', { precision: 10, scale: 4 }),
+    // 법인 (2026-10-08 요청: 한국/미국/중국 분리) — 'kr' | 'us' | 'cn'
+    entity: text('entity').notNull().default('kr'),
     status: dealStatusEnum('status').notNull().default('draft'),
     // 수정요청/완료 표시 (2026-10-08 요청): null → 'requested'(빨강) → 'done'(초록) → null 순환
     reviewStatus: text('review_status', { enum: ['requested', 'done'] }),
@@ -110,6 +114,7 @@ export const deal = pgTable(
     }),
   },
   (t) => [
+    uniqueIndex('deal_entity_code_uq').on(t.entity, t.dealCode),
     index('deal_accrual_idx').on(t.accrualYear, t.accrualMonth),
     index('deal_sales_paid_idx').on(t.salesPaidStatus, t.salesDueDate),
     index('deal_purchase_paid_idx').on(t.purchasePaidStatus, t.purchaseDueDate),

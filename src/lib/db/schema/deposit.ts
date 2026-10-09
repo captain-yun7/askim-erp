@@ -16,6 +16,8 @@ import { users } from './users'
 export const deposit = pgTable('deposit', {
   id: serial('id').primaryKey(),
   counterpartyName: text('counterparty_name').notNull(),
+  // 법인 (2026-10-08 요청: 한국/미국/중국 분리) — 'kr' | 'us' | 'cn'
+  entity: text('entity').notNull().default('kr'),
   counterpartyId: uuid('counterparty_id').references(() => counterparty.id),
   description: text('description'),
   ownerName: text('owner_name'),
@@ -39,6 +41,8 @@ export const deposit = pgTable('deposit', {
 // 전속매체 계약사항 — 같은 파일 '전속매체 계약사항' 시트
 export const exclusiveContract = pgTable('exclusive_contract', {
   id: serial('id').primaryKey(),
+  // 법인 (2026-10-08 요청: 한국/미국/중국 분리) — 'kr' | 'us' | 'cn'
+  entity: text('entity').notNull().default('kr'),
   /** exclusive = 전속매체 계약, asset = 보유자산 현황 (2026-09-09 피드백, 같은 서식) */
   kind: text('kind', { enum: ['exclusive', 'asset'] }).notNull().default('exclusive'),
   mediaName: text('media_name').notNull(),

@@ -1,4 +1,5 @@
 import {
+  primaryKey,
   date,
   integer,
   numeric,
@@ -12,8 +13,12 @@ import {
 import { users } from './users'
 
 // 연간 계획 설정 — 월별 수금결산의 연 목표매출, 현금흐름 기준일/환율
-export const annualPlan = pgTable('annual_plan', {
-  year: integer('year').primaryKey(),
+export const annualPlan = pgTable(
+  'annual_plan',
+  {
+  // 법인별 연간 계획 — (entity, year) 가 기본키
+  entity: text('entity').notNull().default('kr'),
+  year: integer('year').notNull(),
   annualSalesTarget: numeric('annual_sales_target', { precision: 18, scale: 2 }),
   cashAsOf: date('cash_as_of'),
   fxRateUsd: numeric('fx_rate_usd', { precision: 10, scale: 2 }),
@@ -22,24 +27,28 @@ export const annualPlan = pgTable('annual_plan', {
     .defaultNow()
     .$onUpdate(() => new Date()),
   updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
-})
+  },
+  (t) => [primaryKey({ columns: [t.entity, t.year] })],
+)
 
 // 상품군별 매출목표 (엑셀 '26년 plan' 상단 표) — VAT 제외
 export const salesTarget = pgTable(
   'sales_target',
   {
     id: serial('id').primaryKey(),
+    entity: text('entity').notNull().default('kr'),
     year: integer('year').notNull(),
     groupCode: text('group_code').notNull(),
     priority: text('priority'),
     targetAmount: numeric('target_amount', { precision: 18, scale: 2 }).notNull().default('0'),
   },
-  (t) => [uniqueIndex('sales_target_year_group_uq').on(t.year, t.groupCode)],
+  (t) => [uniqueIndex('sales_target_year_group_uq').on(t.entity, t.year, t.groupCode)],
 )
 
 // 계좌 잔액 현황 (엑셀 '26년 plan' 현금흐름 표) — 회계담당 수기 입력, VAT 포함
 export const cashBalance = pgTable('cash_balance', {
   id: serial('id').primaryKey(),
+  entity: text('entity').notNull().default('kr'),
   year: integer('year').notNull(),
   label: text('label').notNull(),
   amountKrw: numeric('amount_krw', { precision: 18, scale: 2 }).notNull().default('0'),

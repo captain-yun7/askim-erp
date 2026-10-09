@@ -14,6 +14,8 @@ export const counterparty = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     name: text('name').notNull(),
+    // 법인 (2026-10-08 요청: 한국/미국/중국 분리) — 'kr' | 'us' | 'cn'
+    entity: text('entity').notNull().default('kr'),
     businessNo: text('business_no'),
     ceo: text('ceo'),
     address: text('address'),
@@ -45,7 +47,7 @@ export const counterparty = pgTable(
   },
   (t) => [
     uniqueIndex('counterparty_business_no_uq')
-      .on(t.businessNo)
+      .on(t.entity, t.businessNo)
       .where(sql`${t.businessNo} IS NOT NULL`),
   ],
 )
