@@ -33,6 +33,8 @@ const ACCOUNTS = [
   { code: 'contract_advance', nameKo: '계약금',  displayOrder: 4 },
   { code: 'advance',          nameKo: '선금',   displayOrder: 5 },
   { code: 'balance',          nameKo: '잔금',   displayOrder: 6 },
+  // 2026-10-08 요청
+  { code: 'survey_fee',       nameKo: '실측비',  displayOrder: 7 },
 ] as const
 
 const SALES_METHODS = [
