@@ -3,7 +3,7 @@
 import { currentFilterParams, pushFilterParams } from '@/lib/filter-nav'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useCallback, useEffect, useOptimistic, useRef, useState, useTransition } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { bulkSetInvoiceDate, deleteDeals, toggleDealPaid, updateDealInline } from '@/server/actions/deals'
 import { Badge } from '@/components/ui/badge'
@@ -86,14 +86,30 @@ type InlineField =
   | 'settlement'
   | 'reviewStatus'
 
+/** 인라인 수정 결과를 그 행에만 반영 — 목록 전체를 다시 불러오지 않는다 (성능, 2026-10-09) */
+const PatchCtx = createContext<(id: string, patch: Partial<Row>) => void>(() => {})
+
+/** 합계 카드에 영향을 주는 수정(금액·입금/결산)은 화면을 먼저 바꾼 뒤 뒤에서 조용히 다시 불러온다 */
+function useRefreshCards() {
+  const router = useRouter()
+  return useCallback(() => router.refresh(), [router])
+}
+
 function useInlineSave(dealId: string) {
   const [pending, start] = useTransition()
+  const apply = useContext(PatchCtx)
+  const refreshCards = useRefreshCards()
   /** optimistic: 서버 응답 전에 화면을 먼저 바꾸는 setter (실패·응답 시 서버값으로 되돌아감) */
   function save(field: InlineField, value: string | number | null, optimistic?: () => void) {
     start(async () => {
       optimistic?.()
       const res = await updateDealInline(dealId, { field, value })
-      if ('error' in res) toast.error(res.error)
+      if ('error' in res) {
+        toast.error(res.error)
+        return
+      }
+      apply(dealId, res.row)
+      if (field === 'salesAmountNet' || field === 'purchaseAmountNet') refreshCards()
     })
   }
   return { pending, save }
@@ -283,6 +299,7 @@ function InlineDate({
 /** 귀속연월 인라인 편집 — 'YY/M' 표시, 클릭 → 'YYYY-MM' 입력 (2026-09-14 피드백) */
 function InlineAccrual({ dealId, year, month, enabled }: { dealId: string; year: number; month: number; enabled: boolean }) {
   const [pending, start] = useTransition()
+  const apply = useContext(PatchCtx)
   const [shown, setShown] = useOptimistic({ year, month })
   const [editing, setEditing] = useState(false)
   const text = `${String(shown.year).slice(2)}/${shown.month}`
@@ -304,6 +321,7 @@ function InlineAccrual({ dealId, year, month, enabled }: { dealId: string; year:
             setShown(next)
             const res = await updateDealInline(dealId, { field: 'accrual', value: next })
             if ('error' in res) toast.error(res.error)
+            else apply(dealId, res.row)
           })
         }}
         onKeyDown={(e) => {
@@ -326,6 +344,7 @@ function InlineAccrual({ dealId, year, month, enabled }: { dealId: string; year:
  */
 function ReviewMark({ dealId, value, enabled }: { dealId: string; value: 'requested' | 'done' | null; enabled: boolean }) {
   const [pending, start] = useTransition()
+  const apply = useContext(PatchCtx)
   const [shown, setShown] = useOptimistic(value)
   const next = shown === null ? 'requested' : shown === 'requested' ? 'done' : null
   const label = shown === 'requested' ? '수정요청' : shown === 'done' ? '수정완료' : ''
@@ -349,6 +368,7 @@ function ReviewMark({ dealId, value, enabled }: { dealId: string; value: 'reques
           setShown(next)
           const res = await updateDealInline(dealId, { field: 'reviewStatus', value: next })
           if ('error' in res) toast.error(res.error)
+          else apply(dealId, res.row)
         })
       }}
     >
@@ -386,6 +406,7 @@ function BankInfo({ name, bank, account, holder }: { name: string | null; bank: 
 /** 결산연월 인라인 편집 (2026-10-06 요청) — 'YYYY-MM' 표시, 클릭 → month 입력. 비우면 삭제 */
 function InlineSettlement({ dealId, year, month, enabled }: { dealId: string; year: number | null; month: number | null; enabled: boolean }) {
   const [pending, start] = useTransition()
+  const apply = useContext(PatchCtx)
   const [shown, setShown] = useOptimistic({ year, month })
   const [editing, setEditing] = useState(false)
   const text = shown.year && shown.month ? `${shown.year}-${String(shown.month).padStart(2, '0')}` : '-'
@@ -407,6 +428,7 @@ function InlineSettlement({ dealId, year, month, enabled }: { dealId: string; ye
             setShown(next)
             const res = await updateDealInline(dealId, { field: 'settlement', value: next })
             if ('error' in res) toast.error(res.error)
+            else apply(dealId, res.row)
           })
         }}
         onKeyDown={(e) => {
@@ -439,6 +461,8 @@ function PaidToggle({
   enabled: boolean
 }) {
   const [pending, start] = useTransition()
+  const apply = useContext(PatchCtx)
+  const refreshCards = useRefreshCards()
   const [shown, setShown] = useOptimistic(done)
   if (!enabled) return <StatusPill done={done} doneLabel={doneLabel} todoLabel={todoLabel} />
   return (
@@ -451,7 +475,12 @@ function PaidToggle({
         start(async () => {
           setShown(!done)
           const res = await toggleDealPaid(dealId, side)
-          if ('error' in res) toast.error(res.error)
+          if ('error' in res) {
+            toast.error(res.error)
+            return
+          }
+          apply(dealId, res.row)
+          refreshCards()
         })
       }
     >
@@ -622,6 +651,7 @@ function ColumnFilterSelect({
 
   return (
     <select
+      data-prehydrate-param={param}
       aria-label={ariaLabel ?? `${param} 검색`}
       title={title}
       value={value ?? ''}
@@ -877,7 +907,12 @@ function BulkBar({ container, showAll }: { container: React.RefObject<HTMLDivEle
   )
 }
 
-export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows: Row[]; columnFilters?: ColumnFilters; canCopy?: boolean }) {
+export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = false }: { rows: Row[]; columnFilters?: ColumnFilters; canCopy?: boolean }) {
+  // 인라인 수정 결과는 서버가 돌려준 그 행 값으로 덮어쓴다. 서버 목록이 새로 오면 비운다
+  const [patches, setPatches] = useState<Record<string, Partial<Row>>>({})
+  useEffect(() => setPatches({}), [serverRows])
+  const apply = useCallback((id: string, patch: Partial<Row>) => setPatches((s) => ({ ...s, [id]: { ...s[id], ...patch } })), [])
+  const rows = useMemo(() => serverRows.map((r) => (patches[r.id] ? { ...r, ...patches[r.id] } : r)), [serverRows, patches])
   const hasFilter = Object.values(columnFilters).some(Boolean)
   // 상세에서 돌아올 때 필터 유지 (2026-09-14 피드백)
   const search = useSearchParams().toString()
@@ -920,6 +955,7 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
     )
   }
   return (
+    <PatchCtx.Provider value={apply}>
     <div ref={container} className="flex min-h-0 flex-1 flex-col">
     {/* 필터·검색이 바뀌면 선택을 비운다 */}
     <BulkBar key={search} container={container} showAll={showAll} />
@@ -1183,5 +1219,6 @@ export function DealsTable({ rows, columnFilters = {}, canCopy = false }: { rows
       </table>
     </div>
     </div>
+    </PatchCtx.Provider>
   )
 }

@@ -14,6 +14,7 @@ import {
 } from '@/server/auth/guards'
 import { canEditDealScoped } from '@/server/auth/deal-scope'
 import { recordDealChanges } from '@/server/deal-changes'
+import { getInlineRow, type InlineRow } from '@/server/queries/deals'
 import { audit, diffFields } from '@/server/audit'
 
 const AMOUNT_FIELDS = [
@@ -207,7 +208,7 @@ export async function deleteDeal(id: string) {
 export async function toggleDealPaid(
   id: string,
   side: 'sales' | 'purchase',
-): Promise<{ ok: true; status: string } | { error: string }> {
+): Promise<{ ok: true; status: string; row: InlineRow } | { error: string }> {
   const user = await getSessionUser()
   if (!user) return { error: '로그인 필요' }
 
@@ -234,16 +235,14 @@ export async function toggleDealPaid(
     await db.update(deal).set({ ...patch, updatedBy: user.id }).where(eq(deal.id, id))
     await recordDealChanges(id, row, patch, user.id)
     await audit({ action: 'deal.paid_toggle', targetType: 'deal', targetId: id, targetLabel: row.dealCode, summary: `${row.dealCode} 입금 ${next === 'completed' ? '완료' : '미입금으로 되돌림'}`, detail: patch })
-    revalidatePath('/deals')
-    return { ok: true, status: next }
+    return { ok: true, status: next, row: await getInlineRow(id) }
   }
   const next = (row.purchasePaidStatus === 'completed' ? 'pending' : 'completed') as 'pending' | 'completed'
   const patch = { purchasePaidStatus: next, purchasePaidDate: next === 'completed' ? (row.purchasePaidDate ?? today) : null }
   await db.update(deal).set({ ...patch, updatedBy: user.id }).where(eq(deal.id, id))
   await recordDealChanges(id, row, patch, user.id)
   await audit({ action: 'deal.paid_toggle', targetType: 'deal', targetId: id, targetLabel: row.dealCode, summary: `${row.dealCode} 결산 ${next === 'completed' ? '완료' : '미결산으로 되돌림'}`, detail: patch })
-  revalidatePath('/deals')
-  return { ok: true, status: next }
+  return { ok: true, status: next, row: await getInlineRow(id) }
 }
 
 /** 목록 인라인 셀 편집 (2단계): 금액(매출금/매입금)·날짜 6종 (2026-08-25 회의)
@@ -290,7 +289,7 @@ const inlineSchema = z.union([
 export async function updateDealInline(
   id: string,
   raw: unknown,
-): Promise<{ ok: true } | { error: string }> {
+): Promise<{ ok: true; row: InlineRow } | { error: string }> {
   const user = await getSessionUser()
   if (!user) return { error: '로그인 필요' }
   const parsed = inlineSchema.safeParse(raw)
@@ -308,16 +307,14 @@ export async function updateDealInline(
     await db.update(deal).set({ commissionPct: next, updatedBy: user.id }).where(eq(deal.id, id))
     const pct = (v: string | null) => (v === null ? '기본' : `${Math.round(parseFloat(v) * 10000) / 100}%`)
     await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} 인센티브 ${pct(existing.commissionPct)} → ${pct(next)}`, detail: { commissionPct: [existing.commissionPct ?? null, next] } })
-    revalidatePath('/deals')
-    return { ok: true }
+    return { ok: true, row: await getInlineRow(id) }
   }
   if (field === 'reviewStatus') {
     if (user.role === 'viewer') return { error: '조회 전용 계정은 표시할 수 없습니다' }
     await db.update(deal).set({ reviewStatus: value, updatedBy: user.id }).where(eq(deal.id, id))
     const label = (v: string | null) => (v === 'requested' ? '수정요청' : v === 'done' ? '수정완료' : '없음')
     await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} 표시 ${label(existing.reviewStatus)} → ${label(value)}`, detail: { reviewStatus: [existing.reviewStatus ?? null, value] } })
-    revalidatePath('/deals')
-    return { ok: true }
+    return { ok: true, row: await getInlineRow(id) }
   }
   if (field === 'settlement') {
     const patch = { settlementYear: value.year, settlementMonth: value.month }
@@ -325,8 +322,7 @@ export async function updateDealInline(
     await recordDealChanges(id, existing, patch, user.id)
     const ym = (y: number | null, m: number | null) => (y && m ? `${y}-${String(m).padStart(2, '0')}` : '-')
     await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} 결산연월 ${ym(existing.settlementYear, existing.settlementMonth)} → ${ym(value.year, value.month)}`, detail: diffFields(existing as Record<string, unknown>, patch) })
-    revalidatePath('/deals')
-    return { ok: true }
+    return { ok: true, row: await getInlineRow(id) }
   }
   if (field === 'accrual') {
     // 귀속연월 인라인 수정 (2026-09-14 피드백)
@@ -334,8 +330,7 @@ export async function updateDealInline(
     await db.update(deal).set({ ...patch, updatedBy: user.id }).where(eq(deal.id, id))
     await recordDealChanges(id, existing, patch, user.id)
     await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} 귀속월 ${existing.accrualYear}/${existing.accrualMonth} → ${value.year}/${value.month}`, detail: diffFields(existing as Record<string, unknown>, patch) })
-    revalidatePath('/deals')
-    return { ok: true }
+    return { ok: true, row: await getInlineRow(id) }
   }
   if (field === 'salesAmountNet' || field === 'purchaseAmountNet') {
     if (!(await canEditDealScoped(user, existing)))
@@ -369,8 +364,7 @@ export async function updateDealInline(
     await recordDealChanges(id, existing, { [field]: value }, user.id)
     await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} ${field} ${existing[field] ?? '-'} → ${value ?? '-'}`, detail: { [field]: [existing[field] ?? null, value] } })
   }
-  revalidatePath('/deals')
-  return { ok: true }
+  return { ok: true, row: await getInlineRow(id) }
 }
 
 /** 거래코드 중복 검사 — 폼 입력 시 즉시 안내 (2026-09-09 피드백) */

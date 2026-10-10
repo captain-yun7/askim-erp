@@ -56,6 +56,8 @@ test.describe('① 거래 목록 컬럼별 검색 (금액·상태·날짜)', () 
   test('입금/결산 셀렉트 → 즉시 적용, 모든 행 미입금+결산', async ({ page }) => {
     await login(page)
     await page.goto('/deals?year=2026')
+    // 셀렉트는 React 가 붙은 뒤에 고른다 (목록이 가벼워져 load 가 하이드레이션보다 먼저 끝남, 2026-10-10)
+    await page.locator('[data-bulk-ready]').waitFor()
     await page.getByLabel('fPaid 검색').selectOption('unpaid')
     await page.waitForURL((u) => u.searchParams.get('fPaid') === 'unpaid')
     await page.getByLabel('fSettled 검색').selectOption('settled')

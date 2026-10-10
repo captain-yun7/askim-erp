@@ -394,6 +394,40 @@ export async function listDeals(f: DealListFilters = {}) {
   }
 }
 
+/** 인라인 수정 뒤 그 행만 다시 읽는다 — 목록 전체를 다시 그리지 않으려고 (성능, 2026-10-09) */
+export type InlineRow = Awaited<ReturnType<typeof getInlineRow>>
+export async function getInlineRow(id: string) {
+  const [row] = await db
+    .select({
+      salesAmountNet: deal.salesAmountNet,
+      salesVat: deal.salesVat,
+      purchaseAmountNet: deal.purchaseAmountNet,
+      purchaseVat: deal.purchaseVat,
+      salesAmountGross: sql<string | null>`coalesce(${deal.salesAmountGross}, ${deal.salesAmountNet} + coalesce(${deal.salesVat}, 0))`,
+      purchaseAmountGross: sql<string | null>`coalesce(${deal.purchaseAmountGross}, ${deal.purchaseAmountNet} + coalesce(${deal.purchaseVat}, 0))`,
+      profit: deal.profit,
+      commissionPct: deal.commissionPct,
+      salesPaidStatus: deal.salesPaidStatus,
+      purchasePaidStatus: deal.purchasePaidStatus,
+      salesDueDate: deal.salesDueDate,
+      salesPaidDate: deal.salesPaidDate,
+      salesInvoiceDate: deal.salesInvoiceDate,
+      purchaseDueDate: deal.purchaseDueDate,
+      purchasePaidDate: deal.purchasePaidDate,
+      purchaseInvoiceDate: deal.purchaseInvoiceDate,
+      settlementYear: deal.settlementYear,
+      settlementMonth: deal.settlementMonth,
+      accrualYear: deal.accrualYear,
+      accrualMonth: deal.accrualMonth,
+      reviewStatus: deal.reviewStatus,
+    })
+    .from(deal)
+    .where(eq(deal.id, id))
+    .limit(1)
+  const changes = await getRecentChanges([id])
+  return { ...row!, recentChanges: changes[id] ?? {} }
+}
+
 export async function getDealById(id: string) {
   const [row] = await db
     .select()

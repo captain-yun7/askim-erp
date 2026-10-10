@@ -209,6 +209,8 @@ export default async function DealsPage({
           </b>
         </div>
 
+        {/* 화면이 가벼워져 React 가 붙기 전에 셀렉트를 고를 수 있다 — 그때는 주소 이동으로 바로 적용 (2026-10-10) */}
+        <script dangerouslySetInnerHTML={{ __html: PREHYDRATE_SELECT }} />
         <DealsTable
           canCopy={me != null && canCreateDeal(me.role)}
           columnFilters={{
@@ -360,3 +362,6 @@ function Delta({ current, prev }: { current: number; prev: number }) {
     </span>
   )
 }
+
+/** React 가 붙기 전(data-bulk-ready 없음) 셀렉트 변경 → 주소 이동. 붙은 뒤에는 React 가 처리한다 */
+const PREHYDRATE_SELECT = `document.addEventListener('change',function(e){var t=e.target;if(!t||!t.matches||!t.matches('select[data-prehydrate-param]'))return;if(document.querySelector('[data-bulk-ready]'))return;var u=new URL(location.href);var k=t.getAttribute('data-prehydrate-param');if(t.value)u.searchParams.set(k,t.value);else u.searchParams.delete(k);u.searchParams.delete('page');location.assign(u.toString())})`
