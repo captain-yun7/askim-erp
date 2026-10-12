@@ -428,6 +428,16 @@ export async function getInlineRow(id: string) {
   return { ...row!, recentChanges: changes[id] ?? {} }
 }
 
+/** 귀속연도 탭용 — 현재 법인에 거래가 있는 연도 (최근 순) */
+export async function listDealYears(): Promise<number[]> {
+  const rows = await db
+    .selectDistinct({ y: deal.accrualYear })
+    .from(deal)
+    .where(and(isNull(deal.deletedAt), ...(await scopeConds())))
+    .orderBy(desc(deal.accrualYear))
+  return rows.map((r) => r.y)
+}
+
 export async function getDealById(id: string) {
   const [row] = await db
     .select()

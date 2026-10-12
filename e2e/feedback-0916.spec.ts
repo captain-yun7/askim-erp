@@ -172,11 +172,12 @@ test('④ 이메일 — 담당자 클릭 시 네이버웍스 메일 쓰기 창',
 
 test('⑤ 거래 필터 — 귀속연도 다중 선택', async ({ page }) => {
   await login(page, ADMIN)
-  await page.goto('/deals')
+  // 기본이 올해(2026-10-12 요청)라 먼저 해제하고 고른다
+  await page.goto('/deals?year=all')
   await page.getByLabel('귀속연도 필터').click()
-  await page.getByText('2024', { exact: true }).click()
+  await page.getByRole('checkbox', { name: '2024', exact: true }).click()
   await page.waitForURL((u) => u.searchParams.get('year') === '2024')
-  await page.getByText('2025', { exact: true }).click()
+  await page.getByRole('checkbox', { name: '2025', exact: true }).click()
   await page.waitForURL((u) => u.searchParams.get('year') === '2024,2025')
   const accrual = await page.locator('[data-slot=deals-scroll] tbody tr td:nth-child(3)').allInnerTexts()
   expect(accrual.length).toBeGreaterThan(0)

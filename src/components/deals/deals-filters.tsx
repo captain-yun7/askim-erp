@@ -19,16 +19,25 @@ import { cn } from '@/lib/utils'
 type Cat = { id: number; nameKo: string }
 type User = { id: string; name: string }
 
+const yearTab =
+  'h-7 rounded-full px-3 text-[13px] font-medium text-muted-foreground hover:text-foreground data-[active=true]:bg-primary data-[active=true]:text-primary-foreground'
+
 const chip =
   'h-9 gap-1.5 rounded-full border bg-background px-3.5 text-[13px] font-medium data-[active=true]:border-primary data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:[&_span]:text-primary-foreground/70'
 
 export function DealsFilters({
   categories,
   users,
+  yearOptions,
+  allYears = false,
   initial,
 }: {
   categories: Cat[]
   users: User[]
+  /** 거래가 있는 귀속연도 (최근 순) — 연도 탭 */
+  yearOptions?: number[]
+  /** year=all 로 전체 연도를 보는 중 */
+  allYears?: boolean
   initial: {
     q?: string
     years?: number[]
@@ -44,10 +53,11 @@ export function DealsFilters({
 }) {
   const router = useRouter()
 
-  function update(patch: Record<string, string | undefined>) {
+  function update(patch: Record<string, string | undefined>, opts?: { keepAll?: boolean }) {
     const next = currentFilterParams('/deals')
     for (const [k, v] of Object.entries(patch)) {
-      if (v === undefined || v === '' || v === 'all') next.delete(k)
+      // year=all 은 "전체 연도"라는 실제 값이라 지우지 않는다 (기본은 올해)
+      if (v === undefined || v === '' || (v === 'all' && !opts?.keepAll)) next.delete(k)
       else next.set(k, v)
     }
     next.delete('page')
@@ -70,11 +80,25 @@ export function DealsFilters({
         />
       </div>
 
+      {/* 귀속연도 탭 (2026-10-12 긴급 요청): 기본 올해, 눌러서 연도 바꾸기, 전체 */}
+      <div data-slot="year-tabs" className="flex items-center gap-1 rounded-full border bg-background p-1">
+        {[...new Set([new Date().getFullYear(), ...(yearOptions ?? [])])].sort((a, b) => b - a).map((y) => {
+          const active = !allYears && initial.years?.length === 1 && initial.years[0] === y
+          return (
+            <button key={y} type="button" data-active={active} className={yearTab} onClick={() => update({ year: String(y) })}>
+              {y}
+            </button>
+          )
+        })}
+        <button type="button" data-active={allYears} className={yearTab} onClick={() => update({ year: 'all' }, { keepAll: true })}>
+          전체
+        </button>
+      </div>
       <MultiSelect
         label="귀속연도"
-        options={[2023, 2024, 2025, 2026, 2027].map((y) => ({ value: String(y), label: String(y) }))}
+        options={[...new Set([2023, 2024, 2025, 2026, 2027, ...(yearOptions ?? [])])].sort().map((y) => ({ value: String(y), label: String(y) }))}
         selected={(initial.years ?? []).map(String)}
-        onChange={(v) => update({ year: v.length ? v.join(',') : undefined })}
+        onChange={(v) => update({ year: v.length ? v.join(',') : 'all' }, { keepAll: true })}
         width="w-40"
       />
 

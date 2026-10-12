@@ -70,13 +70,13 @@ export default async function DashboardPage() {
           label="미입금 (예정일 지남)"
           count={d.overdueReceivable.count}
           amount={d.overdueReceivable.amount}
-          href="/deals?paid=unpaid"
+          href="/deals?paid=unpaid&year=all"
         />
         <AlertCard
           label="미결산 (예정일 지남)"
           count={d.overduePayable.count}
           amount={d.overduePayable.amount}
-          href="/deals?paid=unsettled"
+          href="/deals?paid=unsettled&year=all"
         />
       </section>
 
