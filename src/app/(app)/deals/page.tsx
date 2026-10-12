@@ -16,7 +16,7 @@ import { DealsTable } from '@/components/deals/deals-table'
 import { DealsFilters } from '@/components/deals/deals-filters'
 import { DealQuickAdd } from '@/components/deals/deal-quick-add'
 import { CollapseOnTableScroll } from '@/components/deals/collapse-on-table-scroll'
-import { listDeals, listOverdueSalesDue } from '@/server/queries/deals'
+import { listDealYears, listDeals, listOverdueSalesDue } from '@/server/queries/deals'
 import { OverdueNotice } from '@/components/deals/overdue-notice'
 import { DEAL_SORT_LABEL, type DealSort } from '@/lib/deal-sort'
 import { canCreateDeal, canDeleteDeal, canViewCommission, getSessionUser } from '@/server/auth/guards'
@@ -50,12 +50,20 @@ function pickColumnFilters(sp: SP) {
   return out
 }
 
+/** year 파라미터: 없음 → 올해, 'all' → 전체(undefined), 그 외 쉼표 목록 */
+function yearsOf(v: string | undefined): number[] | undefined {
+  if (v === 'all') return undefined
+  if (!v) return [new Date().getFullYear()]
+  return intList(v)
+}
+
 export default async function DealsPage({
   searchParams,
 }: {
   searchParams: Promise<SP>
 }) {
   const sp = await searchParams
+  const yearParam = typeof sp.year === 'string' ? sp.year : undefined
   const filters = {
     q: typeof sp.q === 'string' ? sp.q : undefined,
     fCode: typeof sp.fCode === 'string' ? sp.fCode : undefined,
@@ -63,8 +71,9 @@ export default async function DealsPage({
     fSupplier: typeof sp.fSupplier === 'string' ? sp.fSupplier : undefined,
     ...pickColumnFilters(sp),
     // 귀속연도 다중 선택 (2026-09-16 피드백) — 하나만 고르면 전월 대비·행 추가 기본값에 쓰도록 year 도 채움
-    years: intList(sp.year),
-    year: intList(sp.year)?.length === 1 ? intList(sp.year)![0] : undefined,
+    // 2026-10-12 긴급 요청: 기본은 올해, 'all' 이면 전체 (2025 적재 뒤 옛 거래가 맨 위에 보이던 문제)
+    years: yearsOf(yearParam),
+    year: yearsOf(yearParam)?.length === 1 ? yearsOf(yearParam)![0] : undefined,
     // 월·상품구분·상태 다중 선택 (2026-09-09 피드백) — 쉼표 구분
     months: intList(sp.month),
     categoryIds: intList(sp.categoryId),
@@ -79,8 +88,8 @@ export default async function DealsPage({
     dir: (sp.dir === 'asc' ? 'asc' : 'desc') as 'asc' | 'desc',
   }
 
-  const [{ rows, total, aggregate, prevAggregate }, lookups, me, overdue] =
-    await Promise.all([listDeals(filters), getAllLookups(), getSessionUser(), listOverdueSalesDue()])
+  const [{ rows, total, aggregate, prevAggregate }, lookups, me, overdue, years] =
+    await Promise.all([listDeals(filters), getAllLookups(), getSessionUser(), listOverdueSalesDue(), listDealYears()])
 
   // 담당자 필터 옵션도 조회 범위에 맞춤 (팀장=팀원, 팀원=본인)
   const scope = me ? await resolveDealScope(me) : ({ kind: 'all' } as const)
@@ -181,6 +190,8 @@ export default async function DealsPage({
           <DealsFilters
             categories={lookups.categories}
             users={filterUsers}
+            yearOptions={years}
+            allYears={yearParam === 'all'}
             initial={{
               q: filters.q,
               years: filters.years,
