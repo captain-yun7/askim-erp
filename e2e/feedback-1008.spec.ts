@@ -131,13 +131,15 @@ test('⑦ 수정 모아보기 — 최근에 바뀐 거래만', async ({ page }) 
   for (const tr of await page.locator('[data-slot=deals-scroll] tbody tr').all()) expect(await tr.locator('[data-changed]').count()).toBeGreaterThan(0)
 })
 
-test('⑧ 수정요청 → 수정완료 → 지움 순환, 표시별 모아보기', async ({ page }) => {
+test('⑧ 수정요청 → 수정완료 → 지움 (관리자 메뉴), 표시별 모아보기', async ({ page }) => {
   await login(page)
   await page.goto('/deals?fCode=E2E0916')
   await dismissOverdue(page)
   const mark = rowOf(page, 'E2E0916-LEAD').locator('[data-review]')
   await expect(mark).toHaveAttribute('data-review', 'none')
+  // 2026-10-12: 누르면 바로 바뀌지 않고 메뉴에서 고른다
   await mark.click()
+  await rowOf(page, 'E2E0916-LEAD').getByRole('menuitem', { name: '수정요청 표시' }).click()
   await expect(mark).toHaveText('수정요청')
   await page.waitForLoadState('networkidle')
   await page.reload()
@@ -155,9 +157,11 @@ test('⑧ 수정요청 → 수정완료 → 지움 순환, 표시별 모아보�
   await dismissOverdue(page)
   const m2 = rowOf(page, 'E2E0916-LEAD').locator('[data-review]')
   await m2.click()
+  await rowOf(page, 'E2E0916-LEAD').getByRole('menuitem', { name: '수정완료 표시' }).click()
   await expect(m2).toHaveText('수정완료')
   await page.waitForLoadState('networkidle')
   await m2.click()
+  await rowOf(page, 'E2E0916-LEAD').getByRole('menuitem', { name: '표시 지우기' }).click()
   await expect(m2).toHaveAttribute('data-review', 'none')
   await page.waitForLoadState('networkidle')
   await page.reload()

@@ -18,6 +18,7 @@ import {
   Target,
   IdCard,
   PieChart,
+  MessageSquareWarning,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { avatarInitials } from '@/lib/format'
@@ -75,6 +76,8 @@ const ADMIN_SECTION: { title: string; items: NavItem[] } = {
     { href: '/admin', label: '사용자·설정', icon: Settings },
     // 급여 정보 — 관리자에게만 보인다 (2026-10-02 요청)
     { href: '/hr', label: '인사관리', icon: IdCard },
+    // 월별·담당자별 수정요청 횟수 — 관리자만 (2026-10-12 요청)
+    { href: '/review-requests', label: '수정요청 집계', icon: MessageSquareWarning },
   ],
 }
 

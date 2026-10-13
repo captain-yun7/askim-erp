@@ -38,6 +38,7 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   'plan.save': '매출목표/잔액 저장',
   'setting.update': '설정 변경',
   'entity.switch': '법인 전환',
+  'review_count.set': '수정요청 횟수 수정',
   'hr.view': '인사관리 열람',
   'hr.save': '인사 정보 저장',
   'hr.delete': '인사 정보 삭제',

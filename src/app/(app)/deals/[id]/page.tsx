@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import { DealForm } from '@/components/deals/deal-form'
+import { getCurrentEntity } from '@/server/entity'
+import { entityInfo } from '@/lib/entity'
 import { getDealById } from '@/server/queries/deals'
 import { getCounterpartyById } from '@/server/queries/counterparties'
 import { getAllLookups } from '@/server/queries/lookups'
@@ -25,11 +27,12 @@ export default async function EditDealPage({
   const d = await getDealById(id)
   if (!d) notFound()
 
-  const [lookups, issuer, supplier, user] = await Promise.all([
+  const [lookups, issuer, supplier, user, entity] = await Promise.all([
     getAllLookups(),
     d.issuerCounterpartyId ? getCounterpartyById(d.issuerCounterpartyId, { includeDeleted: true }) : null,
     d.supplierCounterpartyId ? getCounterpartyById(d.supplierCounterpartyId, { includeDeleted: true }) : null,
     getSessionUser(),
+    getCurrentEntity(),
   ])
 
   const readOnly = !user || !(await canEditDealScoped(user, d))
@@ -67,6 +70,7 @@ export default async function EditDealPage({
         lookups={lookups}
         readOnly={readOnly}
         backHref={backHref}
+        foreign={!entityInfo(entity).hasVat}
         canDelete={user != null && canDeleteDeal(user, d)}
         initial={
           {

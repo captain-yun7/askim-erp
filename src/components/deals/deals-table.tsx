@@ -20,7 +20,8 @@ import { DateInput } from '@/components/ui/date-input'
 import { AttachmentButton } from '@/components/attachments/attachment-button'
 import { cn } from '@/lib/utils'
 import { formatDate, formatKRW } from '@/lib/format'
-import { incentiveAmount, incentivePercentText, incentiveRate } from '@/lib/incentive'
+import { incentiveAmount, incentivePercentText, incentiveRate, profitKrw } from '@/lib/incentive'
+import { REVIEW_LABEL, type ReviewStatus } from '@/lib/review-mark'
 import { changeTitle, columnChange, type LIST_COLUMN_FIELDS, type RecentChanges } from '@/lib/change-highlight'
 
 type Row = {
@@ -40,6 +41,7 @@ type Row = {
   salesMemo?: string | null
   purchaseMemo?: string | null
   profit: string | null
+  fxRate?: string | null
   commissionPct?: string | null
   canViewIncentive?: boolean
   canEditIncentive?: boolean
@@ -56,7 +58,8 @@ type Row = {
   ownerUserId: string | null
   canTogglePaid: boolean
   canDelete?: boolean
-  canReview?: boolean
+  /** 이 사람이 바꿀 수 있는 수정요청 표시 (2026-10-12: 요청은 관리자, 완료는 담당자·관리자) */
+  reviewChoices?: ReviewStatus[]
   recentChanges?: RecentChanges
   attachmentCount?: number
   categoryName: string | null
@@ -339,41 +342,77 @@ function InlineAccrual({ dealId, year, month, enabled }: { dealId: string; year:
 }
 
 /**
- * 수정요청/완료 표시 (2026-10-08 요청) — 거래 왼쪽의 네모를 누를 때마다 없음 → 수정요청(빨강) → 수정완료(초록) → 없음.
- * 요청한 사람과 처리한 사람이 다르므로 누구나(조회 전용 제외) 바꿀 수 있다.
+ * 수정요청/완료 표시 (2026-10-08 요청). 2026-10-12: 실수로 바뀌지 않게 누르면 바로 바뀌지 않고 고를 수 있는 메뉴가 열린다.
+ * 수정요청은 관리자만, 수정완료는 담당자 본인·관리자만 (lib/review-mark). 고를 게 없으면 표시만 한다.
  */
-function ReviewMark({ dealId, value, enabled }: { dealId: string; value: 'requested' | 'done' | null; enabled: boolean }) {
+function ReviewMark({ dealId, value, choices }: { dealId: string; value: ReviewStatus; choices: ReviewStatus[] }) {
   const [pending, start] = useTransition()
   const apply = useContext(PatchCtx)
   const [shown, setShown] = useOptimistic(value)
-  const next = shown === null ? 'requested' : shown === 'requested' ? 'done' : null
-  const label = shown === 'requested' ? '수정요청' : shown === 'done' ? '수정완료' : ''
+  const [open, setOpen] = useState(false)
+  const box = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (e: MouseEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [open])
+  const label = shown ? REVIEW_LABEL[shown] : ''
+  const enabled = choices.length > 0
+  function pick(next: ReviewStatus) {
+    setOpen(false)
+    start(async () => {
+      setShown(next)
+      const res = await updateDealInline(dealId, { field: 'reviewStatus', value: next })
+      if ('error' in res) toast.error(res.error)
+      else apply(dealId, res.row)
+    })
+  }
   return (
-    <button
-      type="button"
-      disabled={!enabled || pending}
-      data-review={shown ?? 'none'}
-      aria-label={`${label || '표시 없음'} — 눌러서 ${next === 'requested' ? '수정요청' : next === 'done' ? '수정완료' : '표시 지우기'}`}
-      title={enabled ? `한 번 누르면 수정요청, 한 번 더 누르면 수정완료, 다시 누르면 지움` : label}
-      className={cn(
-        'inline-flex h-5 min-w-5 shrink-0 items-center justify-center gap-1 rounded border px-1 text-[10.5px] font-semibold leading-none',
-        shown === 'requested' && 'border-red-300 bg-red-50 text-red-600',
-        shown === 'done' && 'border-emerald-300 bg-emerald-50 text-emerald-700',
-        shown === null && 'border-slate-300 bg-white text-transparent hover:border-slate-500',
-        pending && 'opacity-60',
+    <span ref={box} className="relative inline-flex">
+      <button
+        type="button"
+        disabled={!enabled || pending}
+        data-review={shown ?? 'none'}
+        aria-label={label || '표시 없음'}
+        aria-expanded={enabled ? open : undefined}
+        title={enabled ? '눌러서 수정요청·수정완료 표시' : label || undefined}
+        className={cn(
+          'inline-flex h-5 min-w-5 shrink-0 items-center justify-center gap-1 rounded border px-1 text-[10.5px] font-semibold leading-none',
+          shown === 'requested' && 'border-red-300 bg-red-50 text-red-600',
+          shown === 'done' && 'border-emerald-300 bg-emerald-50 text-emerald-700',
+          shown === null && 'border-slate-300 bg-white text-transparent',
+          shown === null && enabled && 'hover:border-slate-500',
+          shown === null && !enabled && 'border-slate-200',
+          pending && 'opacity-60',
+        )}
+        onClick={() => enabled && setOpen((o) => !o)}
+      >
+        {label || '·'}
+      </button>
+      {open && (
+        <span data-slot="review-menu" role="menu" className="absolute left-0 top-full z-30 mt-1 flex w-max flex-col rounded-lg border bg-popover p-1 text-[12px] text-popover-foreground shadow-md">
+          {choices.map((c) => (
+            <button
+              key={c ?? 'none'}
+              type="button"
+              role="menuitem"
+              className={cn(
+                'rounded px-2.5 py-1.5 text-left hover:bg-accent',
+                c === 'requested' && 'text-red-600',
+                c === 'done' && 'text-emerald-700',
+                c === null && 'text-muted-foreground',
+              )}
+              onClick={() => pick(c)}
+            >
+              {c ? `${REVIEW_LABEL[c]} 표시` : '표시 지우기'}
+            </button>
+          ))}
+        </span>
       )}
-      onClick={() => {
-        if (!enabled) return
-        start(async () => {
-          setShown(next)
-          const res = await updateDealInline(dealId, { field: 'reviewStatus', value: next })
-          if ('error' in res) toast.error(res.error)
-          else apply(dealId, res.row)
-        })
-      }}
-    >
-      {label || '·'}
-    </button>
+    </span>
   )
 }
 
@@ -667,7 +706,7 @@ function ColumnFilterSelect({
   )
 }
 
-function FilterHeaderRow({ filters }: { filters: ColumnFilters }) {
+function FilterHeaderRow({ filters, foreign }: { filters: ColumnFilters; foreign: boolean }) {
   // 금액도 "공백 / 입력됨"으로 거를 수 있게 (2026-10-08 요청) — 셀렉트가 검색식 '-' / '+' 를 대신 넣는다
   const amount = (param: keyof ColumnFilters) => {
     const v = filters[param]
@@ -738,10 +777,10 @@ function FilterHeaderRow({ filters }: { filters: ColumnFilters }) {
         <ColumnFilterInput param="fItem" value={filters.fItem} placeholder="품목명 검색" />
       </TableHead>
       {amount('fSales')}
-      {amount('fSalesVat')}
+      {!foreign && amount('fSalesVat')}
       {amount('fSalesGross')}
       {amount('fPurchase')}
-      {amount('fPurchaseVat')}
+      {!foreign && amount('fPurchaseVat')}
       {amount('fPurchaseGross')}
       <TableHead className="py-1">
         <div className="flex gap-1">
@@ -768,20 +807,20 @@ function FilterHeaderRow({ filters }: { filters: ColumnFilters }) {
         </div>
       </TableHead>
       <TableHead />
-      {date('fSalesInvoice')}
-      {date('fPurchaseInvoice')}
+      {!foreign && date('fSalesInvoice')}
+      {!foreign && date('fPurchaseInvoice')}
       {/* 헤더가 두 줄(예정일/실제일)인 컬럼은 필터도 두 칸 (2026-09-16 피드백) */}
       {datePair('fSalesDue', '입금예정', 'fSalesPaid', '입금일')}
       {datePair('fPurchaseDue', '결산연월', 'fPurchasePaid', '결산일')}
       {amount('fProfit')}
-      <TableHead colSpan={2} />
+      <TableHead colSpan={foreign ? 3 : 2} />
     </TableRow>
   )
 }
 
-function IncentiveAmountCell({ show, profit, stored }: { show: boolean; profit: string | null; stored: string | null }) {
-  const amount = show ? incentiveAmount(profit, stored) : null
-  if (amount === null) return <span className="text-muted-foreground/60">-</span>
+function IncentiveAmountCell({ show, base, stored }: { show: boolean; base: number | null; stored: string | null }) {
+  const amount = show ? incentiveAmount(base, stored) : null
+  if (amount === null) return <span className="text-muted-foreground/60" title={show ? '환율이 없어 계산할 수 없습니다' : undefined}>-</span>
   return <span className={cn(amount < 0 && 'text-destructive')}>{formatKRW(amount)}</span>
 }
 
@@ -791,7 +830,7 @@ type Picked = { id: string; code: string; canEdit: boolean; canDelete: boolean }
  * 체크박스로 고른 거래 일괄 작업 (2026-09-17 피드백): 계산서 발행일 한 번에 지정 · 여러 건 삭제.
  * 선택 상태를 표 컴포넌트에 두면 체크할 때마다 수백 행이 다시 그려지므로, 체크박스는 비제어로 두고 여기서 change 이벤트만 모아 센다.
  */
-function BulkBar({ container, showAll }: { container: React.RefObject<HTMLDivElement | null>; showAll: () => boolean }) {
+function BulkBar({ container, showAll, foreign }: { container: React.RefObject<HTMLDivElement | null>; showAll: () => boolean; foreign: boolean }) {
   const router = useRouter()
   const [picked, setPicked] = useState<Picked[]>([])
   const [side, setSide] = useState<'sales' | 'purchase'>('sales')
@@ -878,6 +917,7 @@ function BulkBar({ container, showAll }: { container: React.RefObject<HTMLDivEle
       <span>
         <b>{picked.length}</b>건 선택
       </span>
+      {!foreign && (<>
       <span className="h-4 w-px bg-border" />
       <span className="flex items-center gap-1.5">
         <span className="text-muted-foreground">계산서 발행일 일괄 수정</span>
@@ -895,6 +935,7 @@ function BulkBar({ container, showAll }: { container: React.RefObject<HTMLDivEle
           {pending ? '적용 중...' : `${editable.length}건에 적용`}
         </Button>
       </span>
+      </>)}
       <span className="h-4 w-px bg-border" />
       <Button size="sm" variant="destructive" className="h-7 gap-1.5" disabled={pending} onClick={removePicked}>
         <Trash2 className="size-3.5" />
@@ -907,7 +948,11 @@ function BulkBar({ container, showAll }: { container: React.RefObject<HTMLDivEle
   )
 }
 
-export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = false }: { rows: Row[]; columnFilters?: ColumnFilters; canCopy?: boolean }) {
+/**
+ * foreign: 미국·중국법인 (2026-10-12 요청) — 부가세·계산서 발행일 칸을 빼고, 손익 옆에 손익(KRW)을 넣는다. 성과급 = 손익(KRW) × 인센티브
+ */
+export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = false, foreign = false }: { rows: Row[]; columnFilters?: ColumnFilters; canCopy?: boolean; foreign?: boolean }) {
+  const colCount = foreign ? 20 : 23
   // 인라인 수정 결과는 서버가 돌려준 그 행 값으로 덮어쓴다. 서버 목록이 새로 오면 비운다
   const [patches, setPatches] = useState<Record<string, Partial<Row>>>({})
   useEffect(() => setPatches({}), [serverRows])
@@ -958,7 +1003,7 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
     <PatchCtx.Provider value={apply}>
     <div ref={container} className="flex min-h-0 flex-1 flex-col">
     {/* 필터·검색이 바뀌면 선택을 비운다 */}
-    <BulkBar key={search} container={container} showAll={showAll} />
+    <BulkBar key={search} container={container} showAll={showAll} foreign={foreign} />
     {/* 표 자체가 가로·세로 스크롤 상자(남은 화면 높이를 채움) — 헤더 두 줄은 상자 상단에 고정, 가로 스크롤바는 상자 하단(항상 화면 안)에 보임. */}
     <div
       data-slot="deals-scroll"
@@ -986,28 +1031,29 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
             <TableHead>매체사</TableHead>
             <TableHead>품목명</TableHead>
             <TableHead className="text-right">매출</TableHead>
-            <TableHead className="text-right">부가세</TableHead>
-            <TableHead className="text-right" title="매출금 + 부가세">총매출<br />(VAT 포함)</TableHead>
+            {!foreign && <TableHead className="text-right">부가세</TableHead>}
+            <TableHead className="text-right" title="매출금 + 부가세">총매출{!foreign && <><br />(VAT 포함)</>}</TableHead>
             <TableHead className="text-right">매입</TableHead>
-            <TableHead className="text-right">부가세</TableHead>
-            <TableHead className="text-right" title="매입금 + 부가세">총매입<br />(VAT 포함)</TableHead>
+            {!foreign && <TableHead className="text-right">부가세</TableHead>}
+            <TableHead className="text-right" title="매입금 + 부가세">총매입{!foreign && <><br />(VAT 포함)</>}</TableHead>
             <TableHead className="text-center">입금 / 결산</TableHead>
             <TableHead>매출수단</TableHead>
-            <TableHead>매출계산서<br />발행일</TableHead>
-            <TableHead>매입계산서<br />발행일</TableHead>
+            {!foreign && <TableHead>매출계산서<br />발행일</TableHead>}
+            {!foreign && <TableHead>매입계산서<br />발행일</TableHead>}
             <TableHead>입금예정일<br />입금일</TableHead>
             <TableHead>결산연월<br />결산일</TableHead>
             {/* 손익 → 인센티브 → 성과급 순으로 맨 오른쪽 (2026-10-06 고객 요청) */}
             <TableHead className="text-right">손익</TableHead>
+            {foreign && <TableHead className="text-right" title="매출 입금일 기준 환율 · 손익 × 환율">손익<br />(KRW)</TableHead>}
             <TableHead className="text-right" title="기본 5% · 거래마다 따로 정할 수 있습니다">인센티브<br />(%)</TableHead>
-            <TableHead className="text-right" title="인센티브(%) × 손익">성과급</TableHead>
+            <TableHead className="text-right" title={foreign ? '인센티브(%) × 손익(KRW)' : '인센티브(%) × 손익'}>성과급</TableHead>
           </TableRow>
-          <FilterHeaderRow filters={columnFilters} />
+          <FilterHeaderRow filters={columnFilters} foreign={foreign} />
         </TableHeader>
         <TableBody>
           {rows.length === 0 && (
             <TableRow>
-              <TableCell colSpan={23} className="py-14 text-center text-sm text-muted-foreground">
+              <TableCell colSpan={colCount} className="py-14 text-center text-sm text-muted-foreground">
                 검색 결과가 없습니다. 필터 입력을 비우고 Enter 를 누르면 해제됩니다.
               </TableCell>
             </TableRow>
@@ -1015,6 +1061,9 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
           {rows.slice(0, limit).map((r) => {
             const owner = r.ownerName ?? '-'
             const loss = parseFloat(r.profit ?? '0') < 0
+            // 성과급 기준 손익 — 외화 법인은 원화 환산값 (2026-10-12)
+            const krw = foreign ? profitKrw(r.profit, r.currency, r.fxRate) : null
+            const base = foreign ? krw : r.profit != null ? parseFloat(r.profit) : null
             /** 최근 수정된 칸 음영 + 툴팁 */
             const hl = (col: keyof typeof LIST_COLUMN_FIELDS) => {
               const c = columnChange(r.recentChanges, col)
@@ -1028,7 +1077,7 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
               <TableRow key={r.id} className="hover:bg-muted/60">
                 <TableCell {...cell('code')}>
                   <span className="flex items-center gap-2">
-                  <ReviewMark dealId={r.id} value={r.reviewStatus ?? null} enabled={r.canReview !== false} />
+                  <ReviewMark dealId={r.id} value={r.reviewStatus ?? null} choices={r.reviewChoices ?? []} />
                   {(r.canTogglePaid || r.canDelete) && (
                     <input
                       type="checkbox"
@@ -1116,18 +1165,22 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
                 <TableCell {...cell('salesNet', 'text-right text-[13px] tabular-nums')}>
                   <InlineAmount dealId={r.id} field="salesAmountNet" value={r.salesAmountNet} enabled={r.canTogglePaid} memo={r.salesMemo} memoLabel="매출 비고" />
                 </TableCell>
-                <TableCell {...cell('salesVat', 'text-right text-[13px] text-muted-foreground tabular-nums')}>
-                  {formatKRW(r.salesVat)}
-                </TableCell>
+                {!foreign && (
+                  <TableCell {...cell('salesVat', 'text-right text-[13px] text-muted-foreground tabular-nums')}>
+                    {formatKRW(r.salesVat)}
+                  </TableCell>
+                )}
                 <TableCell className="text-right text-[13px] tabular-nums" data-col="salesGross">
                   {formatKRW(r.salesAmountGross ?? null)}
                 </TableCell>
                 <TableCell {...cell('purchaseNet', 'text-right text-[13px] tabular-nums')}>
                   <InlineAmount dealId={r.id} field="purchaseAmountNet" value={r.purchaseAmountNet} enabled={r.canTogglePaid} memo={r.purchaseMemo} memoLabel="매입 비고" />
                 </TableCell>
-                <TableCell {...cell('purchaseVat', 'text-right text-[13px] text-muted-foreground tabular-nums')}>
-                  {formatKRW(r.purchaseVat)}
-                </TableCell>
+                {!foreign && (
+                  <TableCell {...cell('purchaseVat', 'text-right text-[13px] text-muted-foreground tabular-nums')}>
+                    {formatKRW(r.purchaseVat)}
+                  </TableCell>
+                )}
                 <TableCell className="text-right text-[13px] tabular-nums" data-col="purchaseGross">
                   {formatKRW(r.purchaseAmountGross ?? null)}
                 </TableCell>
@@ -1161,12 +1214,16 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
                   </div>
                 </TableCell>
                 <TableCell className="whitespace-nowrap text-[12px] text-muted-foreground" data-col="salesMethod">{r.salesMethodName ?? '-'}</TableCell>
-                <TableCell {...cell('salesInvoice', 'text-[12px] tabular-nums')}>
-                  <InlineDate dealId={r.id} field="salesInvoiceDate" value={r.salesInvoiceDate} enabled={r.canTogglePaid} muted />
-                </TableCell>
-                <TableCell {...cell('purchaseInvoice', 'text-[12px] tabular-nums')}>
-                  <InlineDate dealId={r.id} field="purchaseInvoiceDate" value={r.purchaseInvoiceDate} enabled={r.canTogglePaid} muted />
-                </TableCell>
+                {!foreign && (
+                  <TableCell {...cell('salesInvoice', 'text-[12px] tabular-nums')}>
+                    <InlineDate dealId={r.id} field="salesInvoiceDate" value={r.salesInvoiceDate} enabled={r.canTogglePaid} muted />
+                  </TableCell>
+                )}
+                {!foreign && (
+                  <TableCell {...cell('purchaseInvoice', 'text-[12px] tabular-nums')}>
+                    <InlineDate dealId={r.id} field="purchaseInvoiceDate" value={r.purchaseInvoiceDate} enabled={r.canTogglePaid} muted />
+                  </TableCell>
+                )}
                 <TableCell {...cell('salesDates')}>
                   <div className="text-[12px] leading-tight tabular-nums">
                     <div>
@@ -1196,18 +1253,27 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
                 >
                   {formatKRW(r.profit)}
                 </TableCell>
+                {foreign && (
+                  <TableCell
+                    data-col="profitKrw"
+                    className={cn('text-right text-[13px] tabular-nums', krw != null && krw < 0 && 'text-destructive')}
+                    title={r.fxRate ? `환율 ${parseFloat(r.fxRate).toLocaleString()} (매출 입금일 기준)` : '환율 없음 — 매출 입금일을 넣으면 자동으로 채워집니다'}
+                  >
+                    {krw != null ? formatKRW(krw) : <span className="text-muted-foreground/60">-</span>}
+                  </TableCell>
+                )}
                 <TableCell className="text-right text-[13px] tabular-nums" data-col="incentiveRate">
                   {r.canViewIncentive ? <InlineIncentive dealId={r.id} stored={r.commissionPct ?? null} enabled={Boolean(r.canEditIncentive)} /> : <span className="text-muted-foreground/60">-</span>}
                 </TableCell>
                 <TableCell className="text-right text-[13px] tabular-nums" data-col="incentiveAmount">
-                  <IncentiveAmountCell show={Boolean(r.canViewIncentive)} profit={r.profit} stored={r.commissionPct ?? null} />
+                  <IncentiveAmountCell show={Boolean(r.canViewIncentive)} base={base} stored={r.commissionPct ?? null} />
                 </TableCell>
               </TableRow>
             )
           })}
           {limit < rows.length && (
             <TableRow ref={moreRef} data-slot="deals-more" className="hover:bg-transparent">
-              <TableCell colSpan={23} className="py-3 text-center text-[12.5px] text-muted-foreground">
+              <TableCell colSpan={colCount} className="py-3 text-center text-[12.5px] text-muted-foreground">
                 {rows.length.toLocaleString()}건 중 {Math.min(limit, rows.length).toLocaleString()}건 표시 · 스크롤하면 이어서 보입니다 ·{' '}
                 <button type="button" className="font-medium text-foreground underline-offset-2 hover:underline" onClick={() => setLimit(rows.length)}>
                   전부 보기

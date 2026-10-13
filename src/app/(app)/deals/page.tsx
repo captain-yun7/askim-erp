@@ -19,7 +19,10 @@ import { CollapseOnTableScroll } from '@/components/deals/collapse-on-table-scro
 import { listDealYears, listDeals, listOverdueSalesDue } from '@/server/queries/deals'
 import { OverdueNotice } from '@/components/deals/overdue-notice'
 import { DEAL_SORT_LABEL, type DealSort } from '@/lib/deal-sort'
-import { canCreateDeal, canDeleteDeal, canViewCommission, getSessionUser } from '@/server/auth/guards'
+import { canCreateDeal, canDeleteDeal, canViewCommission, getSessionUser, isAdmin } from '@/server/auth/guards'
+import { getCurrentEntity } from '@/server/entity'
+import { entityInfo } from '@/lib/entity'
+import { reviewChoices } from '@/lib/review-mark'
 import { canEditDealShared, getShareTeams, resolveDealScope } from '@/server/auth/deal-scope'
 import { getAllLookups } from '@/server/queries/lookups'
 import { cn } from '@/lib/utils'
@@ -88,8 +91,11 @@ export default async function DealsPage({
     dir: (sp.dir === 'asc' ? 'asc' : 'desc') as 'asc' | 'desc',
   }
 
-  const [{ rows, total, aggregate, prevAggregate }, lookups, me, overdue, years] =
-    await Promise.all([listDeals(filters), getAllLookups(), getSessionUser(), listOverdueSalesDue(), listDealYears()])
+  const [{ rows, total, aggregate, prevAggregate }, lookups, me, overdue, years, entity] =
+    await Promise.all([listDeals(filters), getAllLookups(), getSessionUser(), listOverdueSalesDue(), listDealYears(), getCurrentEntity()])
+  // 미국·중국법인은 부가세·계산서 발행일 없이, 손익(KRW) 열을 더해 보여 준다 (2026-10-12)
+  const foreign = !entityInfo(entity).hasVat
+  const cur = CURRENCY_SIGN[entityInfo(entity).currency] ?? '₩'
 
   // 담당자 필터 옵션도 조회 범위에 맞춤 (팀장=팀원, 팀원=본인)
   const scope = me ? await resolveDealScope(me) : ({ kind: 'all' } as const)
@@ -132,7 +138,7 @@ export default async function DealsPage({
           icon={<Database className="size-[15px]" />}
           tone="primary"
           label="매출 합계"
-          value={<VatPair net={aggregate.sales} gross={aggregate.salesGross} />}
+          value={foreign ? `${cur} ${formatKRW(aggregate.sales)}` : <VatPair net={aggregate.sales} gross={aggregate.salesGross} />}
           sub={
             prevAggregate ? (
               <Delta current={aggregate.sales} prev={prevAggregate.sales} />
@@ -145,7 +151,7 @@ export default async function DealsPage({
           icon={<ShoppingCart className="size-[15px]" />}
           tone="muted"
           label="매입 합계"
-          value={<VatPair net={aggregate.purchase} gross={aggregate.purchaseGross} />}
+          value={foreign ? `${cur} ${formatKRW(aggregate.purchase)}` : <VatPair net={aggregate.purchase} gross={aggregate.purchaseGross} />}
           sub={
             prevAggregate ? (
               <Delta current={aggregate.purchase} prev={prevAggregate.purchase} />
@@ -158,7 +164,7 @@ export default async function DealsPage({
           icon={<TrendingUp className="size-[15px]" />}
           tone="ok"
           label="손익"
-          value={`₩ ${formatKRW(aggregate.profit)}`}
+          value={`${cur} ${formatKRW(aggregate.profit)}`}
           valueClass={aggregate.profit < 0 ? 'text-destructive' : 'text-success-foreground'}
           sub={
             <>
@@ -174,7 +180,7 @@ export default async function DealsPage({
           sub={
             <>
               <span className="font-medium">
-                ₩ {formatKRW(aggregate.unpaidAmount)}
+                {cur} {formatKRW(aggregate.unpaidAmount)}
               </span>{' '}
               회수 대기
             </>
@@ -210,13 +216,13 @@ export default async function DealsPage({
         <div className="flex items-center gap-3.5 border-b px-4 py-2.5 text-[12.5px] text-muted-foreground">
           총 <b className="text-foreground">{total.toLocaleString()}</b>건
           <span>·</span>
-          매출 <b className="text-foreground">₩{formatKRWShort(aggregate.sales)}</b>
+          매출 <b className="text-foreground">{cur}{formatKRWShort(aggregate.sales)}</b>
           <span>·</span>
-          매입 <b className="text-foreground">₩{formatKRWShort(aggregate.purchase)}</b>
+          매입 <b className="text-foreground">{cur}{formatKRWShort(aggregate.purchase)}</b>
           <span>·</span>
           손익{' '}
           <b className={aggregate.profit < 0 ? 'text-destructive' : 'text-success-foreground'}>
-            ₩{formatKRWShort(aggregate.profit)}
+            {cur}{formatKRWShort(aggregate.profit)}
           </b>
         </div>
 
@@ -224,6 +230,7 @@ export default async function DealsPage({
         <script dangerouslySetInnerHTML={{ __html: PREHYDRATE_SELECT }} />
         <DealsTable
           canCopy={me != null && canCreateDeal(me.role)}
+          foreign={foreign}
           columnFilters={{
             fCode: filters.fCode,
             fIssuer: filters.fIssuer,
@@ -250,7 +257,8 @@ export default async function DealsPage({
             // 인센티브·성과급 (2026-10-02): 관리자·회계는 전체, 영업은 본인 거래만 본다. 요율 수정은 거래 수정 권한과 같다 (10/6)
             canViewIncentive,
             canEditIncentive: canViewIncentive && canEditShared,
-            canReview: me != null && me.role !== 'viewer',
+            // 수정요청은 관리자만, 수정완료는 담당자 본인·관리자 (2026-10-12)
+            reviewChoices: me ? reviewChoices(r.reviewStatus ?? null, { admin: isAdmin(me.role), owner: r.ownerUserId === me.id }) : [],
             }
           })}
         />
@@ -274,6 +282,9 @@ export default async function DealsPage({
     </div>
   )
 }
+
+/** 법인 통화 기호 — 미국·중국법인 요약은 그 통화로 (2026-10-12) */
+const CURRENCY_SIGN: Record<string, string> = { KRW: '₩', USD: '$', CNY: '¥' }
 
 const TONE = {
   primary: 'bg-background text-foreground',

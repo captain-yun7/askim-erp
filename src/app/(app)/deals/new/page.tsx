@@ -1,6 +1,8 @@
 import { ListBackLink } from '@/components/list-return'
 import { ChevronLeft, Copy } from 'lucide-react'
 import { DealForm } from '@/components/deals/deal-form'
+import { getCurrentEntity } from '@/server/entity'
+import { entityInfo } from '@/lib/entity'
 import { getAllLookups } from '@/server/queries/lookups'
 import { getDealById } from '@/server/queries/deals'
 import { getCounterpartyById } from '@/server/queries/counterparties'
@@ -14,7 +16,8 @@ export default async function NewDealPage({ searchParams }: { searchParams: Prom
   await requireWriter('/deals')
   const { copy } = await searchParams
   const isUuid = typeof copy === 'string' && /^[0-9a-f-]{36}$/i.test(copy)
-  const [lookups, source] = await Promise.all([getAllLookups(), isUuid ? getDealById(copy) : null])
+  const [lookups, source, entity] = await Promise.all([getAllLookups(), isUuid ? getDealById(copy) : null, getCurrentEntity()])
+  const ent = entityInfo(entity)
   const [issuer, supplier] = source
     ? await Promise.all([
         source.issuerCounterpartyId ? getCounterpartyById(source.issuerCounterpartyId, { includeDeleted: true }) : null,
@@ -71,7 +74,7 @@ export default async function NewDealPage({ searchParams }: { searchParams: Prom
           </span>
         </div>
       )}
-      <DealForm lookups={lookups} initial={initial as unknown as Parameters<typeof DealForm>[0]['initial']} />
+      <DealForm lookups={lookups} foreign={!ent.hasVat} defaultCurrency={ent.currency} initial={initial as unknown as Parameters<typeof DealForm>[0]['initial']} />
     </div>
   )
 }
