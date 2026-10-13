@@ -5,3 +5,4 @@ docker
 e2e
 scripts
 *.xlsx
+.env*
