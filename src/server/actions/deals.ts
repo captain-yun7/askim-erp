@@ -1,17 +1,22 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { and, eq, inArray, isNull } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '@/lib/db/client'
 import { getCurrentEntity } from '@/server/entity'
-import { deal, users } from '@/lib/db/schema'
+import { entityInfo } from '@/lib/entity'
+import { deal, reviewRequestLog, users } from '@/lib/db/schema'
 import {
   canCreateDeal,
   canDeleteDeal,
   getSessionUser,
+  isAdmin,
   isStaff,
+  type SessionUser,
 } from '@/server/auth/guards'
+import { fetchKrwRate } from '@/server/fx'
+import { reviewChoices, REVIEW_LABEL } from '@/lib/review-mark'
 import { canEditDealScoped } from '@/server/auth/deal-scope'
 import { recordDealChanges } from '@/server/deal-changes'
 import { getInlineRow, type InlineRow } from '@/server/queries/deals'
@@ -59,6 +64,8 @@ const dealSchema = z.object({
   categoryId: z.coerce.number().int().nullable().optional(),
   accountId: z.coerce.number().int().nullable().optional(),
   currency: z.enum(['KRW', 'USD', 'CNY']).default('KRW'),
+  // 원화 환율 (2026-10-12 요청) — 비우면 매출 입금일 기준으로 자동 조회
+  fxRate: numStrSchema.optional(),
   status: z.enum(['draft', 'confirmed', 'closed']).default('draft'),
   // 매출
   salesMethodId: z.coerce.number().int().nullable().optional(),
@@ -96,6 +103,29 @@ const dealSchema = z.object({
 
 export type DealInput = z.infer<typeof dealSchema>
 
+/**
+ * 외화 거래의 환율 자동 채움 (2026-10-12 요청: 매출 입금일 기준).
+ * 환율 칸이 비었거나, 입금일이 바뀌었는데 환율은 그대로면 입금일 환율로 다시 받는다. 손으로 고친 환율은 건드리지 않는다.
+ */
+async function autoFxRate(
+  next: { currency: string; salesPaidDate?: string | null; fxRate?: string | null },
+  prev?: { salesPaidDate: string | null; fxRate: string | null },
+): Promise<string | null | undefined> {
+  if (next.currency === 'KRW' || !next.salesPaidDate) return next.fxRate
+  const dateChanged = prev != null && prev.salesPaidDate !== next.salesPaidDate
+  const rateUntouched = prev != null && numEq(next.fxRate, prev.fxRate)
+  if (next.fxRate != null && !(dateChanged && rateUntouched)) return next.fxRate
+  const rate = await fetchKrwRate(next.currency, next.salesPaidDate)
+  return rate != null ? rate.toFixed(4) : next.fxRate
+}
+
+/** 폼에서 입금일을 고르면 바로 환율을 보여 주려고 (2026-10-12) */
+export async function lookupFxRate(currency: unknown, date: unknown): Promise<{ rate: number | null }> {
+  const user = await getSessionUser()
+  if (!user || typeof currency !== 'string' || typeof date !== 'string') return { rate: null }
+  return { rate: await fetchKrwRate(currency, date) }
+}
+
 export async function createDeal(raw: unknown) {
   const user = await getSessionUser()
   if (!user) return { error: '로그인 필요' }
@@ -109,6 +139,20 @@ export async function createDeal(raw: unknown) {
   if (user.role === 'sales') data.ownerUserId = user.id
   const manualCode = data.dealCode?.trim() || null
   if (!manualCode) return { error: '거래코드를 입력하세요' }
+  const entity = await getCurrentEntity()
+  const ent = entityInfo(entity)
+  // 미국·중국법인 (2026-10-12): 통화를 안 정했으면 법인 통화, 부가세·계산서 발행일 없음 (목록 간단 추가도 여기로 온다)
+  if (!ent.hasVat) {
+    const sent = (raw as { currency?: unknown } | null)?.currency
+    if (sent == null || sent === '') data.currency = ent.currency
+    data.salesVat = null
+    data.purchaseVat = null
+    data.salesAmountGross = data.salesAmountNet ?? null
+    data.purchaseAmountGross = data.purchaseAmountNet ?? null
+    data.salesInvoiceDate = null
+    data.purchaseInvoiceDate = null
+  }
+  data.fxRate = await autoFxRate(data)
 
   try {
     const row = await db.transaction(async (tx) => {
@@ -117,7 +161,7 @@ export async function createDeal(raw: unknown) {
         .insert(deal)
         .values({
           ...data,
-          entity: await getCurrentEntity(),
+          entity,
           dealCode,
           createdBy: user.id,
           updatedBy: user.id,
@@ -167,6 +211,7 @@ export async function updateDeal(id: string, raw: unknown) {
     return { error: '거래 완료 처리는 회계만 가능합니다' }
   }
 
+  parsed.data.fxRate = await autoFxRate(parsed.data, existing)
   await db
     .update(deal)
     .set({ ...parsed.data, updatedBy: user.id })
@@ -221,6 +266,8 @@ export async function toggleDealPaid(
       purchasePaidStatus: deal.purchasePaidStatus,
       salesPaidDate: deal.salesPaidDate,
       purchasePaidDate: deal.purchasePaidDate,
+      currency: deal.currency,
+      fxRate: deal.fxRate,
     })
     .from(deal)
     .where(and(eq(deal.id, id), isNull(deal.deletedAt)))
@@ -231,7 +278,9 @@ export async function toggleDealPaid(
   const today = new Date().toISOString().slice(0, 10)
   if (side === 'sales') {
     const next = (row.salesPaidStatus === 'completed' ? 'pending' : 'completed') as 'pending' | 'completed'
-    const patch = { salesPaidStatus: next, salesPaidDate: next === 'completed' ? (row.salesPaidDate ?? today) : null }
+    const salesPaidDate = next === 'completed' ? (row.salesPaidDate ?? today) : null
+    const fxRate = await autoFxRate({ currency: row.currency, salesPaidDate, fxRate: row.fxRate }, row)
+    const patch = { salesPaidStatus: next, salesPaidDate, ...(fxRate !== row.fxRate ? { fxRate } : {}) }
     await db.update(deal).set({ ...patch, updatedBy: user.id }).where(eq(deal.id, id))
     await recordDealChanges(id, row, patch, user.id)
     await audit({ action: 'deal.paid_toggle', targetType: 'deal', targetId: id, targetLabel: row.dealCode, summary: `${row.dealCode} 입금 ${next === 'completed' ? '완료' : '미입금으로 되돌림'}`, detail: patch })
@@ -267,7 +316,7 @@ const inlineSchema = z.union([
     value: z.coerce.number().finite().min(0, '0 이상으로 입력하세요').max(100, '100 이하로 입력하세요').nullable(),
   }),
   z.object({
-    // 수정요청/완료 표시 (2026-10-08 요청) — 보는 사람 누구나(조회 전용 제외) 바꿀 수 있다
+    // 수정요청/완료 표시 (2026-10-08 요청) — 권한은 lib/review-mark (2026-10-12: 요청은 관리자, 완료는 담당자·관리자)
     field: z.literal('reviewStatus'),
     value: z.enum(['requested', 'done']).nullable(),
   }),
@@ -297,6 +346,7 @@ export async function updateDealInline(
 
   const [existing] = await db.select().from(deal).where(and(eq(deal.id, id), isNull(deal.deletedAt))).limit(1)
   if (!existing) return { error: '거래를 찾을 수 없습니다' }
+  if (parsed.data.field === 'reviewStatus') return setReviewStatus(user, existing, parsed.data.value)
   if (!(await canEditDealScoped(user, existing))) return { error: '이 거래를 수정할 권한이 없습니다' }
 
   const { field, value } = parsed.data
@@ -307,13 +357,6 @@ export async function updateDealInline(
     await db.update(deal).set({ commissionPct: next, updatedBy: user.id }).where(eq(deal.id, id))
     const pct = (v: string | null) => (v === null ? '기본' : `${Math.round(parseFloat(v) * 10000) / 100}%`)
     await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} 인센티브 ${pct(existing.commissionPct)} → ${pct(next)}`, detail: { commissionPct: [existing.commissionPct ?? null, next] } })
-    return { ok: true, row: await getInlineRow(id) }
-  }
-  if (field === 'reviewStatus') {
-    if (user.role === 'viewer') return { error: '조회 전용 계정은 표시할 수 없습니다' }
-    await db.update(deal).set({ reviewStatus: value, updatedBy: user.id }).where(eq(deal.id, id))
-    const label = (v: string | null) => (v === 'requested' ? '수정요청' : v === 'done' ? '수정완료' : '없음')
-    await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} 표시 ${label(existing.reviewStatus)} → ${label(value)}`, detail: { reviewStatus: [existing.reviewStatus ?? null, value] } })
     return { ok: true, row: await getInlineRow(id) }
   }
   if (field === 'settlement') {
@@ -340,31 +383,63 @@ export async function updateDealInline(
     const prevNet = Number(existing[field] ?? 0)
     const prevVat = Number((field === 'salesAmountNet' ? existing.salesVat : existing.purchaseVat) ?? 0)
     const noVat = prevNet !== 0 && prevVat === 0
-    const vat = net != null && existing.currency === 'KRW' && !noVat ? Math.round(net * 0.1) : 0
+    // 외화 거래(미국·중국법인)는 부가세 없음 (2026-10-12)
+    const withVat = net != null && existing.currency === 'KRW' && !noVat
+    const vat = withVat ? Math.round(net * 0.1) : 0
     const patch =
       field === 'salesAmountNet'
         ? {
             salesAmountNet: net != null ? String(net) : null,
-            salesVat: net != null && !noVat ? String(vat) : null,
+            salesVat: withVat ? String(vat) : null,
             salesAmountGross: net != null ? String(net + vat) : null,
           }
         : {
             purchaseAmountNet: net != null ? String(net) : null,
-            purchaseVat: net != null && !noVat ? String(vat) : null,
+            purchaseVat: withVat ? String(vat) : null,
             purchaseAmountGross: net != null ? String(net + vat) : null,
           }
     await db.update(deal).set({ ...patch, updatedBy: user.id }).where(eq(deal.id, id))
     await recordDealChanges(id, existing, patch, user.id)
     await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} ${field === 'salesAmountNet' ? '매출금' : '매입금'} ${existing[field] ?? '-'} → ${value ?? '-'}`, detail: diffFields(existing as Record<string, unknown>, patch) })
   } else {
+    // 외화 거래의 입금일을 고치면 그 날짜 환율로 다시 받는다 (2026-10-12)
+    const fx = field === 'salesPaidDate' ? await autoFxRate({ currency: existing.currency, salesPaidDate: value, fxRate: existing.fxRate }, existing) : existing.fxRate
     await db
       .update(deal)
-      .set({ [field]: value, updatedBy: user.id })
+      .set({ [field]: value, ...(fx !== existing.fxRate ? { fxRate: fx } : {}), updatedBy: user.id })
       .where(eq(deal.id, id))
     await recordDealChanges(id, existing, { [field]: value }, user.id)
     await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} ${field} ${existing[field] ?? '-'} → ${value ?? '-'}`, detail: { [field]: [existing[field] ?? null, value] } })
   }
   return { ok: true, row: await getInlineRow(id) }
+}
+
+/**
+ * 수정요청/완료 표시 (2026-10-12 요청). 수정요청을 걸 때마다 기록해 월별·담당자별 횟수를 센다.
+ * 관리자가 방금 건 수정요청을 지우면(실수) 마지막 기록도 지운다.
+ */
+async function setReviewStatus(
+  user: SessionUser,
+  existing: typeof deal.$inferSelect,
+  value: 'requested' | 'done' | null,
+): Promise<{ ok: true; row: InlineRow } | { error: string }> {
+  const current = existing.reviewStatus ?? null
+  if (current === value) return { ok: true, row: await getInlineRow(existing.id) }
+  const allowed = reviewChoices(current, { admin: isAdmin(user.role), owner: existing.ownerUserId === user.id })
+  if (!allowed.includes(value))
+    return { error: value === 'done' ? '수정완료는 거래 담당자 본인이나 관리자만 표시할 수 있습니다' : '수정요청은 관리자만 걸거나 지울 수 있습니다' }
+  await db.transaction(async (tx) => {
+    await tx.update(deal).set({ reviewStatus: value, updatedBy: user.id }).where(eq(deal.id, existing.id))
+    if (value === 'requested')
+      await tx.insert(reviewRequestLog).values({ entity: existing.entity, dealId: existing.id, ownerUserId: existing.ownerUserId, requestedBy: user.id })
+    if (current === 'requested' && value === null) {
+      const [last] = await tx.select({ id: reviewRequestLog.id }).from(reviewRequestLog).where(eq(reviewRequestLog.dealId, existing.id)).orderBy(desc(reviewRequestLog.id)).limit(1)
+      if (last) await tx.delete(reviewRequestLog).where(eq(reviewRequestLog.id, last.id))
+    }
+  })
+  const label = (v: 'requested' | 'done' | null) => (v ? REVIEW_LABEL[v] : '없음')
+  await audit({ action: 'deal.inline', targetType: 'deal', targetId: existing.id, targetLabel: existing.dealCode, summary: `${existing.dealCode} 표시 ${label(current)} → ${label(value)}`, detail: { reviewStatus: [current, value] } })
+  return { ok: true, row: await getInlineRow(existing.id) }
 }
 
 /** 거래코드 중복 검사 — 폼 입력 시 즉시 안내 (2026-09-09 피드백) */
