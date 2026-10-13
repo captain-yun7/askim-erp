@@ -130,7 +130,7 @@ test('미국법인 새 거래: 통화 USD 기본, 매출수단에 세금계산�
   await page.locator('div:has(> label:text-is("매입금")) input').fill('600')
   await page.getByLabel('salesPaidDate').fill('2026-09-30')
   await page.getByLabel('salesPaidDate').press('Enter')
-  // 외부 환율 조회 (유럽중앙은행 기준) — 값이 채워지고 손익(KRW)이 계산된다
+  // 외부 환율 조회 (매매기준율, 한국은행 ECOS) — 값이 채워지고 손익(KRW)이 계산된다
   await expect(page.getByLabel('환율')).not.toHaveValue('', { timeout: 15_000 })
   await expect(page.locator('[data-slot=profit-krw] b')).not.toHaveText('-')
 })

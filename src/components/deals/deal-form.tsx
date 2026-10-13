@@ -641,7 +641,7 @@ export function DealForm({
           {isFx && (
             <>
               <div className="flex items-center gap-2">
-                <label htmlFor="deal-fx-rate" className="text-muted-foreground" title="매출 입금일 기준(유럽중앙은행 고시) 자동 · 직접 고칠 수 있습니다">
+                <label htmlFor="deal-fx-rate" className="text-muted-foreground" title="매출 입금일 기준 은행 매매기준율(한국은행 고시) 자동 · 직접 고칠 수 있습니다">
                   환율
                 </label>
                 <AmountInput
