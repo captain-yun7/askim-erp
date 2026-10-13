@@ -50,7 +50,7 @@ export async function exportReportCellXlsx(raw: { year: number; months: number[]
   const rows: Cell[][] =
     detail.kind === 'deals'
       ? [
-          ['거래코드', '귀속', '담당', '발행처', '매체사', '품목명', detail.dateLabel, detail.side === 'sales' ? '입금여부' : '결산여부', detail.side === 'sales' ? '매출금' : '매입금', '부가세', detail.side === 'sales' ? '총매출' : '총매입'],
+          ['거래코드', '귀속', '담당', '발행처', '매체사', '품목명', detail.dateLabel, detail.side === 'sales' ? '입금여부' : '결산여부', detail.labels?.net ?? (detail.side === 'sales' ? '매출금' : '매입금'), detail.labels?.vat ?? '부가세', detail.labels?.amount ?? (detail.side === 'sales' ? '총매출' : '총매입')],
           ...detail.rows.map((r) => [r.dealCode, r.accrual, r.owner ?? '', r.issuer ?? '', r.supplier ?? '', r.itemName ?? '', r.basisDate ?? '', r.status === 'completed' ? '완료' : '미완료', r0(r.net), r0(r.vat), r0(r.amount)]),
           ['합계', '', '', '', '', '', '', '', '', '', r0(detail.total)],
         ]

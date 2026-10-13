@@ -8,8 +8,22 @@ import { formatKRW as formatRaw } from '@/lib/format'
 import type { PlanReport } from '@/server/queries/reports-plan'
 import { SalesTargetEditor } from './sales-target-editor'
 import { CashBalanceEditor } from './cash-balance-editor'
+import { DrillButton, ReportDrill, type DrillLine } from './report-drill'
 
 const formatKRW = (v: number) => formatRaw(Math.round(v))
+
+// 달성치·수익은 연간 값 — 근거 창은 1~12월 합으로 값을 읽으므로 1월 자리에 연간 값을 둔다
+const YEAR = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+const yearLine = (label: string, value: number): DrillLine => ({ label, values: [value, ...Array(11).fill(0)] })
+
+/** 매출목표 표의 달성치·수익 칸 — 누르면 근거 거래 목록 (2026-10-13 요청) */
+function PlanDrill({ k, children }: { k: string; children: React.ReactNode }) {
+  return (
+    <DrillButton lineKey={k} months={YEAR}>
+      {children}
+    </DrillButton>
+  )
+}
 
 const cell = 'whitespace-nowrap px-3 py-2 text-right tabular-nums'
 const pct = (v: number, base: number) => (base ? `${((v / base) * 100).toFixed(2)}%` : '-')
@@ -31,6 +45,16 @@ function heat(ratio: number) {
 export function SalesTargetSection({ report, editable }: { report: PlanReport; editable: boolean }) {
   const [editing, setEditing] = useState(false)
   const { groups, totals, unmapped, year } = report
+  const lines: Record<string, DrillLine> = {
+    plan_sales_all: yearLine('총 합 달성치', totals.achieved),
+    plan_profit_all: yearLine('총 합 수익', totals.profit),
+    plan_sales_none: yearLine('목표군 미지정 달성치', unmapped.achieved),
+    plan_profit_none: yearLine('목표군 미지정 수익', unmapped.profit),
+  }
+  for (const g of groups) {
+    lines[`plan_sales_${g.code}`] = yearLine(`${g.label} 달성치`, g.achieved)
+    lines[`plan_profit_${g.code}`] = yearLine(`${g.label} 수익`, g.profit)
+  }
 
   return (
     <section className="overflow-hidden rounded-2xl border bg-card">
@@ -56,6 +80,7 @@ export function SalesTargetSection({ report, editable }: { report: PlanReport; e
           />
         </div>
       ) : (
+        <ReportDrill year={year} lines={lines}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] text-[12.5px]">
             <thead>
@@ -100,9 +125,9 @@ export function SalesTargetSection({ report, editable }: { report: PlanReport; e
                       {pct0(g.target, totals.target)}
                     </td>
                     <td className={cell}>{pct(g.achieved, g.target)}</td>
-                    <td className={cn(cell, 'bg-muted/60')}>{g.achieved ? formatKRW(g.achieved) : '-'}</td>
+                    <td className={cn(cell, 'bg-muted/60')}>{g.achieved ? <PlanDrill k={`plan_sales_${g.code}`}>{formatKRW(g.achieved)}</PlanDrill> : '-'}</td>
                     <td className={cn(cell, 'bg-muted/60', g.profit < 0 && 'text-destructive')}>
-                      {g.profit ? formatKRW(g.profit) : '-'}
+                      {g.profit ? <PlanDrill k={`plan_profit_${g.code}`}>{formatKRW(g.profit)}</PlanDrill> : '-'}
                     </td>
                     <td className={cn(cell, heat(margin), margin < 0 && 'text-destructive')}>
                       {g.achieved ? `${(margin * 100).toFixed(2)}%` : '-'}
@@ -116,8 +141,8 @@ export function SalesTargetSection({ report, editable }: { report: PlanReport; e
                 <td className={cell}>{formatKRW(totals.target)}</td>
                 <td className={cell}>100%</td>
                 <td className={cell}>{pct0(totals.achieved, totals.target)}</td>
-                <td className={cell}>{formatKRW(totals.achieved)}</td>
-                <td className={cn(cell, totals.profit < 0 && 'text-destructive')}>{formatKRW(totals.profit)}</td>
+                <td className={cell}><PlanDrill k="plan_sales_all">{formatKRW(totals.achieved)}</PlanDrill></td>
+                <td className={cn(cell, totals.profit < 0 && 'text-destructive')}><PlanDrill k="plan_profit_all">{formatKRW(totals.profit)}</PlanDrill></td>
                 <td className={cell}>{totals.achieved ? `${((totals.profit / totals.achieved) * 100).toFixed(2)}%` : '-'}</td>
               </tr>
               {unmapped.achieved !== 0 && (
@@ -125,14 +150,15 @@ export function SalesTargetSection({ report, editable }: { report: PlanReport; e
                   <td className="px-4 py-2" colSpan={5}>
                     목표군 미지정 ({unmapped.categories.join(', ') || '상품구분 없음'}) — 합계 미포함
                   </td>
-                  <td className={cell}>{formatKRW(unmapped.achieved)}</td>
-                  <td className={cell}>{formatKRW(unmapped.profit)}</td>
+                  <td className={cell}><PlanDrill k="plan_sales_none">{formatKRW(unmapped.achieved)}</PlanDrill></td>
+                  <td className={cell}><PlanDrill k="plan_profit_none">{formatKRW(unmapped.profit)}</PlanDrill></td>
                   <td />
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+        </ReportDrill>
       )}
     </section>
   )

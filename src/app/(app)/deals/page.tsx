@@ -3,6 +3,7 @@ import { RememberList } from '@/components/list-return'
 import {
   Clock,
   Database,
+  HandCoins,
   Minus,
   Plus,
   ShoppingCart,
@@ -22,7 +23,7 @@ import { DEAL_SORT_LABEL, type DealSort } from '@/lib/deal-sort'
 import { canCreateDeal, canDeleteDeal, canViewCommission, getSessionUser, isAdmin } from '@/server/auth/guards'
 import { getCurrentEntity } from '@/server/entity'
 import { entityInfo } from '@/lib/entity'
-import { reviewChoices } from '@/lib/review-mark'
+import { incentiveAmount, profitKrw } from '@/lib/incentive'
 import { canEditDealShared, getShareTeams, resolveDealScope } from '@/server/auth/deal-scope'
 import { getAllLookups } from '@/server/queries/lookups'
 import { cn } from '@/lib/utils'
@@ -109,6 +110,17 @@ export default async function DealsPage({
 
   const margin = aggregate.sales > 0 ? (aggregate.profit / aggregate.sales) * 100 : 0
 
+  // 인센티브 합계 (2026-10-13 요청) — 지금 목록의 성과급을 더한 값. 영업은 볼 수 있는 본인 거래만, 해외법인은 손익(KRW) 기준
+  let incentiveTotal = 0
+  let incentiveCount = 0
+  for (const r of rows) {
+    if (!me || !canViewCommission(me, { status: r.status as 'draft' | 'confirmed' | 'closed', ownerUserId: r.ownerUserId })) continue
+    const amount = incentiveAmount(profitKrw(r.profit, r.currency, r.fxRate), r.commissionPct)
+    if (amount == null) continue
+    incentiveTotal += amount
+    incentiveCount++
+  }
+
   return (
     // 화면 높이에 맞춘 세로 배치 — 표만 자체 스크롤하고 검색·필터·요약·헤더는 항상 보인다 (2026-09-16 피드백: 상단 고정)
     <div className="flex h-[calc(100vh/var(--ui-zoom,1))] min-h-[600px] flex-col px-8 pb-3 pt-6">
@@ -133,7 +145,7 @@ export default async function DealsPage({
       <OverdueNotice deals={overdue} />
 
       <CollapseOnTableScroll>
-      <section className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3.5 lg:grid-cols-5">
         <SummaryCard
           icon={<Database className="size-[15px]" />}
           tone="primary"
@@ -169,6 +181,17 @@ export default async function DealsPage({
           sub={
             <>
               마진율 <b className="font-medium text-foreground">{margin.toFixed(1)}%</b>
+            </>
+          }
+        />
+        <SummaryCard
+          icon={<HandCoins className="size-[15px]" />}
+          tone="primary"
+          label="인센티브 합계"
+          value={`₩ ${formatKRW(Math.round(incentiveTotal))}`}
+          sub={
+            <>
+              {foreign ? '손익(KRW)' : '손익'} × 인센티브(%) · {incentiveCount.toLocaleString()}건
             </>
           }
         />
@@ -258,7 +281,8 @@ export default async function DealsPage({
             canViewIncentive,
             canEditIncentive: canViewIncentive && canEditShared,
             // 수정요청은 관리자만, 수정완료는 담당자 본인·관리자 (2026-10-12)
-            reviewChoices: me ? reviewChoices(r.reviewStatus ?? null, { admin: isAdmin(me.role), owner: r.ownerUserId === me.id }) : [],
+            // 고를 수 있는 항목은 표시가 바뀔 때마다 화면에서 다시 계산한다 (reviewChoices)
+            reviewWho: me ? { admin: isAdmin(me.role), owner: r.ownerUserId === me.id } : { admin: false, owner: false },
             }
           })}
         />
@@ -296,14 +320,14 @@ const TONE = {
 /** 매출·매입 합계를 VAT 미포함 / 포함으로 나눠 보여 준다 (2026-10-06 요청) */
 function VatPair({ net, gross }: { net: number; gross: number }) {
   return (
-    <span className="grid gap-0.5 text-[15px] leading-tight" data-slot="vat-pair">
-      <span className="flex items-baseline justify-between gap-3">
-        <span className="text-[11px] font-normal text-muted-foreground">VAT 미포함</span>
-        <span className="tabular-nums">₩ {formatKRW(net)}</span>
+    <span className="grid gap-0.5 text-[13px] leading-tight 2xl:text-[15px]" data-slot="vat-pair">
+      <span className="flex items-baseline justify-between gap-2">
+        <span className="whitespace-nowrap text-[11px] font-normal text-muted-foreground"><span className="hidden 2xl:inline">VAT </span>미포함</span>
+        <span className="whitespace-nowrap tabular-nums">₩ {formatKRW(net)}</span>
       </span>
-      <span className="flex items-baseline justify-between gap-3">
-        <span className="text-[11px] font-normal text-muted-foreground">VAT 포함</span>
-        <span className="tabular-nums">₩ {formatKRW(gross)}</span>
+      <span className="flex items-baseline justify-between gap-2">
+        <span className="whitespace-nowrap text-[11px] font-normal text-muted-foreground"><span className="hidden 2xl:inline">VAT </span>포함</span>
+        <span className="whitespace-nowrap tabular-nums">₩ {formatKRW(gross)}</span>
       </span>
     </span>
   )
@@ -326,7 +350,7 @@ function SummaryCard({
 }) {
   const warn = tone === 'warn'
   return (
-    <div className={cn('rounded-lg px-5 py-4', warn ? 'bg-accent' : 'bg-muted')}>
+    <div data-card={label} className={cn('min-w-0 rounded-lg px-4 py-4 2xl:px-5', warn ? 'bg-accent' : 'bg-muted')}>
       <div
         className={cn(
           'flex items-center gap-2.5 text-[11px] font-medium tracking-[0.04em]',
@@ -340,7 +364,8 @@ function SummaryCard({
       </div>
       <div
         className={cn(
-          'mt-2.5 text-[24px] font-normal leading-tight tabular-nums',
+          // 카드 5개(2026-10-13)라 좁은 화면에서는 글자를 줄여 한 줄에 둔다
+          'mt-2.5 whitespace-nowrap text-[19px] font-normal leading-tight tabular-nums 2xl:text-[24px]',
           warn && 'text-accent-foreground',
           valueClass,
         )}

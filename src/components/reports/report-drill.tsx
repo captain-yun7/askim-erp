@@ -203,10 +203,10 @@ function DetailView({ detail, cellValue, query, setQuery, exportArgs }: { detail
                 <th className={th}>매체사</th>
                 <th className={th}>품목명</th>
                 <th className={th}>{detail.dateLabel}</th>
-                <th className={th}>{detail.side === 'sales' ? '입금' : '결산'}</th>
-                <th className={cn(th, 'text-right')}>{detail.side === 'sales' ? '매출금' : '매입금'}</th>
-                <th className={cn(th, 'text-right')}>부가세</th>
-                <th className={cn(th, 'bg-slate-200 text-right')}>{detail.side === 'sales' ? '총매출' : '총매입'}</th>
+                <th className={th}>{detail.labels?.status ?? (detail.side === 'sales' ? '입금' : '결산')}</th>
+                <th className={cn(th, 'text-right')}>{detail.labels?.net ?? (detail.side === 'sales' ? '매출금' : '매입금')}</th>
+                <th className={cn(th, 'text-right')}>{detail.labels?.vat ?? '부가세'}</th>
+                <th className={cn(th, 'bg-slate-200 text-right')}>{detail.labels?.amount ?? (detail.side === 'sales' ? '총매출' : '총매입')}</th>
               </tr>
             </thead>
             <tbody>

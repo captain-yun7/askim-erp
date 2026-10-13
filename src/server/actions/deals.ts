@@ -432,7 +432,8 @@ async function setReviewStatus(
     await tx.update(deal).set({ reviewStatus: value, updatedBy: user.id }).where(eq(deal.id, existing.id))
     if (value === 'requested')
       await tx.insert(reviewRequestLog).values({ entity: existing.entity, dealId: existing.id, ownerUserId: existing.ownerUserId, requestedBy: user.id })
-    if (current === 'requested' && value === null) {
+    // 요청취소(2026-10-13) — 수정요청 자체를 없던 일로: 수정완료 뒤 취소해도 그 요청 1회를 횟수에서 뺀다
+    if (value === null) {
       const [last] = await tx.select({ id: reviewRequestLog.id }).from(reviewRequestLog).where(eq(reviewRequestLog.dealId, existing.id)).orderBy(desc(reviewRequestLog.id)).limit(1)
       if (last) await tx.delete(reviewRequestLog).where(eq(reviewRequestLog.id, last.id))
     }

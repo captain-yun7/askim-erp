@@ -14,14 +14,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Copy, Landmark, Trash2 } from 'lucide-react'
+import { Check, Copy, Landmark, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DateInput } from '@/components/ui/date-input'
 import { AttachmentButton } from '@/components/attachments/attachment-button'
 import { cn } from '@/lib/utils'
 import { formatDate, formatKRW } from '@/lib/format'
 import { incentiveAmount, incentivePercentText, incentiveRate, profitKrw } from '@/lib/incentive'
-import { REVIEW_LABEL, type ReviewStatus } from '@/lib/review-mark'
+import { REVIEW_LABEL, reviewChoices, type ReviewStatus } from '@/lib/review-mark'
 import { changeTitle, columnChange, type LIST_COLUMN_FIELDS, type RecentChanges } from '@/lib/change-highlight'
 
 type Row = {
@@ -59,7 +59,7 @@ type Row = {
   canTogglePaid: boolean
   canDelete?: boolean
   /** 이 사람이 바꿀 수 있는 수정요청 표시 (2026-10-12: 요청은 관리자, 완료는 담당자·관리자) */
-  reviewChoices?: ReviewStatus[]
+  reviewWho?: { admin: boolean; owner: boolean }
   recentChanges?: RecentChanges
   attachmentCount?: number
   categoryName: string | null
@@ -345,7 +345,7 @@ function InlineAccrual({ dealId, year, month, enabled }: { dealId: string; year:
  * 수정요청/완료 표시 (2026-10-08 요청). 2026-10-12: 실수로 바뀌지 않게 누르면 바로 바뀌지 않고 고를 수 있는 메뉴가 열린다.
  * 수정요청은 관리자만, 수정완료는 담당자 본인·관리자만 (lib/review-mark). 고를 게 없으면 표시만 한다.
  */
-function ReviewMark({ dealId, value, choices }: { dealId: string; value: ReviewStatus; choices: ReviewStatus[] }) {
+function ReviewMark({ dealId, value, who }: { dealId: string; value: ReviewStatus; who: { admin: boolean; owner: boolean } }) {
   const [pending, start] = useTransition()
   const apply = useContext(PatchCtx)
   const [shown, setShown] = useOptimistic(value)
@@ -360,6 +360,7 @@ function ReviewMark({ dealId, value, choices }: { dealId: string; value: ReviewS
     return () => document.removeEventListener('mousedown', close)
   }, [open])
   const label = shown ? REVIEW_LABEL[shown] : ''
+  const choices = reviewChoices(shown, who)
   const enabled = choices.length > 0
   function pick(next: ReviewStatus) {
     setOpen(false)
@@ -378,11 +379,12 @@ function ReviewMark({ dealId, value, choices }: { dealId: string; value: ReviewS
         data-review={shown ?? 'none'}
         aria-label={label || '표시 없음'}
         aria-expanded={enabled ? open : undefined}
-        title={enabled ? '눌러서 수정요청·수정완료 표시' : label || undefined}
+        title={enabled ? '눌러서 수정요청·수정완료·요청취소' : label || undefined}
         className={cn(
           'inline-flex h-5 min-w-5 shrink-0 items-center justify-center gap-1 rounded border px-1 text-[10.5px] font-semibold leading-none',
           shown === 'requested' && 'border-red-300 bg-red-50 text-red-600',
-          shown === 'done' && 'border-emerald-300 bg-emerald-50 text-emerald-700',
+          // 수정완료는 글씨 없이 초록 체크 상자 — 빈 상자와 같은 크기라 줄이 틀어지지 않는다 (2026-10-13)
+          shown === 'done' && 'w-5 border-emerald-600 bg-emerald-600 px-0 text-white',
           shown === null && 'border-slate-300 bg-white text-transparent',
           shown === null && enabled && 'hover:border-slate-500',
           shown === null && !enabled && 'border-slate-200',
@@ -390,7 +392,7 @@ function ReviewMark({ dealId, value, choices }: { dealId: string; value: ReviewS
         )}
         onClick={() => enabled && setOpen((o) => !o)}
       >
-        {label || '·'}
+        {shown === 'done' ? <Check className="size-3.5" strokeWidth={3} /> : label || '·'}
       </button>
       {open && (
         <span data-slot="review-menu" role="menu" className="absolute left-0 top-full z-30 mt-1 flex w-max flex-col rounded-lg border bg-popover p-1 text-[12px] text-popover-foreground shadow-md">
@@ -407,7 +409,7 @@ function ReviewMark({ dealId, value, choices }: { dealId: string; value: ReviewS
               )}
               onClick={() => pick(c)}
             >
-              {c ? `${REVIEW_LABEL[c]} 표시` : '표시 지우기'}
+              {c ? `${REVIEW_LABEL[c]} 표시` : '요청취소'}
             </button>
           ))}
         </span>
@@ -1077,7 +1079,7 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
               <TableRow key={r.id} className="hover:bg-muted/60">
                 <TableCell {...cell('code')}>
                   <span className="flex items-center gap-2">
-                  <ReviewMark dealId={r.id} value={r.reviewStatus ?? null} choices={r.reviewChoices ?? []} />
+                  <ReviewMark dealId={r.id} value={r.reviewStatus ?? null} who={r.reviewWho ?? { admin: false, owner: false }} />
                   {(r.canTogglePaid || r.canDelete) && (
                     <input
                       type="checkbox"

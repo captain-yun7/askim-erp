@@ -55,6 +55,9 @@ export type DrillDealRow = {
   amount: number
 }
 
+/** 금액 열 이름 — 기본은 매출금·부가세·총매출(매입이면 매입), 매출목표 표는 따로 (2026-10-13) */
+export type DrillDealLabels = { status: string; net: string; vat: string; amount: string }
+
 export type DrillExpenseRow = {
   id: string
   date: string
@@ -65,7 +68,7 @@ export type DrillExpenseRow = {
 }
 
 export type DrillDetail =
-  | { kind: 'deals'; basis: string; side: 'sales' | 'purchase'; dateLabel: string; rows: DrillDealRow[]; total: number }
+  | { kind: 'deals'; basis: string; side: 'sales' | 'purchase'; dateLabel: string; rows: DrillDealRow[]; total: number; labels?: DrillDealLabels }
   | { kind: 'expenses'; basis: string; rows: DrillExpenseRow[]; total: number }
 
 /** 금액 합계 — 소수 둘째 자리까지라 전 단위 정수로 더해야 표의 값(DB 합계)과 1원도 어긋나지 않는다 */
