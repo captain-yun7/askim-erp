@@ -23,7 +23,6 @@ import { DEAL_SORT_LABEL, type DealSort } from '@/lib/deal-sort'
 import { canCreateDeal, canDeleteDeal, canViewCommission, getSessionUser, isAdmin } from '@/server/auth/guards'
 import { getCurrentEntity } from '@/server/entity'
 import { entityInfo } from '@/lib/entity'
-import { reviewChoices } from '@/lib/review-mark'
 import { incentiveAmount, profitKrw } from '@/lib/incentive'
 import { canEditDealShared, getShareTeams, resolveDealScope } from '@/server/auth/deal-scope'
 import { getAllLookups } from '@/server/queries/lookups'
@@ -282,7 +281,8 @@ export default async function DealsPage({
             canViewIncentive,
             canEditIncentive: canViewIncentive && canEditShared,
             // 수정요청은 관리자만, 수정완료는 담당자 본인·관리자 (2026-10-12)
-            reviewChoices: me ? reviewChoices(r.reviewStatus ?? null, { admin: isAdmin(me.role), owner: r.ownerUserId === me.id }) : [],
+            // 고를 수 있는 항목은 표시가 바뀔 때마다 화면에서 다시 계산한다 (reviewChoices)
+            reviewWho: me ? { admin: isAdmin(me.role), owner: r.ownerUserId === me.id } : { admin: false, owner: false },
             }
           })}
         />
