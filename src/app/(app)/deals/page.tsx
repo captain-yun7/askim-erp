@@ -320,14 +320,14 @@ const TONE = {
 /** 매출·매입 합계를 VAT 미포함 / 포함으로 나눠 보여 준다 (2026-10-06 요청) */
 function VatPair({ net, gross }: { net: number; gross: number }) {
   return (
-    <span className="grid gap-0.5 text-[15px] leading-tight" data-slot="vat-pair">
-      <span className="flex items-baseline justify-between gap-3">
-        <span className="text-[11px] font-normal text-muted-foreground">VAT 미포함</span>
-        <span className="tabular-nums">₩ {formatKRW(net)}</span>
+    <span className="grid gap-0.5 text-[13px] leading-tight 2xl:text-[15px]" data-slot="vat-pair">
+      <span className="flex items-baseline justify-between gap-2">
+        <span className="whitespace-nowrap text-[11px] font-normal text-muted-foreground"><span className="hidden 2xl:inline">VAT </span>미포함</span>
+        <span className="whitespace-nowrap tabular-nums">₩ {formatKRW(net)}</span>
       </span>
-      <span className="flex items-baseline justify-between gap-3">
-        <span className="text-[11px] font-normal text-muted-foreground">VAT 포함</span>
-        <span className="tabular-nums">₩ {formatKRW(gross)}</span>
+      <span className="flex items-baseline justify-between gap-2">
+        <span className="whitespace-nowrap text-[11px] font-normal text-muted-foreground"><span className="hidden 2xl:inline">VAT </span>포함</span>
+        <span className="whitespace-nowrap tabular-nums">₩ {formatKRW(gross)}</span>
       </span>
     </span>
   )
@@ -350,7 +350,7 @@ function SummaryCard({
 }) {
   const warn = tone === 'warn'
   return (
-    <div data-card={label} className={cn('rounded-lg px-5 py-4', warn ? 'bg-accent' : 'bg-muted')}>
+    <div data-card={label} className={cn('min-w-0 rounded-lg px-4 py-4 2xl:px-5', warn ? 'bg-accent' : 'bg-muted')}>
       <div
         className={cn(
           'flex items-center gap-2.5 text-[11px] font-medium tracking-[0.04em]',
@@ -364,7 +364,8 @@ function SummaryCard({
       </div>
       <div
         className={cn(
-          'mt-2.5 text-[24px] font-normal leading-tight tabular-nums',
+          // 카드 5개(2026-10-13)라 좁은 화면에서는 글자를 줄여 한 줄에 둔다
+          'mt-2.5 whitespace-nowrap text-[19px] font-normal leading-tight tabular-nums 2xl:text-[24px]',
           warn && 'text-accent-foreground',
           valueClass,
         )}
