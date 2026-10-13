@@ -5,7 +5,8 @@ import { alias } from 'drizzle-orm/pg-core'
 import { z } from 'zod'
 import { db } from '@/lib/db/client'
 import { getCurrentEntity } from '@/server/entity'
-import { counterparty, deal, expense, expenseCategory, users } from '@/lib/db/schema'
+import { counterparty, deal, dealCategory, expense, expenseCategory, users } from '@/lib/db/schema'
+import { PLAN_GROUPS } from '@/lib/plan-groups'
 import { LEAF_BASIS, sumAmounts, type DrillDetail } from '@/lib/ledger-drill'
 import { canAccessBackoffice, getSessionUser } from '@/server/auth/guards'
 
@@ -41,6 +42,8 @@ export async function getReportCellDetail(raw: unknown): Promise<DrillDetail | {
     const list = rows.map((r) => ({ ...r, amount: num(r.amount) }))
     return { kind: 'expenses', basis: '지출일의 연·월이 이 달이고 거래항목이 이 과목인 판관비', rows: list, total: sumAmounts(list.map((r) => r.amount)) }
   }
+
+  if (key.startsWith('plan_')) return planCellDetail(year, key)
 
   const basis = LEAF_BASIS[key]
   if (!basis) return { error: '이 칸은 내역을 볼 수 없습니다' }
@@ -96,4 +99,67 @@ export async function getReportCellDetail(raw: unknown): Promise<DrillDetail | {
     .filter((r) => r.amount !== 0)
     .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
   return { kind: 'deals', basis, side: s.side, dateLabel: s.dateLabel, rows: list, total: sumAmounts(list.map((r) => r.amount)) }
+}
+
+/**
+ * 매출목표 표의 달성치·수익 근거 (2026-10-13 요청) — reports-plan.ts 와 같은 조건:
+ * 귀속연도가 이 해인 거래를 상품구분의 목표군(plan_group)으로 묶는다. 키: plan_{sales|profit}_{목표군|all|none}
+ */
+async function planCellDetail(year: number, key: string): Promise<DrillDetail | { error: string }> {
+  const m = /^plan_(sales|profit)_([a-z0-9_]+)$/.exec(key)
+  if (!m) return { error: '잘못된 요청입니다' }
+  const [, measure, group] = m
+  const codes: string[] = PLAN_GROUPS.map((g) => g.code)
+  if (group !== 'all' && group !== 'none' && !codes.includes(group)) return { error: '잘못된 요청입니다' }
+
+  const cats = await db.select({ id: dealCategory.id, planGroup: dealCategory.planGroup }).from(dealCategory)
+  const mapped = cats.filter((c) => c.planGroup != null && codes.includes(c.planGroup)).map((c) => c.id)
+  const inGroup = cats.filter((c) => c.planGroup === group).map((c) => c.id)
+  const categoryCond =
+    group === 'all'
+      ? mapped.length ? inArray(deal.categoryId, mapped) : sql`false`
+      : group === 'none'
+        ? mapped.length ? sql`(${deal.categoryId} is null or ${deal.categoryId} not in ${mapped})` : undefined
+        : inGroup.length ? inArray(deal.categoryId, inGroup) : sql`false`
+
+  const issuer = alias(counterparty, 'issuer')
+  const supplier = alias(counterparty, 'supplier')
+  const accrualLabel = sql<string>`${deal.accrualYear}::text || '-' || lpad(${deal.accrualMonth}::text, 2, '0')`
+  const rows = await db
+    .select({
+      id: deal.id,
+      dealCode: deal.dealCode,
+      accrual: accrualLabel,
+      owner: users.name,
+      issuer: issuer.name,
+      supplier: supplier.name,
+      itemName: deal.itemName,
+      basisDate: dealCategory.nameKo,
+      status: deal.salesPaidStatus,
+      sales: deal.salesAmountNet,
+      purchase: deal.purchaseAmountNet,
+      profit: deal.profit,
+    })
+    .from(deal)
+    .leftJoin(users, eq(users.id, deal.ownerUserId))
+    .leftJoin(issuer, eq(issuer.id, deal.issuerCounterpartyId))
+    .leftJoin(supplier, eq(supplier.id, deal.supplierCounterpartyId))
+    .leftJoin(dealCategory, eq(dealCategory.id, deal.categoryId))
+    .where(and(eq(deal.entity, await getCurrentEntity()), isNull(deal.deletedAt), eq(deal.accrualYear, year), categoryCond))
+  const sales = measure === 'sales'
+  const list = rows
+    .map(({ sales: s, purchase: p, profit: pr, ...r }) =>
+      sales ? { ...r, net: num(p), vat: num(pr), amount: num(s) } : { ...r, net: num(s), vat: num(p), amount: num(pr) },
+    )
+    .filter((r) => r.amount !== 0)
+    .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
+  return {
+    kind: 'deals',
+    basis: sales ? '귀속연도가 이 해이고 상품구분이 이 목표군인 거래 · 매출금(VAT 제외)' : '귀속연도가 이 해이고 상품구분이 이 목표군인 거래 · 손익(매출금 − 매입금)',
+    side: 'sales',
+    dateLabel: '상품구분',
+    labels: sales ? { status: '입금', net: '매입금', vat: '손익', amount: '매출금' } : { status: '입금', net: '매출금', vat: '매입금', amount: '손익' },
+    rows: list,
+    total: sumAmounts(list.map((r) => r.amount)),
+  }
 }
