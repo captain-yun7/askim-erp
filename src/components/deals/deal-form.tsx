@@ -18,7 +18,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { checkDealCode, createDeal, deleteDeal, updateDeal, type DealInput } from '@/server/actions/deals'
+import { checkDealCode, createDeal, deleteDeal, lookupFxRate, updateDeal, type DealInput } from '@/server/actions/deals'
+import { profitKrw } from '@/lib/incentive'
 import { CounterpartyCombobox } from './counterparty-combobox'
 import { CounterpartyQuickCreate } from '../counterparties/counterparty-quick-create'
 import { formatKRW } from '@/lib/format'
@@ -61,10 +62,16 @@ export function DealForm({
   readOnly = false,
   backHref = '/deals',
   canDelete = false,
+  foreign = false,
+  defaultCurrency = 'KRW',
 }: {
   lookups: Lookups
   initial?: Initial
   readOnly?: boolean
+  /** 미국·중국법인 (2026-10-12 요청): 부가세·계산서 발행일 없음, 매출수단에서 세금계산서·현금영수증 제외 */
+  foreign?: boolean
+  /** 새 거래의 통화 기본값 — 미국 USD, 중국 CNY */
+  defaultCurrency?: 'KRW' | 'USD' | 'CNY'
   /** 취소·저장 후 돌아갈 목록 URL (필터 보존) */
   backHref?: string
   canDelete?: boolean
@@ -85,7 +92,8 @@ export function DealForm({
     ownerUserId: initial?.ownerUserId ?? null,
     categoryId: initial?.categoryId ?? null,
     accountId: initial?.accountId ?? null,
-    currency: (initial?.currency as 'KRW' | 'USD' | 'CNY') ?? 'KRW',
+    currency: (initial?.currency as 'KRW' | 'USD' | 'CNY') ?? defaultCurrency,
+    fxRate: initial?.fxRate ?? null,
     status: (initial?.status as 'draft' | 'confirmed' | 'closed') ?? 'draft',
     salesMethodId: initial?.salesMethodId ?? null,
     issuerCounterpartyId: initial?.issuerCounterpartyId ?? null,
@@ -137,9 +145,22 @@ export function DealForm({
   // 부가세 없는 거래 (2026-09-29 요청: 해외영업 건) — "삭제"를 누르면 금액을 고쳐도 부가세를 다시 채우지 않는다
   const hasAmount = (v: string | null | undefined) => v != null && v !== '' && num(v) !== 0
   const [noVat, setNoVat] = useState({
-    sales: hasAmount(initial?.salesAmountNet) && !hasAmount(initial?.salesVat),
-    purchase: hasAmount(initial?.purchaseAmountNet) && !hasAmount(initial?.purchaseVat),
+    sales: foreign || (hasAmount(initial?.salesAmountNet) && !hasAmount(initial?.salesVat)),
+    purchase: foreign || (hasAmount(initial?.purchaseAmountNet) && !hasAmount(initial?.purchaseVat)),
   })
+  // 외화 거래: 환율은 매출 입금일 기준으로 자동 (2026-10-12 요청), 손으로 고칠 수도 있다
+  const isFx = form.currency !== 'KRW'
+  const krw = isFx ? profitKrw(profit, form.currency, form.fxRate) : null
+  const [fxLoading, setFxLoading] = useState(false)
+  async function refreshFx(currency: string, date: string | null | undefined) {
+    if (currency === 'KRW' || !date) return
+    setFxLoading(true)
+    const res = await lookupFxRate(currency, date).catch(() => ({ rate: null }))
+    setFxLoading(false)
+    if (res.rate != null) set('fxRate', res.rate.toFixed(4))
+    else toast.error('환율을 불러오지 못했습니다', { description: '환율 칸에 직접 입력해 주세요' })
+  }
+  const salesMethods = foreign ? lookups.salesMethods.filter((m) => m.nameKo !== '세금계산서' && m.nameKo !== '현금영수증') : lookups.salesMethods
   function setMoney(side: 'sales' | 'purchase', field: 'net' | 'vat', v: string | null) {
     const netKey = side === 'sales' ? 'salesAmountNet' : 'purchaseAmountNet'
     const vatKey = side === 'sales' ? 'salesVat' : 'purchaseVat'
@@ -330,7 +351,11 @@ export function DealForm({
             <FL>통화</FL>
             <Select
               value={form.currency}
-              onValueChange={(v) => set('currency', (v as 'KRW') || 'KRW')}
+              onValueChange={(v) => {
+                const c = (v as 'KRW') || 'KRW'
+                set('currency', c)
+                if (c !== form.currency) refreshFx(c, form.salesPaidDate)
+              }}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -404,7 +429,7 @@ export function DealForm({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {lookups.salesMethods.map((m) => (
+                    {salesMethods.map((m) => (
                       <SelectItem key={m.id} value={String(m.id)}>
                         {m.nameKo}
                       </SelectItem>
@@ -424,6 +449,7 @@ export function DealForm({
                 noVat={noVat.sales}
                 onToggleVat={() => toggleVat('sales')}
                 integer={form.currency === 'KRW'}
+                hideVat={foreign}
               />
               <div className="grid grid-cols-2 gap-2">
                 <div className="grid gap-1.5">
@@ -432,14 +458,23 @@ export function DealForm({
                 </div>
                 <div className="grid gap-1.5">
                   <FL>입금일</FL>
-                  <DateInput aria-label="salesPaidDate" value={form.salesPaidDate} onChange={(v) => set('salesPaidDate', v)} />
+                  <DateInput
+                    aria-label="salesPaidDate"
+                    value={form.salesPaidDate}
+                    onChange={(v) => {
+                      set('salesPaidDate', v)
+                      if (v && v !== form.salesPaidDate) refreshFx(form.currency, v)
+                    }}
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <div className="grid gap-1.5">
-                  <FL>매출 세계발행일</FL>
-                  <DateInput aria-label="salesInvoiceDate" value={form.salesInvoiceDate} onChange={(v) => set('salesInvoiceDate', v)} />
-                </div>
+                {!foreign && (
+                  <div className="grid gap-1.5">
+                    <FL>매출 세계발행일</FL>
+                    <DateInput aria-label="salesInvoiceDate" value={form.salesInvoiceDate} onChange={(v) => set('salesInvoiceDate', v)} />
+                  </div>
+                )}
                 <div className="grid gap-1.5">
                   <FL>입금여부</FL>
                   <Select
@@ -539,6 +574,7 @@ export function DealForm({
                 noVat={noVat.purchase}
                 onToggleVat={() => toggleVat('purchase')}
                 integer={form.currency === 'KRW'}
+                hideVat={foreign}
               />
               <div className="grid grid-cols-2 gap-2">
                 {/* 결산예정일은 결산연월로 대체 (2026-10-06 요청) — 월별 수금결산의 매입 예정은 결산연월 기준 */}
@@ -548,10 +584,12 @@ export function DealForm({
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <div className="grid gap-1.5">
-                  <FL accounting>매입 세계발행일</FL>
-                  <DateInput aria-label="purchaseInvoiceDate" value={form.purchaseInvoiceDate} onChange={(v) => set('purchaseInvoiceDate', v)} />
-                </div>
+                {!foreign && (
+                  <div className="grid gap-1.5">
+                    <FL accounting>매입 세계발행일</FL>
+                    <DateInput aria-label="purchaseInvoiceDate" value={form.purchaseInvoiceDate} onChange={(v) => set('purchaseInvoiceDate', v)} />
+                  </div>
+                )}
                 <div className="grid gap-1.5">
                   <FL accounting>결산여부</FL>
                   <Select
@@ -600,6 +638,28 @@ export function DealForm({
               </span>
             )}
           </div>
+          {isFx && (
+            <>
+              <div className="flex items-center gap-2">
+                <label htmlFor="deal-fx-rate" className="text-muted-foreground" title="매출 입금일 기준(유럽중앙은행 고시) 자동 · 직접 고칠 수 있습니다">
+                  환율
+                </label>
+                <AmountInput
+                  id="deal-fx-rate"
+                  aria-label="환율"
+                  value={form.fxRate}
+                  onChange={(v) => set('fxRate', v)}
+                  placeholder={fxLoading ? '불러오는 중…' : '입금일 입력 시 자동'}
+                  className="h-8 w-32 text-right font-mono"
+                />
+                <span className="text-xs text-muted-foreground">KRW / {form.currency}</span>
+              </div>
+              <div data-slot="profit-krw">
+                <span className="text-muted-foreground">손익(KRW)</span>{' '}
+                <b className={krw != null && krw < 0 ? 'text-destructive' : krw ? 'text-success-foreground' : ''}>{krw != null ? formatKRW(krw) : '-'}</b>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -678,6 +738,7 @@ function MoneyRow({
   noVat,
   onToggleVat,
   integer,
+  hideVat = false,
 }: {
   netLabel: string
   vatLabel: string
@@ -690,9 +751,10 @@ function MoneyRow({
   noVat: boolean
   onToggleVat: () => void
   integer: boolean
+  hideVat?: boolean
 }) {
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className={cn('grid gap-2', hideVat ? 'grid-cols-2' : 'grid-cols-3')}>
       <div className="grid gap-1.5">
         <FL>{netLabel}</FL>
         <AmountInput
@@ -702,6 +764,7 @@ function MoneyRow({
           className="text-right font-mono"
         />
       </div>
+      {!hideVat && (
       <div className="grid gap-1.5">
         <div className="flex items-center justify-between gap-2">
           <FL>{vatLabel}</FL>
@@ -724,6 +787,7 @@ function MoneyRow({
           className="text-right font-mono"
         />
       </div>
+      )}
       <div className="grid gap-1.5">
         <FL>{grossLabel}</FL>
         <Input
