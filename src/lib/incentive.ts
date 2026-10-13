@@ -20,3 +20,17 @@ export function incentiveAmount(profit: string | number | null | undefined, stor
   // 요율은 소수 넷째 자리까지 저장되므로 만 배로 올려 곱한다 (부동소수점 오차 방지)
   return (p * Math.round(incentiveRate(stored) * 10000)) / 10000
 }
+
+/**
+ * 원화 손익 (2026-10-12 요청: 미국·중국법인은 손익 × 환율). 원화 거래는 손익 그대로, 환율이 없으면 null.
+ * 성과급은 이 값 × 인센티브(%)
+ */
+export function profitKrw(profit: string | number | null | undefined, currency: string, fxRate: string | number | null | undefined): number | null {
+  if (profit === null || profit === undefined || profit === '') return null
+  const p = typeof profit === 'string' ? parseFloat(profit) : profit
+  if (!Number.isFinite(p)) return null
+  if (currency === 'KRW') return p
+  const fx = typeof fxRate === 'string' ? parseFloat(fxRate) : fxRate
+  if (fx == null || !Number.isFinite(fx) || fx <= 0) return null
+  return Math.round(p * fx)
+}
