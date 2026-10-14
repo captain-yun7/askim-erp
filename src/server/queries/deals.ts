@@ -7,6 +7,7 @@ import { getRecentChanges } from '@/server/deal-changes'
 import { getChangeHighlightDays } from '@/server/queries/app-settings'
 import { getAttachmentCounts } from '@/server/actions/attachments'
 import type { DealSort } from '@/lib/deal-sort'
+import type { IncentiveShare } from '@/lib/incentive'
 import { getSessionUser } from '@/server/auth/guards'
 import { resolveDealScope } from '@/server/auth/deal-scope'
 import {
@@ -338,6 +339,8 @@ export async function listDeals(f: DealListFilters = {}) {
       profit: deal.profit,
       fxRate: deal.fxRate,
       commissionPct: deal.commissionPct,
+      // 추가 성과급 대상자 (2026-10-14)
+      incentiveShares: sql<IncentiveShare[]>`coalesce((select json_agg(json_build_object('userId', s.user_id, 'name', u.name, 'rate', s.rate::text) order by s.sort_order, s.id) from deal_incentive_share s join users u on u.id = s.user_id where s.deal_id = ${deal.id}), '[]'::json)`,
       salesPaidStatus: deal.salesPaidStatus,
       purchasePaidStatus: deal.purchasePaidStatus,
       ownerUserId: deal.ownerUserId,
