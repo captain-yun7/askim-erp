@@ -3,7 +3,7 @@
 import { currentFilterParams, pushFilterParams } from '@/lib/filter-nav'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { createContext, useCallback, useContext, useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react'
+import { createContext, Fragment, useCallback, useContext, useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { bulkSetInvoiceDate, deleteDeals, toggleDealPaid, updateDealInline } from '@/server/actions/deals'
 import { Badge } from '@/components/ui/badge'
@@ -14,13 +14,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Check, Copy, Landmark, Trash2 } from 'lucide-react'
+import { Check, Copy, Landmark, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DateInput } from '@/components/ui/date-input'
 import { AttachmentButton } from '@/components/attachments/attachment-button'
 import { cn } from '@/lib/utils'
 import { formatDate, formatKRW } from '@/lib/format'
-import { incentiveAmount, incentivePercentText, incentiveRate, profitKrw } from '@/lib/incentive'
+import { incentiveAmount, incentivePercentText, incentiveRate, incentiveTotal, profitKrw, type IncentiveShare } from '@/lib/incentive'
+import { setIncentiveShares } from '@/server/actions/incentive-shares'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { REVIEW_LABEL, reviewChoices, type ReviewStatus } from '@/lib/review-mark'
 import { changeTitle, columnChange, type LIST_COLUMN_FIELDS, type RecentChanges } from '@/lib/change-highlight'
 
@@ -43,6 +45,7 @@ type Row = {
   profit: string | null
   fxRate?: string | null
   commissionPct?: string | null
+  incentiveShares?: IncentiveShare[]
   canViewIncentive?: boolean
   canEditIncentive?: boolean
   salesPaidStatus: string
@@ -820,10 +823,100 @@ function FilterHeaderRow({ filters, foreign }: { filters: ColumnFilters; foreign
   )
 }
 
-function IncentiveAmountCell({ show, base, stored }: { show: boolean; base: number | null; stored: string | null }) {
-  const amount = show ? incentiveAmount(base, stored) : null
+type ShareUser = { id: string; name: string }
+const ShareUsersCtx = createContext<ShareUser[]>([])
+
+/**
+ * 성과급 칸 (2026-10-14: 추가 성과급 대상자) — 담당자 몫 + 추가 대상자 몫의 합계.
+ * 누르면 사람별로 나눠 보이고, 수정 권한이 있으면 사람·요율을 더하거나 뺀다
+ */
+function IncentiveAmountCell({ dealId, show, editable, base, stored, ownerName, initialShares }: { dealId: string; show: boolean; editable: boolean; base: number | null; stored: string | null; ownerName: string | null; initialShares: IncentiveShare[] }) {
+  const [shares, setShares] = useState(initialShares)
+  const [pending, start] = useTransition()
+  const [pick, setPick] = useState('')
+  const [percent, setPercent] = useState('5')
+  const users = useContext(ShareUsersCtx)
+  const amount = show ? incentiveTotal(base, stored, shares) : null
   if (amount === null) return <span className="text-muted-foreground/60" title={show ? '환율이 없어 계산할 수 없습니다' : undefined}>-</span>
-  return <span className={cn(amount < 0 && 'text-destructive')}>{formatKRW(amount)}</span>
+  if (!editable && shares.length === 0) return <span className={cn(amount < 0 && 'text-destructive')}>{formatKRW(amount)}</span>
+
+  function save(next: { userId: string; percent: number }[]) {
+    start(async () => {
+      const res = await setIncentiveShares(dealId, next)
+      if ('error' in res) toast.error(res.error)
+      else {
+        setShares(res.shares)
+        setPick('')
+      }
+    })
+  }
+  const asInput = (a: IncentiveShare[]) => a.map((s) => ({ userId: s.userId, percent: Math.round(parseFloat(s.rate) * 10000) / 100 }))
+  const won = (rate: string | null) => {
+    const v = incentiveAmount(base, rate)
+    return v === null ? '-' : formatKRW(v)
+  }
+  const taken = new Set(shares.map((s) => s.userId))
+  return (
+    // 표 스크롤 상자에 잘리지 않게 포털 팝오버로 띄운다
+    <Popover>
+      <PopoverTrigger
+        data-slot="incentive-amount"
+        title={editable ? '눌러서 사람별 성과급 보기 · 추가 대상자 넣기' : '눌러서 사람별 성과급 보기'}
+        className={cn('inline-flex items-center gap-1 rounded px-1 hover:bg-foreground/10', amount < 0 && 'text-destructive', pending && 'opacity-60')}
+      >
+        {formatKRW(amount)}
+        {shares.length > 0 && (
+          <span data-slot="share-count" className="rounded bg-sky-100 px-1 text-[10px] font-semibold text-sky-800">
+            +{shares.length}
+          </span>
+        )}
+      </PopoverTrigger>
+      <PopoverContent align="end" data-incentive-shares={dealId} className="gap-1 text-[12px]">
+        <span className="grid grid-cols-[1fr_auto_auto_1.25rem] items-center gap-x-2 gap-y-1">
+          <span className="text-muted-foreground">담당 {ownerName ?? '-'}</span>
+          <span className="text-right tabular-nums">{incentivePercentText(incentiveRate(stored))}%</span>
+          <span className="text-right tabular-nums">{won(stored)}</span>
+          <span />
+          {shares.map((s) => (
+            <Fragment key={s.userId}>
+              <span data-share={s.name}>{s.name}</span>
+              <span className="text-right tabular-nums">{incentivePercentText(parseFloat(s.rate))}%</span>
+              <span className="text-right tabular-nums">{won(s.rate)}</span>
+              {editable ? (
+                <button type="button" aria-label={`${s.name} 빼기`} disabled={pending} className="text-muted-foreground hover:text-destructive" onClick={() => save(asInput(shares.filter((x) => x.userId !== s.userId)))}>
+                  <X className="size-3.5" />
+                </button>
+              ) : (
+                <span />
+              )}
+            </Fragment>
+          ))}
+        </span>
+        {editable && (
+          <span className="mt-1 flex items-center gap-1 border-t pt-2">
+            <select aria-label="추가 대상자" value={pick} onChange={(e) => setPick(e.target.value)} className="h-7 min-w-0 flex-1 rounded border bg-background px-1">
+              <option value="">사람 선택</option>
+              {users.filter((u) => !taken.has(u.id) && u.name !== ownerName).map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
+            <input aria-label="추가 대상자 요율" inputMode="decimal" value={percent} onChange={(e) => setPercent(e.target.value)} className="h-7 w-12 rounded border bg-background px-1 text-right tabular-nums" />
+            <span>%</span>
+            <button
+              type="button"
+              disabled={!pick || pending || !(parseFloat(percent) >= 0)}
+              className="h-7 rounded bg-primary px-2 text-primary-foreground disabled:opacity-40"
+              onClick={() => save([...asInput(shares), { userId: pick, percent: parseFloat(percent) }])}
+            >
+              추가
+            </button>
+          </span>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
 }
 
 type Picked = { id: string; code: string; canEdit: boolean; canDelete: boolean }
@@ -953,7 +1046,7 @@ function BulkBar({ container, showAll, foreign }: { container: React.RefObject<H
 /**
  * foreign: 미국·중국법인 (2026-10-12 요청) — 부가세·계산서 발행일 칸을 빼고, 손익 옆에 손익(KRW)을 넣는다. 성과급 = 손익(KRW) × 인센티브
  */
-export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = false, foreign = false }: { rows: Row[]; columnFilters?: ColumnFilters; canCopy?: boolean; foreign?: boolean }) {
+export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = false, foreign = false, shareUsers = [] }: { rows: Row[]; columnFilters?: ColumnFilters; canCopy?: boolean; foreign?: boolean; shareUsers?: ShareUser[] }) {
   const colCount = foreign ? 20 : 23
   // 인라인 수정 결과는 서버가 돌려준 그 행 값으로 덮어쓴다. 서버 목록이 새로 오면 비운다
   const [patches, setPatches] = useState<Record<string, Partial<Row>>>({})
@@ -1003,6 +1096,7 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
   }
   return (
     <PatchCtx.Provider value={apply}>
+    <ShareUsersCtx.Provider value={shareUsers}>
     <div ref={container} className="flex min-h-0 flex-1 flex-col">
     {/* 필터·검색이 바뀌면 선택을 비운다 */}
     <BulkBar key={search} container={container} showAll={showAll} foreign={foreign} />
@@ -1268,7 +1362,15 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
                   {r.canViewIncentive ? <InlineIncentive dealId={r.id} stored={r.commissionPct ?? null} enabled={Boolean(r.canEditIncentive)} /> : <span className="text-muted-foreground/60">-</span>}
                 </TableCell>
                 <TableCell className="text-right text-[13px] tabular-nums" data-col="incentiveAmount">
-                  <IncentiveAmountCell show={Boolean(r.canViewIncentive)} base={base} stored={r.commissionPct ?? null} />
+                  <IncentiveAmountCell
+                    dealId={r.id}
+                    show={Boolean(r.canViewIncentive)}
+                    editable={Boolean(r.canEditIncentive)}
+                    base={base}
+                    stored={r.commissionPct ?? null}
+                    ownerName={r.ownerName}
+                    initialShares={r.incentiveShares ?? []}
+                  />
                 </TableCell>
               </TableRow>
             )
@@ -1287,6 +1389,7 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
       </table>
     </div>
     </div>
+    </ShareUsersCtx.Provider>
     </PatchCtx.Provider>
   )
 }

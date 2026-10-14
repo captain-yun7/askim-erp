@@ -23,7 +23,7 @@ import { DEAL_SORT_LABEL, type DealSort } from '@/lib/deal-sort'
 import { canCreateDeal, canDeleteDeal, canViewCommission, getSessionUser, isAdmin } from '@/server/auth/guards'
 import { getCurrentEntity } from '@/server/entity'
 import { entityInfo } from '@/lib/entity'
-import { incentiveAmount, profitKrw } from '@/lib/incentive'
+import { incentiveTotal, profitKrw } from '@/lib/incentive'
 import { canEditDealShared, getShareTeams, resolveDealScope } from '@/server/auth/deal-scope'
 import { getAllLookups } from '@/server/queries/lookups'
 import { cn } from '@/lib/utils'
@@ -111,13 +111,13 @@ export default async function DealsPage({
   const margin = aggregate.sales > 0 ? (aggregate.profit / aggregate.sales) * 100 : 0
 
   // 인센티브 합계 (2026-10-13 요청) — 지금 목록의 성과급을 더한 값. 영업은 볼 수 있는 본인 거래만, 해외법인은 손익(KRW) 기준
-  let incentiveTotal = 0
+  let incentiveSum = 0
   let incentiveCount = 0
   for (const r of rows) {
     if (!me || !canViewCommission(me, { status: r.status as 'draft' | 'confirmed' | 'closed', ownerUserId: r.ownerUserId })) continue
-    const amount = incentiveAmount(profitKrw(r.profit, r.currency, r.fxRate), r.commissionPct)
+    const amount = incentiveTotal(profitKrw(r.profit, r.currency, r.fxRate), r.commissionPct, r.incentiveShares)
     if (amount == null) continue
-    incentiveTotal += amount
+    incentiveSum += amount
     incentiveCount++
   }
 
@@ -188,7 +188,7 @@ export default async function DealsPage({
           icon={<HandCoins className="size-[15px]" />}
           tone="primary"
           label="인센티브 합계"
-          value={`₩ ${formatKRW(Math.round(incentiveTotal))}`}
+          value={`₩ ${formatKRW(Math.round(incentiveSum))}`}
           sub={
             <>
               {foreign ? '손익(KRW)' : '손익'} × 인센티브(%) · {incentiveCount.toLocaleString()}건
@@ -254,6 +254,7 @@ export default async function DealsPage({
         <DealsTable
           canCopy={me != null && canCreateDeal(me.role)}
           foreign={foreign}
+          shareUsers={lookups.users.filter((u) => u.role !== 'viewer').map((u) => ({ id: u.id, name: u.name }))}
           columnFilters={{
             fCode: filters.fCode,
             fIssuer: filters.fIssuer,
@@ -268,6 +269,7 @@ export default async function DealsPage({
             ...r,
             // 볼 수 없는 거래의 요율은 화면으로 내려보내지 않는다
             commissionPct: canViewIncentive ? r.commissionPct : null,
+            incentiveShares: canViewIncentive ? r.incentiveShares : [],
             canTogglePaid:
               me != null &&
               canEditDealShared(
