@@ -78,3 +78,9 @@ test('권한 — 인사관리·수정요청 집계에 들어갈 수 없다', asy
     await expect(page).not.toHaveURL(new RegExp(path))
   }
 })
+
+test('성과급 보정(2026-10-14) — 성과금만 있던 행이 빈 거래로 남아 있지 않다', async ({ page }) => {
+  await openDeals(page, '?fCode=AZ260318&year=all')
+  const codes = await page.locator('[data-slot=deals-scroll] tbody tr td:first-child a').allInnerTexts()
+  expect(codes).toEqual(['AZ260318'])
+})
