@@ -34,3 +34,13 @@ export function profitKrw(profit: string | number | null | undefined, currency: 
   if (fx == null || !Number.isFinite(fx) || fx <= 0) return null
   return Math.round(p * fx)
 }
+
+/** 추가 성과급 대상자 (2026-10-14) — 담당자 외에 같은 거래 성과급을 나눠 받는 사람 */
+export type IncentiveShare = { userId: string; name: string; rate: string }
+
+/** 담당자 몫 + 추가 대상자 몫. 기준 금액이 없으면 null */
+export function incentiveTotal(base: string | number | null | undefined, stored: string | number | null | undefined, shares: IncentiveShare[] = []): number | null {
+  const own = incentiveAmount(base, stored)
+  if (own === null) return null
+  return shares.reduce((a, s) => a + (incentiveAmount(base, s.rate) ?? 0), own)
+}
