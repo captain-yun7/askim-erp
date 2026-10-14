@@ -151,6 +151,21 @@ function parseDealRow(
     if (c) currency = c
   }
 
+  // 성과급(%) — 원화 시트 col 35 (2026-10-14: 2025 요율이 안 올라가 모두 기본 5% 로 계산되던 문제).
+  // 요율도 성과급도 비어 있으면 엑셀 성과급이 0 이므로 0%, 0~999% 밖의 값(예: 2025 오타)은 비워 둔다
+  let commissionPct: string | null = null
+  if (source === '원화') {
+    const pct = parseNumber(r[35])
+    if (pct == null) {
+      // 요율 없이 성과급 금액만 적은 행(2025 AC241103-1)은 금액 ÷ 손익으로 요율을 되살린다
+      const amt = parseNumber(r[36])
+      const profit = parseNumber(r[34])
+      if (!amt) commissionPct = '0.0000'
+      else if (profit) commissionPct = (amt / profit).toFixed(4)
+    } else if (pct >= 0 && pct < 10) commissionPct = pct.toFixed(4)
+    else warnings.push(`${source} R${rowNum}: 성과급(%) 값이 이상해 비움 (deal=${dealCodeRaw}, ${pct})`)
+  }
+
   // IP 시트 — 메모에 쉐어룰 표시 추가
   let finalSalesMemo = salesMemo
   if (source === 'IP') {
@@ -165,6 +180,7 @@ function parseDealRow(
     categoryId: maps.catCodeToId.get(categoryCode) ?? null,
     accountId: maps.accountCodeToId.get(accountCode) ?? null,
     currency,
+    commissionPct,
     status: 'confirmed',
     salesMethodId: salesMethodCode ? maps.salesMethodCodeToId.get(salesMethodCode) ?? null : null,
     issuerCounterpartyId: issuer,
@@ -225,24 +241,42 @@ function deduplicateDealCodes(rows: DealRow[]): { rows: DealRow[]; warnings: str
   return { rows: out, warnings }
 }
 
+/** 추가 성과급 대상자 행 — 엑셀에서 같은 거래코드에 매출·매입 없이 성과급만 적은 행 (2026-10-14) */
+export type ShareRow = { dealCode: string; ownerName: string | null; userId: string | null; rate: number | null; amount: number | null; rowNum: number }
+
 async function importSheet(
   source: '원화' | '외화' | 'IP',
   sheetName: string,
   startRow: number,
   maps: LookupMaps,
-): Promise<{ valid: DealRow[]; warnings: string[] }> {
+): Promise<{ valid: DealRow[]; shares: ShareRow[]; warnings: string[] }> {
   const wb = loadWorkbook()
   const rows = sheetToRows(wb, sheetName)
   const valid: DealRow[] = []
+  const shares: ShareRow[] = []
   const warnings: string[] = []
+
+  // 같은 코드에 금액 있는 행이 따로 있고, 이 행은 매출·매입 없이 성과급만 있으면 → 거래가 아니라 그 거래의 추가 성과급 대상자
+  const hasAmount = (r: unknown[]) => Boolean(parseNumber(r[25]) || parseNumber(r[31]))
+  const realCodes = new Set<string>()
+  for (let i = startRow; i < rows.length; i++) {
+    const code = cleanText(rows[i]?.[2])
+    if (code && hasAmount(rows[i])) realCodes.add(code)
+  }
 
   for (let i = startRow; i < rows.length; i++) {
     const r = rows[i]
+    const code = cleanText(r?.[2])
+    if (source === '원화' && code && realCodes.has(code) && !hasAmount(r) && (parseNumber(r[35]) || parseNumber(r[36]))) {
+      const ownerName = mapUserName(r[6])
+      shares.push({ dealCode: code, ownerName, userId: ownerName ? maps.userNameToId.get(ownerName) ?? null : null, rate: parseNumber(r[35]), amount: parseNumber(r[36]), rowNum: i + 1 })
+      continue
+    }
     const parsed = parseDealRow(r, source, maps, warnings, i + 1)
     if (parsed) valid.push(parsed)
   }
 
-  return { valid, warnings }
+  return { valid, shares, warnings }
 }
 
 /** 엑셀 3개 시트를 파싱해 거래코드 중복까지 정리한 행 목록 (DB 쓰기 없음) — 전량 적재·병합 공용 */
@@ -252,7 +286,7 @@ export async function parseAllDeals() {
   const fx = await importSheet('외화', '외화매출매입', 8, maps)
   const ip = await importSheet('IP', 'IP&협찬건', 5, maps)
   const dedup = deduplicateDealCodes([...krw.valid, ...fx.valid, ...ip.valid])
-  return { rows: dedup.rows, warnings: [...krw.warnings, ...fx.warnings, ...ip.warnings, ...dedup.warnings], counts: { krw: krw.valid.length, fx: fx.valid.length, ip: ip.valid.length } }
+  return { rows: dedup.rows, shares: krw.shares, warnings: [...krw.warnings, ...fx.warnings, ...ip.warnings, ...dedup.warnings], counts: { krw: krw.valid.length, fx: fx.valid.length, ip: ip.valid.length } }
 }
 
 async function main() {
