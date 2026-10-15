@@ -43,6 +43,9 @@ function FL({ children, optional, accounting }: { children: React.ReactNode; opt
   )
 }
 
+/** 운영에서 쓰는 '거래처 없음' 표시용 거래처 — 이름이 "(매출처 없음)"·"(매입처 없음)" */
+const isNoneParty = (label: string | null | undefined) => /^\(?\s*(매출처|매입처)\s*없음\s*\)?$/.test(label?.trim() ?? '')
+
 type Lookups = {
   categories: { id: number; nameKo: string; commissionRate: string | null }[]
   accounts: { id: number; nameKo: string }[]
@@ -196,8 +199,9 @@ export function DealForm({
     const out: string[] = []
     const base: [string, unknown][] = [['거래코드', form.dealCode], ['귀속연도', form.accrualYear], ['귀속월', form.accrualMonth], ['담당자', form.ownerUserId], ['상품구분', form.categoryId], ['계정항목', form.accountId], ['통화', form.currency]]
     for (const [label, v] of base) if (empty(v)) out.push(label)
-    const salesUsed = !empty(form.issuerCounterpartyId) || !empty(form.salesAmountNet)
-    const purchaseUsed = !empty(form.supplierCounterpartyId) || !empty(form.purchaseAmountNet)
+    // '(매출처 없음)'·'(매입처 없음)' 거래처를 고르면 그 쪽 항목은 요구하지 않는다 (2026-10-15 요청)
+    const salesUsed = !isNoneParty(labels.issuer) && (!empty(form.issuerCounterpartyId) || !empty(form.salesAmountNet))
+    const purchaseUsed = !isNoneParty(labels.supplier) && (!empty(form.supplierCounterpartyId) || !empty(form.purchaseAmountNet))
     if (!salesUsed && !purchaseUsed) out.push('매출 또는 매입 중 하나')
     if (salesUsed) {
       const s: [string, unknown][] = [['발행처', form.issuerCounterpartyId], ['실광고주', form.advertiserName], ['품목명', form.itemName], ['광고 시작', form.adStart], ['광고 종료', form.adEnd], ['매출수단', form.salesMethodId], ['매출금', form.salesAmountNet], ['입금예정일', form.salesDueDate]]
