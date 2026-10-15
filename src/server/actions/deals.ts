@@ -176,10 +176,11 @@ export async function createDeal(raw: unknown) {
     await audit({ action: 'deal.create', targetType: 'deal', targetId: row.id, targetLabel: row.dealCode, summary: `거래 등록 ${row.dealCode}` })
     return { ok: true, deal: row }
   } catch (e) {
-    if (e instanceof Error && e.message.includes('unique')) {
-      return { error: `거래코드 중복: ${manualCode}` }
-    }
-    return { error: e instanceof Error ? e.message : '저장 실패' }
+    // drizzle 은 "Failed query: …" 로 감싸고 실제 DB 오류는 cause 에 둔다 — 화면에 쿼리·값이 그대로 뜨지 않게 (2026-10-15)
+    const cause = (e as { cause?: { code?: string; message?: string } })?.cause
+    if (cause?.code === '23505') return { error: `거래코드 중복: ${manualCode} 은(는) 이미 있는 코드입니다` }
+    console.error('createDeal failed', cause?.code, cause?.message)
+    return { error: '저장하지 못했습니다. 잠시 후 다시 시도하고, 계속되면 개발팀에 알려 주세요' }
   }
 }
 
