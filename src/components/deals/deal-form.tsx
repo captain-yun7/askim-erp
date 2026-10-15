@@ -43,6 +43,9 @@ function FL({ children, optional, accounting }: { children: React.ReactNode; opt
   )
 }
 
+/** 운영에서 쓰는 '거래처 없음' 표시용 거래처 — 이름이 "(매출처 없음)"·"(매입처 없음)" */
+const isNoneParty = (label: string | null | undefined) => /^\(?\s*(매출처|매입처)\s*없음\s*\)?$/.test(label?.trim() ?? '')
+
 type Lookups = {
   categories: { id: number; nameKo: string; commissionRate: string | null }[]
   accounts: { id: number; nameKo: string }[]
@@ -124,6 +127,8 @@ export function DealForm({
     purchaseMemo: initial?.purchaseMemo ?? '',
     commissionPct: initial?.commissionPct ?? null,
     commissionAmount: initial?.commissionAmount ?? null,
+    profitAdjusted: initial?.profitAdjusted ?? null,
+    profitAdjustMemo: initial?.profitAdjustMemo ?? null,
   })
 
   const [labels, setLabels] = useState({
@@ -138,7 +143,10 @@ export function DealForm({
   // 자동 계산: VAT, 총액, 손익, 성과급
   const salesNet = parseFloat(String(form.salesAmountNet ?? 0)) || 0
   const purchaseNet = parseFloat(String(form.purchaseAmountNet ?? 0)) || 0
-  const profit = salesNet - purchaseNet
+  const autoProfit = salesNet - purchaseNet
+  // 손익 수동 조정 (2026-10-15 요청): 넣으면 자동 계산 대신 이 값으로 성과급·리포트 계산
+  const adjusted = form.profitAdjusted != null && String(form.profitAdjusted).trim() !== ''
+  const profit = adjusted ? parseFloat(String(form.profitAdjusted).replace(/,/g, '')) || 0 : autoProfit
 
   // 금액 입력 → 부가세 10% 자동, 총액 = 금액 + 부가세 자동 (2026-09-09 피드백). 부가세를 고치면 총액만 재계산
   const num = (v: string | null | undefined) => parseFloat(String(v ?? '').replace(/,/g, '')) || 0
@@ -199,11 +207,12 @@ export function DealForm({
     const salesUsed = !empty(form.issuerCounterpartyId) || !empty(form.salesAmountNet)
     const purchaseUsed = !empty(form.supplierCounterpartyId) || !empty(form.purchaseAmountNet)
     if (!salesUsed && !purchaseUsed) out.push('매출 또는 매입 중 하나')
-    if (salesUsed) {
+    // '(매출처 없음)'·'(매입처 없음)' 거래처를 고르면 그 쪽 나머지 항목은 요구하지 않는다 (2026-10-15 요청)
+    if (salesUsed && !isNoneParty(labels.issuer)) {
       const s: [string, unknown][] = [['발행처', form.issuerCounterpartyId], ['실광고주', form.advertiserName], ['품목명', form.itemName], ['광고 시작', form.adStart], ['광고 종료', form.adEnd], ['매출수단', form.salesMethodId], ['매출금', form.salesAmountNet], ['입금예정일', form.salesDueDate]]
       for (const [label, v] of s) if (empty(v)) out.push(label)
     }
-    if (purchaseUsed) {
+    if (purchaseUsed && !isNoneParty(labels.supplier)) {
       const p: [string, unknown][] = [['매체사', form.supplierCounterpartyId], ['수수료', form.purchasePricingRaw], ['결산연도', form.settlementYear], ['결산월', form.settlementMonth], ['매입금', form.purchaseAmountNet]]
       for (const [label, v] of p) if (empty(v)) out.push(label)
     }
@@ -637,6 +646,28 @@ export function DealForm({
                 ({((profit / salesNet) * 100).toFixed(1)}%)
               </span>
             )}
+            {adjusted && <span className="ml-1 text-xs text-muted-foreground">(자동 계산 {formatKRW(autoProfit)})</span>}
+          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor="deal-profit-adjusted" className="text-muted-foreground" title="비워 두면 매출금 − 매입금으로 자동 계산합니다">
+              조정 손익
+            </label>
+            <AmountInput
+              id="deal-profit-adjusted"
+              aria-label="조정 손익"
+              value={form.profitAdjusted}
+              onChange={(v) => set('profitAdjusted', v)}
+              placeholder="비우면 자동"
+              className="h-8 w-36 text-right font-mono"
+            />
+            <Input
+              aria-label="손익 조정 사유"
+              value={form.profitAdjustMemo ?? ''}
+              onChange={(e) => set('profitAdjustMemo', e.target.value || null)}
+              placeholder="조정 사유"
+              disabled={!adjusted}
+              className="h-8 w-48"
+            />
           </div>
           {isFx && (
             <>

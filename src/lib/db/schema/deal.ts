@@ -90,8 +90,11 @@ export const deal = pgTable(
     purchaseMemo: text('purchase_memo'),
 
     // ── 계산 ──────────────────────────────────
+    // 손익 수동 조정 (2026-10-15 요청): 넣으면 매출−매입 대신 이 값이 손익 — 성과급·리포트 모두 profit 하나만 본다
+    profitAdjusted: numeric('profit_adjusted', { precision: 15, scale: 2 }),
+    profitAdjustMemo: text('profit_adjust_memo'),
     profit: numeric('profit', { precision: 15, scale: 2 }).generatedAlwaysAs(
-      sql`coalesce(sales_amount_net, 0) - coalesce(purchase_amount_net, 0)`,
+      sql`coalesce(profit_adjusted, coalesce(sales_amount_net, 0) - coalesce(purchase_amount_net, 0))`,
     ),
     commissionPct: numeric('commission_pct', { precision: 5, scale: 4 }),
     commissionAmount: numeric('commission_amount', { precision: 15, scale: 2 }),

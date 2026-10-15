@@ -337,6 +337,8 @@ export async function listDeals(f: DealListFilters = {}) {
       salesMemo: deal.salesMemo,
       purchaseMemo: deal.purchaseMemo,
       profit: deal.profit,
+      profitAdjusted: deal.profitAdjusted,
+      profitAdjustMemo: deal.profitAdjustMemo,
       fxRate: deal.fxRate,
       commissionPct: deal.commissionPct,
       // 추가 성과급 대상자 (2026-10-14)
@@ -410,6 +412,8 @@ export async function getInlineRow(id: string) {
       salesAmountGross: sql<string | null>`coalesce(${deal.salesAmountGross}, ${deal.salesAmountNet} + coalesce(${deal.salesVat}, 0))`,
       purchaseAmountGross: sql<string | null>`coalesce(${deal.purchaseAmountGross}, ${deal.purchaseAmountNet} + coalesce(${deal.purchaseVat}, 0))`,
       profit: deal.profit,
+      profitAdjusted: deal.profitAdjusted,
+      profitAdjustMemo: deal.profitAdjustMemo,
       fxRate: deal.fxRate,
       commissionPct: deal.commissionPct,
       salesPaidStatus: deal.salesPaidStatus,

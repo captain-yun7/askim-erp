@@ -16,6 +16,7 @@ export const LIST_COLUMN_FIELDS = {
   salesVat: ['salesVat'],
   purchaseNet: ['purchaseAmountNet', 'purchaseAmountGross'],
   purchaseVat: ['purchaseVat'],
+  profit: ['profitAdjusted', 'profitAdjustMemo'],
   paid: ['salesPaidStatus', 'purchasePaidStatus'],
   salesInvoice: ['salesInvoiceDate'],
   purchaseInvoice: ['purchaseInvoiceDate'],

@@ -99,6 +99,9 @@ const dealSchema = z.object({
   purchaseMemo: z.string().trim().optional().nullable(),
   commissionPct: numStrSchema.optional(),
   commissionAmount: numStrSchema.optional(),
+  // 손익 수동 조정 (2026-10-15 요청) — 비우면 매출−매입 자동
+  profitAdjusted: numStrSchema.optional(),
+  profitAdjustMemo: z.string().trim().nullable().transform((v) => v || null).optional(),
 })
 
 export type DealInput = z.infer<typeof dealSchema>

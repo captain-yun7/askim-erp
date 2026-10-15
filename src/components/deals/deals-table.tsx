@@ -43,6 +43,9 @@ type Row = {
   salesMemo?: string | null
   purchaseMemo?: string | null
   profit: string | null
+  /** 손익 수동 조정 (2026-10-15) — 있으면 profit 이 이 값 */
+  profitAdjusted?: string | null
+  profitAdjustMemo?: string | null
   fxRate?: string | null
   commissionPct?: string | null
   incentiveShares?: IncentiveShare[]
@@ -1342,11 +1345,10 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
                   </div>
                 </TableCell>
                 <TableCell
-                  className={cn(
-                    'text-right text-[13px] font-medium tabular-nums',
-                    loss ? 'text-destructive' : 'text-success-foreground',
-                  )}
+                  {...cell('profit', cn('text-right text-[13px] font-medium tabular-nums', loss ? 'text-destructive' : 'text-success-foreground'))}
+                  {...(r.profitAdjusted != null ? { 'data-adjusted': '1', title: `조정 손익 (자동 계산 ${formatKRW((parseFloat(r.salesAmountNet ?? '') || 0) - (parseFloat(r.purchaseAmountNet ?? '') || 0))})${r.profitAdjustMemo ? ` · ${r.profitAdjustMemo}` : ''}` } : {})}
                 >
+                  {r.profitAdjusted != null && <span className="mr-1 rounded bg-amber-100 px-1 text-[10px] font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">조정</span>}
                   {formatKRW(r.profit)}
                 </TableCell>
                 {foreign && (
