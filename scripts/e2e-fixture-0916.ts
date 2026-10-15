@@ -49,6 +49,11 @@ async function main() {
     { name: 'E2E거래처0916-B', roleTags: ['advertiser'] },
     { name: 'E2E거래처0916-단건', roleTags: [] },
   ])
+  // 운영에서 쓰는 '거래처 없음' 표시용 거래처 (2026-10-15) — 운영과 같게 두고 지우지 않는다
+  for (const name of ['(매출처 없음)', '(매입처 없음)']) {
+    const [hit] = await db.select({ id: counterparty.id }).from(counterparty).where(eq(counterparty.name, name)).limit(1)
+    if (!hit) await db.insert(counterparty).values({ name, roleTags: [] })
+  }
   await db.delete(appSetting).where(inArray(appSetting.key, ['team_lead_scope', 'team_share_groups']))
   console.log('fixture-0916 ready')
   process.exit(0)
