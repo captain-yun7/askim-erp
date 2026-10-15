@@ -28,11 +28,11 @@ function tithe(operatingProfit: number) {
 export async function getMonthlyPnl({ year }: { year: number }): Promise<MonthlyPnl> {
   const entity = await getCurrentEntity()
   const [dealRows, expenseRows] = await Promise.all([
-    // 매출총이익 = SUM(salesAmountNet) - SUM(purchaseAmountNet), 귀속월 기준
+    // 매출총이익 = SUM(손익), 귀속월 기준. 손익은 매출−매입, 조정 손익이 있으면 그 값 (2026-10-15)
     db
       .select({
         month: deal.accrualMonth,
-        grossProfit: sql<string>`coalesce(sum(coalesce(${deal.salesAmountNet}, 0) - coalesce(${deal.purchaseAmountNet}, 0)), 0)::text`,
+        grossProfit: sql<string>`coalesce(sum(${deal.profit}), 0)::text`,
       })
       .from(deal)
       .where(and(eq(deal.entity, entity), isNull(deal.deletedAt), eq(deal.accrualYear, year)))
