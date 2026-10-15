@@ -197,8 +197,8 @@ test('⑥ 거래입력 — (회계팀 입력) 빨간 표시와 필수 표시', a
   const labels = page.locator('form label, fieldset label, label[data-slot=label]')
   const total = await labels.count()
   const required = await page.locator('label[data-required]').count()
-  expect(total - required).toBe(2) // 매출 비고 · 매입 비고만 제외
-  for (const name of ['매출 비고', '매입 비고']) await expect(page.locator('label', { hasText: name })).not.toHaveAttribute('data-required', '')
+  expect(total - required).toBe(3) // 매출 비고 · 매입 비고 · 조정 손익(2026-10-15, 비우면 자동)만 제외
+  for (const name of ['매출 비고', '매입 비고', '조정 손익']) await expect(page.locator('label', { hasText: name })).not.toHaveAttribute('data-required', '')
   const star = await page.locator('label', { hasText: '품목명' }).evaluate((el) => getComputedStyle(el, '::after').content)
   expect(star).toContain('*')
 })
