@@ -204,15 +204,15 @@ export function DealForm({
     const out: string[] = []
     const base: [string, unknown][] = [['거래코드', form.dealCode], ['귀속연도', form.accrualYear], ['귀속월', form.accrualMonth], ['담당자', form.ownerUserId], ['상품구분', form.categoryId], ['계정항목', form.accountId], ['통화', form.currency]]
     for (const [label, v] of base) if (empty(v)) out.push(label)
-    // '(매출처 없음)'·'(매입처 없음)' 거래처를 고르면 그 쪽 항목은 요구하지 않는다 (2026-10-15 요청)
-    const salesUsed = !isNoneParty(labels.issuer) && (!empty(form.issuerCounterpartyId) || !empty(form.salesAmountNet))
-    const purchaseUsed = !isNoneParty(labels.supplier) && (!empty(form.supplierCounterpartyId) || !empty(form.purchaseAmountNet))
+    const salesUsed = !empty(form.issuerCounterpartyId) || !empty(form.salesAmountNet)
+    const purchaseUsed = !empty(form.supplierCounterpartyId) || !empty(form.purchaseAmountNet)
     if (!salesUsed && !purchaseUsed) out.push('매출 또는 매입 중 하나')
-    if (salesUsed) {
+    // '(매출처 없음)'·'(매입처 없음)' 거래처를 고르면 그 쪽 나머지 항목은 요구하지 않는다 (2026-10-15 요청)
+    if (salesUsed && !isNoneParty(labels.issuer)) {
       const s: [string, unknown][] = [['발행처', form.issuerCounterpartyId], ['실광고주', form.advertiserName], ['품목명', form.itemName], ['광고 시작', form.adStart], ['광고 종료', form.adEnd], ['매출수단', form.salesMethodId], ['매출금', form.salesAmountNet], ['입금예정일', form.salesDueDate]]
       for (const [label, v] of s) if (empty(v)) out.push(label)
     }
-    if (purchaseUsed) {
+    if (purchaseUsed && !isNoneParty(labels.supplier)) {
       const p: [string, unknown][] = [['매체사', form.supplierCounterpartyId], ['수수료', form.purchasePricingRaw], ['결산연도', form.settlementYear], ['결산월', form.settlementMonth], ['매입금', form.purchaseAmountNet]]
       for (const [label, v] of p) if (empty(v)) out.push(label)
     }
