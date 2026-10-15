@@ -117,7 +117,8 @@ export const deal = pgTable(
     }),
   },
   (t) => [
-    uniqueIndex('deal_entity_code_uq').on(t.entity, t.dealCode),
+    // 삭제한 거래의 코드는 다시 쓸 수 있게 살아 있는 거래끼리만 (2026-10-15: 삭제 직후 같은 코드로 등록이 막힘)
+    uniqueIndex('deal_entity_code_uq').on(t.entity, t.dealCode).where(sql`${t.deletedAt} is null`),
     index('deal_accrual_idx').on(t.accrualYear, t.accrualMonth),
     index('deal_sales_paid_idx').on(t.salesPaidStatus, t.salesDueDate),
     index('deal_purchase_paid_idx').on(t.purchasePaidStatus, t.purchaseDueDate),
