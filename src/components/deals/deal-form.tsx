@@ -127,6 +127,8 @@ export function DealForm({
     purchaseMemo: initial?.purchaseMemo ?? '',
     commissionPct: initial?.commissionPct ?? null,
     commissionAmount: initial?.commissionAmount ?? null,
+    profitAdjusted: initial?.profitAdjusted ?? null,
+    profitAdjustMemo: initial?.profitAdjustMemo ?? null,
   })
 
   const [labels, setLabels] = useState({
@@ -141,7 +143,10 @@ export function DealForm({
   // 자동 계산: VAT, 총액, 손익, 성과급
   const salesNet = parseFloat(String(form.salesAmountNet ?? 0)) || 0
   const purchaseNet = parseFloat(String(form.purchaseAmountNet ?? 0)) || 0
-  const profit = salesNet - purchaseNet
+  const autoProfit = salesNet - purchaseNet
+  // 손익 수동 조정 (2026-10-15 요청): 넣으면 자동 계산 대신 이 값으로 성과급·리포트 계산
+  const adjusted = form.profitAdjusted != null && String(form.profitAdjusted).trim() !== ''
+  const profit = adjusted ? parseFloat(String(form.profitAdjusted).replace(/,/g, '')) || 0 : autoProfit
 
   // 금액 입력 → 부가세 10% 자동, 총액 = 금액 + 부가세 자동 (2026-09-09 피드백). 부가세를 고치면 총액만 재계산
   const num = (v: string | null | undefined) => parseFloat(String(v ?? '').replace(/,/g, '')) || 0
@@ -641,6 +646,28 @@ export function DealForm({
                 ({((profit / salesNet) * 100).toFixed(1)}%)
               </span>
             )}
+            {adjusted && <span className="ml-1 text-xs text-muted-foreground">(자동 계산 {formatKRW(autoProfit)})</span>}
+          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor="deal-profit-adjusted" className="text-muted-foreground" title="비워 두면 매출금 − 매입금으로 자동 계산합니다">
+              조정 손익
+            </label>
+            <AmountInput
+              id="deal-profit-adjusted"
+              aria-label="조정 손익"
+              value={form.profitAdjusted}
+              onChange={(v) => set('profitAdjusted', v)}
+              placeholder="비우면 자동"
+              className="h-8 w-36 text-right font-mono"
+            />
+            <Input
+              aria-label="손익 조정 사유"
+              value={form.profitAdjustMemo ?? ''}
+              onChange={(e) => set('profitAdjustMemo', e.target.value || null)}
+              placeholder="조정 사유"
+              disabled={!adjusted}
+              className="h-8 w-48"
+            />
           </div>
           {isFx && (
             <>
