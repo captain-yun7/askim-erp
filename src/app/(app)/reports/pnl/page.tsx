@@ -38,7 +38,7 @@ export default async function PnlReportPage({
         <div>
           <h1 className="text-[28px] font-normal leading-tight tracking-[-0.01em]">월별 손익</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            귀속월 기준 손익 · 영업이익 · 십일조 ({year}년)
+            통장 입금 기준 손익 · 영업이익 · 십일조 ({year}년)
           </p>
         </div>
         <div className="flex items-center gap-2">
