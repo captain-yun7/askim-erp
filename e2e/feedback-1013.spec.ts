@@ -70,8 +70,22 @@ test('수정완료는 글씨 없는 초록 체크 상자(빈 상자와 같은 �
   expect(Math.round(doneBox!.width)).toBe(Math.round(emptyBox!.width))
   await page.waitForLoadState('networkidle')
 
+  // 수정완료 체크를 한 번 누르면 메뉴 없이 처음(빈칸)으로 (2026-10-14 요청)
   await mark.click()
-  await expect(menu.getByRole('menuitem')).toHaveText(['수정요청 표시', '요청취소'])
+  await expect(mark).toHaveAttribute('data-review', 'none')
+  await expect(menu).toHaveCount(0)
+  await page.waitForLoadState('networkidle')
+  await page.goto('/deals?fCode=E2E0916&year=all')
+  await ready(page)
+  await expect(rowOf(page, 'E2E0916-MEMBER').locator('[data-review]')).toHaveAttribute('data-review', 'none')
+
+  // 수정요청 상태에서는 메뉴에 요청취소
+  await mark.click()
+  await menu.getByRole('menuitem', { name: '수정요청 표시' }).click()
+  await expect(mark).toHaveAttribute('data-review', 'requested')
+  await page.waitForLoadState('networkidle')
+  await mark.click()
+  await expect(menu.getByRole('menuitem')).toHaveText(['수정완료 표시', '요청취소'])
   await menu.getByRole('menuitem', { name: '요청취소' }).click()
   await expect(mark).toHaveAttribute('data-review', 'none')
   await page.waitForLoadState('networkidle')
