@@ -88,6 +88,10 @@ const emptyDeposit: DepositDraft = {
 export function DepositTable({ rows, editable, attachments = {} }: { rows: Deposit[]; editable: boolean; attachments?: Record<string, number> }) {
   const { pending, run } = useSave()
   const [editing, setEditing] = useState<{ id: number | null; draft: DepositDraft } | null>(null)
+  // 상태 필터 (2026-10-14 요청) — 여러 개 고를 수 있고, 아무것도 안 고르면 전체
+  const [statuses, setStatuses] = useState<string[]>([])
+  const shown = statuses.length ? rows.filter((r) => statuses.includes(r.status)) : rows
+  const toggleStatus = (k: string) => setStatuses((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k]))
 
   function openEdit(r?: Deposit) {
     setEditing(
@@ -133,14 +137,25 @@ export function DepositTable({ rows, editable, attachments = {} }: { rows: Depos
 
   return (
     <div>
-      {editable && (
-        <div className="flex justify-end px-4 pt-3">
+      <div className="flex items-center justify-between gap-3 px-4 pt-3">
+        <div className="flex flex-wrap items-center gap-1.5" data-slot="deposit-status-filter">
+          <span className="mr-1 text-[12.5px] text-muted-foreground">상태</span>
+          <Button size="sm" variant={statuses.length ? 'outline' : 'default'} className="h-7 rounded-full px-3 text-xs" aria-pressed={!statuses.length} onClick={() => setStatuses([])}>
+            전체 {rows.length}
+          </Button>
+          {(['unreturned', 'held', 'returned', 'offset'] as const).map((k) => (
+            <Button key={k} size="sm" variant={statuses.includes(k) ? 'default' : 'outline'} className="h-7 rounded-full px-3 text-xs" aria-pressed={statuses.includes(k)} onClick={() => toggleStatus(k)}>
+              {STATUS_LABEL[k]} {rows.filter((r) => r.status === k).length}
+            </Button>
+          ))}
+        </div>
+        {editable && (
           <Button size="sm" className="gap-1" onClick={() => openEdit()}>
             <Plus className="size-3.5" />
             보증금 추가
           </Button>
-        </div>
-      )}
+        )}
+      </div>
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
@@ -159,7 +174,7 @@ export function DepositTable({ rows, editable, attachments = {} }: { rows: Depos
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((r, i) => (
+            {shown.map((r, i) => (
               <TableRow key={r.id}>
                 <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
                 <TableCell className="font-medium">{r.counterpartyName}</TableCell>

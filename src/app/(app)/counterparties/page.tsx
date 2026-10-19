@@ -44,30 +44,24 @@ export default async function CounterpartiesPage({
       )!,
     )
 
-  const [rows, [{ total }]] = await Promise.all([
-    db
-      .select({
-        id: counterparty.id,
-        name: counterparty.name,
-        businessNo: counterparty.businessNo,
-        roleTags: counterparty.roleTags,
-        clientType: counterparty.clientType,
-        paymentTerm: counterparty.paymentTerm,
-        officialFeeRate: counterparty.officialFeeRate,
-        bankName: counterparty.bankName,
-        accountHolder: counterparty.accountHolder,
-        accountNo: counterparty.accountNo,
-        memo: counterparty.memo,
-      })
-      .from(counterparty)
-      .where(and(...conds))
-      .orderBy(asc(counterparty.name))
-      .limit(200),
-    db
-      .select({ total: sql<number>`count(*)::int` })
-      .from(counterparty)
-      .where(and(...conds)),
-  ])
+  const rows = await db
+    .select({
+      id: counterparty.id,
+      name: counterparty.name,
+      businessNo: counterparty.businessNo,
+      roleTags: counterparty.roleTags,
+      clientType: counterparty.clientType,
+      paymentTerm: counterparty.paymentTerm,
+      officialFeeRate: counterparty.officialFeeRate,
+      bankName: counterparty.bankName,
+      accountHolder: counterparty.accountHolder,
+      accountNo: counterparty.accountNo,
+      memo: counterparty.memo,
+    })
+    .from(counterparty)
+    .where(and(...conds))
+    // 전체 표시 (2026-10-14 요청) — 1천여 건이라 한 번에 그려도 충분
+    .orderBy(asc(counterparty.name))
 
   // 첨부 개수 (2026-10-08: 사업자등록증·통장사본)
   const attachmentCounts = await getAttachmentCounts('counterparty', rows.map((r) => r.id))
@@ -105,8 +99,7 @@ export default async function CounterpartiesPage({
         </div>
 
         <div className="flex items-center gap-3.5 border-b px-4 py-2.5 text-[12.5px] text-muted-foreground">
-          총 <b className="text-foreground">{total.toLocaleString()}</b>건
-          {rows.length < total && <span>· 앞 200건만 표시</span>}
+          총 <b className="text-foreground">{rows.length.toLocaleString()}</b>건
         </div>
 
         <CounterpartiesTable rows={rowsWithAttachments} showBank={showBank} canDelete={user != null && canDeleteCounterparty(user.role)} canEdit={user != null && user.role !== 'viewer'} />

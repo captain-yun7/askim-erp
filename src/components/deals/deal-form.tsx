@@ -116,6 +116,7 @@ export function DealForm({
     supplierCounterpartyId: initial?.supplierCounterpartyId ?? null,
     settlementYear: initial?.settlementYear ?? null,
     settlementMonth: initial?.settlementMonth ?? null,
+    settlementDay: initial?.settlementDay ?? null,
     purchasePricingRaw: initial?.purchasePricingRaw ?? '',
     purchaseAmountNet: initial?.purchaseAmountNet ?? null,
     purchaseVat: initial?.purchaseVat ?? null,
@@ -544,7 +545,7 @@ export function DealForm({
                   placeholder="입금가 / 0.1 / 자유 텍스트"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <div className="grid gap-1.5">
                   <FL>결산연도</FL>
                   <Input
@@ -568,6 +569,18 @@ export function DealForm({
                     onChange={(e) =>
                       set('settlementMonth', e.target.value ? Number(e.target.value) : null)
                     }
+                  />
+                </div>
+                {/* 결산일 (2026-10-14 요청: 결산연월 → 결산연월일) */}
+                <div className="grid gap-1.5">
+                  <FL>결산일</FL>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={31}
+                    aria-label="결산일"
+                    value={form.settlementDay ?? ''}
+                    onChange={(e) => set('settlementDay', e.target.value ? Number(e.target.value) : null)}
                   />
                 </div>
               </div>

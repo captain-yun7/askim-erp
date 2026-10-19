@@ -176,6 +176,13 @@
       "when": 1792056860298,
       "tag": "0024_deal_code_live_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792389024699,
+      "tag": "0025_settlement_day",
+      "breakpoints": true
     }
   ]
 }

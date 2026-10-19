@@ -1,7 +1,4 @@
-import { and, eq, isNull, sql } from 'drizzle-orm'
-import { db } from '@/lib/db/client'
-import { getCurrentEntity } from '@/server/entity'
-import { deal, expense, expenseCategory } from '@/lib/db/schema'
+import { buildLedgerLines, getSalesLedger } from '@/server/queries/reports-ledger'
 
 export type MonthlyPnlRow = {
   month: number
@@ -17,57 +14,24 @@ export type MonthlyPnl = {
   total: MonthlyPnlRow
 }
 
-function num(v: string | null) {
-  return parseFloat(v ?? '0') || 0
-}
-
 function tithe(operatingProfit: number) {
   return Math.max(operatingProfit, 0) * 0.1
 }
 
+/**
+ * 월별 손익 (2026-10-14 요청: 매출총이익을 매출장표 손익(통장)으로 — 귀속월이 아닌 통장 입금 기준).
+ * 매출장표와 숫자가 꼭 같아야 해서 매출장표 계산(getSalesLedger·buildLedgerLines)을 그대로 쓴다.
+ */
 export async function getMonthlyPnl({ year }: { year: number }): Promise<MonthlyPnl> {
-  const entity = await getCurrentEntity()
-  const [dealRows, expenseRows] = await Promise.all([
-    // 매출총이익 = SUM(손익), 귀속월 기준. 손익은 매출−매입, 조정 손익이 있으면 그 값 (2026-10-15)
-    db
-      .select({
-        month: deal.accrualMonth,
-        grossProfit: sql<string>`coalesce(sum(${deal.profit}), 0)::text`,
-      })
-      .from(deal)
-      .where(and(eq(deal.entity, entity), isNull(deal.deletedAt), eq(deal.accrualYear, year)))
-      .groupBy(deal.accrualMonth),
-    // 판관비 = SUM(amount), expense.year/month 기준
-    db
-      .select({
-        month: expense.month,
-        expense: sql<string>`coalesce(sum(${expense.amount}), 0)::text`,
-      })
-      .from(expense)
-      .innerJoin(expenseCategory, eq(expenseCategory.id, expense.expenseCategoryId))
-      .where(
-        and(
-          eq(expense.entity, entity),
-          isNull(expense.deletedAt),
-          eq(expense.year, year),
-          sql`${expenseCategory.costGroup} in ('fixed', 'variable')`,
-        ),
-      )
-      .groupBy(expense.month),
-  ])
-
-  const grossByMonth = new Map<number, number>()
-  for (const r of dealRows) grossByMonth.set(r.month, num(r.grossProfit))
-
-  const expenseByMonth = new Map<number, number>()
-  for (const r of expenseRows) {
-    if (r.month != null) expenseByMonth.set(r.month, num(r.expense))
-  }
+  const lines = buildLedgerLines(await getSalesLedger({ year }))
+  const line = (key: string) => lines.find((l) => l.key === key)?.values ?? Array<number>(12).fill(0)
+  const grossByMonth = line('gross_cash')
+  const expenseByMonth = line('sgna')
 
   const rows: MonthlyPnlRow[] = Array.from({ length: 12 }, (_, i) => {
     const month = i + 1
-    const grossProfit = grossByMonth.get(month) ?? 0
-    const exp = expenseByMonth.get(month) ?? 0
+    const grossProfit = grossByMonth[i]
+    const exp = expenseByMonth[i]
     const operatingProfit = grossProfit - exp
     return {
       month,

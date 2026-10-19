@@ -132,7 +132,7 @@ export async function exportPnlXlsx({ year }: { year: number }): Promise<XlsxRes
   if (g) return g
   const { rows, total } = await getMonthlyPnl({ year })
   const data: Cell[][] = [
-    [`${year}년 월별 손익 (귀속월 기준)`],
+    [`${year}년 월별 손익 (통장 기준)`],
     [],
     ['월', '매출총이익', '판관비', '영업이익', '십일조'],
     ...rows.map((r) => [`${r.month}월`, r0(r.grossProfit), r0(r.expense), r0(r.operatingProfit), r0(r.tithe)]),

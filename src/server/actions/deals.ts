@@ -21,6 +21,7 @@ import { canEditDealScoped } from '@/server/auth/deal-scope'
 import { recordDealChanges } from '@/server/deal-changes'
 import { getInlineRow, type InlineRow } from '@/server/queries/deals'
 import { audit, diffFields } from '@/server/audit'
+import { formatSettlement, isValidSettlementDay } from '@/lib/settlement'
 
 const AMOUNT_FIELDS = [
   'salesAmountNet',
@@ -88,6 +89,7 @@ const dealSchema = z.object({
   // 결산연도를 '26' 처럼 두 자리로 넣은 거래가 운영에 6건 있었다 (2026-10-08) → 2000년대로 보정
   settlementYear: z.coerce.number().int().nullable().optional().transform((v) => (v != null && v >= 0 && v < 100 ? 2000 + v : v)),
   settlementMonth: z.coerce.number().int().min(1).max(12).nullable().optional(),
+  settlementDay: z.coerce.number().int().min(1).max(31).nullable().optional(),
   purchasePricingRaw: z.string().trim().optional().nullable(),
   purchaseAmountNet: numStrSchema.optional(),
   purchaseVat: numStrSchema.optional(),
@@ -138,6 +140,7 @@ export async function createDeal(raw: unknown) {
     return { error: parsed.error.issues[0]?.message ?? '검증 실패' }
   }
   const data = parsed.data
+  if (!isValidSettlementDay(data.settlementYear, data.settlementMonth, data.settlementDay)) return { error: '결산일이 없는 날짜입니다' }
   // 영업은 본인 거래만 등록 (담당자 강제)
   if (user.role === 'sales') data.ownerUserId = user.id
   const manualCode = data.dealCode?.trim() || null
@@ -194,6 +197,7 @@ export async function updateDeal(id: string, raw: unknown) {
 
   const [existing] = await db.select().from(deal).where(eq(deal.id, id)).limit(1)
   if (!existing) return { error: '거래를 찾을 수 없습니다' }
+  if (!isValidSettlementDay(parsed.data.settlementYear, parsed.data.settlementMonth, parsed.data.settlementDay)) return { error: '결산일이 없는 날짜입니다' }
 
   if (!(await canEditDealScoped(user, existing))) return { error: '이 거래를 수정할 권한이 없습니다' }
 
@@ -327,7 +331,7 @@ const inlineSchema = z.union([
   z.object({
     // 결산연월 인라인 수정 (2026-10-06 요청) — 둘 다 비우면 삭제
     field: z.literal('settlement'),
-    value: z.object({ year: z.coerce.number().int().min(2000).max(2100).nullable(), month: z.coerce.number().int().min(1).max(12).nullable() }),
+    value: z.object({ year: z.coerce.number().int().min(2000).max(2100).nullable(), month: z.coerce.number().int().min(1).max(12).nullable(), day: z.coerce.number().int().min(1).max(31).nullable().optional() }),
   }),
   z.object({
     field: z.literal('accrual'),
@@ -364,11 +368,12 @@ export async function updateDealInline(
     return { ok: true, row: await getInlineRow(id) }
   }
   if (field === 'settlement') {
-    const patch = { settlementYear: value.year, settlementMonth: value.month }
+    const day = value.year && value.month ? (value.day ?? null) : null
+    if (!isValidSettlementDay(value.year, value.month, day)) return { error: '없는 날짜입니다' }
+    const patch = { settlementYear: value.year, settlementMonth: value.month, settlementDay: day }
     await db.update(deal).set({ ...patch, updatedBy: user.id }).where(eq(deal.id, id))
     await recordDealChanges(id, existing, patch, user.id)
-    const ym = (y: number | null, m: number | null) => (y && m ? `${y}-${String(m).padStart(2, '0')}` : '-')
-    await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} 결산연월 ${ym(existing.settlementYear, existing.settlementMonth)} → ${ym(value.year, value.month)}`, detail: diffFields(existing as Record<string, unknown>, patch) })
+    await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} 결산연월일 ${formatSettlement(existing.settlementYear, existing.settlementMonth, existing.settlementDay)} → ${formatSettlement(value.year, value.month, day)}`, detail: diffFields(existing as Record<string, unknown>, patch) })
     return { ok: true, row: await getInlineRow(id) }
   }
   if (field === 'accrual') {

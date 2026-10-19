@@ -41,9 +41,9 @@ test('② 목록의 결산 칸은 결산연월을 보여 주고 클릭해서 고
   await expect(page.locator('thead')).not.toContainText('결산예정일')
   const row = rowOf(page, 'E2E0916-LEAD')
   const cell = row.locator('td:nth-child(20)')
-  await cell.getByTitle('클릭해서 결산연월 수정').click()
-  await cell.getByLabel('결산연월 입력').fill('2026-11')
-  await Promise.all([saved(page), cell.getByLabel('결산연월 입력').press('Enter')])
+  await cell.getByTitle('클릭해서 결산연월일 수정').click()
+  await cell.getByLabel('결산연월일 입력').fill('2026-11')
+  await Promise.all([saved(page), cell.getByLabel('결산연월일 입력').press('Enter')])
   await page.reload()
   await expect(rowOf(page, 'E2E0916-LEAD').locator('td:nth-child(20)')).toContainText('2026-11')
 

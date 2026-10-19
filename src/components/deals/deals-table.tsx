@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button'
 import { DateInput } from '@/components/ui/date-input'
 import { AttachmentButton } from '@/components/attachments/attachment-button'
 import { cn } from '@/lib/utils'
+import { formatSettlement, parseSettlement } from '@/lib/settlement'
 import { formatDate, formatKRW } from '@/lib/format'
 import { incentiveAmount, incentivePercentText, incentiveRate, incentiveTotal, profitKrw, type IncentiveShare } from '@/lib/incentive'
 import { setIncentiveShares } from '@/server/actions/incentive-shares'
@@ -61,6 +62,7 @@ type Row = {
   purchaseInvoiceDate: string | null
   settlementYear: number | null
   settlementMonth: number | null
+  settlementDay?: number | null
   ownerUserId: string | null
   canTogglePaid: boolean
   canDelete?: boolean
@@ -450,27 +452,32 @@ function BankInfo({ name, bank, account, holder }: { name: string | null; bank: 
   )
 }
 
-/** 결산연월 인라인 편집 (2026-10-06 요청) — 'YYYY-MM' 표시, 클릭 → month 입력. 비우면 삭제 */
-function InlineSettlement({ dealId, year, month, enabled }: { dealId: string; year: number | null; month: number | null; enabled: boolean }) {
+/** 결산연월일 인라인 편집 (2026-10-06 요청, 2026-10-14 일까지) — 'YYYY-MM-DD'(일 없으면 'YYYY-MM') 표시, 클릭 → 직접 입력. 비우면 삭제 */
+function InlineSettlement({ dealId, year, month, day, enabled }: { dealId: string; year: number | null; month: number | null; day: number | null; enabled: boolean }) {
   const [pending, start] = useTransition()
   const apply = useContext(PatchCtx)
-  const [shown, setShown] = useOptimistic({ year, month })
+  const [shown, setShown] = useOptimistic({ year, month, day })
   const [editing, setEditing] = useState(false)
-  const text = shown.year && shown.month ? `${shown.year}-${String(shown.month).padStart(2, '0')}` : '-'
+  const text = formatSettlement(shown.year, shown.month, shown.day)
   if (!enabled) return <span className="text-muted-foreground">{text}</span>
   if (editing) {
     return (
       <input
         autoFocus
-        type="month"
-        aria-label="결산연월 입력"
-        defaultValue={shown.year && shown.month ? `${shown.year}-${String(shown.month).padStart(2, '0')}` : ''}
-        className="h-6 rounded border border-primary bg-background px-1 font-mono text-[11px] outline-none"
+        type="text"
+        inputMode="numeric"
+        aria-label="결산연월일 입력"
+        placeholder="2026-10-30"
+        defaultValue={text === '-' ? '' : text}
+        className="h-6 w-[92px] rounded border border-primary bg-background px-1 font-mono text-[11px] outline-none"
         onBlur={(e) => {
           setEditing(false)
-          const m = /^(\d{4})-(\d{2})$/.exec(e.target.value)
-          const next = m ? { year: Number(m[1]), month: Number(m[2]) } : e.target.value === '' ? { year: null, month: null } : null
-          if (!next || (next.year === year && next.month === month)) return
+          const next = parseSettlement(e.target.value)
+          if (!next) {
+            toast.error('결산연월일은 2026-10-30 처럼 입력해 주세요')
+            return
+          }
+          if (next.year === year && next.month === month && next.day === day) return
           start(async () => {
             setShown(next)
             const res = await updateDealInline(dealId, { field: 'settlement', value: next })
@@ -486,7 +493,7 @@ function InlineSettlement({ dealId, year, month, enabled }: { dealId: string; ye
     )
   }
   return (
-    <button type="button" title="클릭해서 결산연월 수정" className={cn('rounded px-0.5 font-mono tabular-nums text-muted-foreground hover:bg-accent/60', pending && 'opacity-70')} onClick={() => setEditing(true)}>
+    <button type="button" title="클릭해서 결산연월일 수정" className={cn('rounded px-0.5 font-mono tabular-nums text-muted-foreground hover:bg-accent/60', pending && 'opacity-70')} onClick={() => setEditing(true)}>
       {text}
     </button>
   )
@@ -1140,7 +1147,7 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
             {!foreign && <TableHead>매출계산서<br />발행일</TableHead>}
             {!foreign && <TableHead>매입계산서<br />발행일</TableHead>}
             <TableHead>입금예정일<br />입금일</TableHead>
-            <TableHead>결산연월<br />결산일</TableHead>
+            <TableHead>결산연월일<br />결산일</TableHead>
             {/* 손익 → 인센티브 → 성과급 순으로 맨 오른쪽 (2026-10-06 고객 요청) */}
             <TableHead className="text-right">손익</TableHead>
             {foreign && <TableHead className="text-right" title="매출 입금일 기준 환율 · 손익 × 환율">손익<br />(KRW)</TableHead>}
@@ -1336,8 +1343,8 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
                 <TableCell {...cell('purchaseDates')}>
                   <div className="text-[12px] leading-tight tabular-nums">
                     <div>
-                      {/* 결산예정일 대신 결산연월 (2026-10-06 요청) — 클릭해서 YYYY-MM 으로 수정 */}
-                      <InlineSettlement dealId={r.id} year={r.settlementYear} month={r.settlementMonth} enabled={r.canTogglePaid} />
+                      {/* 결산예정일 대신 결산연월일 (2026-10-06·10-14 요청) — 클릭해서 YYYY-MM-DD 로 수정 */}
+                      <InlineSettlement dealId={r.id} year={r.settlementYear} month={r.settlementMonth} day={r.settlementDay ?? null} enabled={r.canTogglePaid} />
                     </div>
                     <div>
                       <InlineDate dealId={r.id} field="purchasePaidDate" value={r.purchasePaidDate} enabled={r.canTogglePaid} muted={!r.purchasePaidDate} />
