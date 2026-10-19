@@ -11,7 +11,7 @@ export const LIST_COLUMN_FIELDS = {
   owner: ['ownerUserId'],
   issuer: ['issuerCounterpartyId', 'advertiserName', 'advertiserCounterpartyId', 'adStart', 'adEnd', 'salesMethodId', 'salesMemo'],
   item: ['itemName'],
-  supplier: ['supplierCounterpartyId', 'purchasePricingRaw', 'settlementYear', 'settlementMonth', 'purchaseMemo'],
+  supplier: ['supplierCounterpartyId', 'purchasePricingRaw', 'settlementYear', 'settlementMonth', 'settlementDay', 'purchaseMemo'],
   salesNet: ['salesAmountNet', 'salesAmountGross'],
   salesVat: ['salesVat'],
   purchaseNet: ['purchaseAmountNet', 'purchaseAmountGross'],

@@ -89,7 +89,7 @@ const FIELD_LABEL: Record<string, string> = {
   dealCode: '거래코드', accrualYear: '귀속연도', accrualMonth: '귀속월', ownerUserId: '담당자', categoryId: '상품구분', accountId: '계정항목', currency: '통화', status: '상태',
   salesMethodId: '매출수단', issuerCounterpartyId: '발행처', advertiserName: '실광고주', itemName: '품목명', adStart: '광고 시작', adEnd: '광고 종료',
   salesAmountNet: '매출금', salesVat: '매출 부가세', salesAmountGross: '총매출', salesDueDate: '입금예정일', salesPaidDate: '입금일', salesPaidStatus: '입금여부', salesInvoiceDate: '매출 계산서 발행일', salesMemo: '매출 비고',
-  supplierCounterpartyId: '매체사', settlementYear: '결산연도', settlementMonth: '결산월', purchasePricingRaw: '수수료',
+  supplierCounterpartyId: '매체사', settlementYear: '결산연도', settlementMonth: '결산월', settlementDay: '결산일', purchasePricingRaw: '수수료',
   purchaseAmountNet: '매입금', purchaseVat: '매입 부가세', purchaseAmountGross: '총매입', purchaseDueDate: '결산예정일', purchasePaidDate: '지급일', purchasePaidStatus: '결산여부', purchaseInvoiceDate: '매입 계산서 발행일', purchaseMemo: '매입 비고',
   profitAdjusted: '조정 손익', profitAdjustMemo: '손익 조정 사유',
 }
