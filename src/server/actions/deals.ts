@@ -327,6 +327,8 @@ const inlineSchema = z.union([
     // 수정요청/완료 표시 (2026-10-08 요청) — 권한은 lib/review-mark (2026-10-12: 요청은 관리자, 완료는 담당자·관리자)
     field: z.literal('reviewStatus'),
     value: z.enum(['requested', 'done']).nullable(),
+    // 수정완료 → 빈칸 (2026-10-14 요청): 한 바퀴 끝난 것이라 요청 횟수는 그대로 둔다
+    reset: z.boolean().optional(),
   }),
   z.object({
     // 결산연월 인라인 수정 (2026-10-06 요청) — 둘 다 비우면 삭제
@@ -354,7 +356,7 @@ export async function updateDealInline(
 
   const [existing] = await db.select().from(deal).where(and(eq(deal.id, id), isNull(deal.deletedAt))).limit(1)
   if (!existing) return { error: '거래를 찾을 수 없습니다' }
-  if (parsed.data.field === 'reviewStatus') return setReviewStatus(user, existing, parsed.data.value)
+  if (parsed.data.field === 'reviewStatus') return setReviewStatus(user, existing, parsed.data.value, parsed.data.reset === true)
   if (!(await canEditDealScoped(user, existing))) return { error: '이 거래를 수정할 권한이 없습니다' }
 
   const { field, value } = parsed.data
@@ -431,6 +433,7 @@ async function setReviewStatus(
   user: SessionUser,
   existing: typeof deal.$inferSelect,
   value: 'requested' | 'done' | null,
+  reset = false,
 ): Promise<{ ok: true; row: InlineRow } | { error: string }> {
   const current = existing.reviewStatus ?? null
   if (current === value) return { ok: true, row: await getInlineRow(existing.id) }
@@ -442,13 +445,14 @@ async function setReviewStatus(
     if (value === 'requested')
       await tx.insert(reviewRequestLog).values({ entity: existing.entity, dealId: existing.id, ownerUserId: existing.ownerUserId, requestedBy: user.id })
     // 요청취소(2026-10-13) — 수정요청 자체를 없던 일로: 수정완료 뒤 취소해도 그 요청 1회를 횟수에서 뺀다
-    if (value === null) {
+    const finished = reset && current === 'done'
+    if (value === null && !finished) {
       const [last] = await tx.select({ id: reviewRequestLog.id }).from(reviewRequestLog).where(eq(reviewRequestLog.dealId, existing.id)).orderBy(desc(reviewRequestLog.id)).limit(1)
       if (last) await tx.delete(reviewRequestLog).where(eq(reviewRequestLog.id, last.id))
     }
   })
   const label = (v: 'requested' | 'done' | null) => (v ? REVIEW_LABEL[v] : '없음')
-  await audit({ action: 'deal.inline', targetType: 'deal', targetId: existing.id, targetLabel: existing.dealCode, summary: `${existing.dealCode} 표시 ${label(current)} → ${label(value)}`, detail: { reviewStatus: [current, value] } })
+  await audit({ action: 'deal.inline', targetType: 'deal', targetId: existing.id, targetLabel: existing.dealCode, summary: `${existing.dealCode} 표시 ${label(current)} → ${label(value)}${reset && current === 'done' ? ' (완료 후 처음으로)' : ''}`, detail: { reviewStatus: [current, value] } })
   return { ok: true, row: await getInlineRow(existing.id) }
 }
 
