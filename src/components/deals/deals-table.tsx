@@ -370,11 +370,13 @@ function ReviewMark({ dealId, value, who }: { dealId: string; value: ReviewStatu
   const label = shown ? REVIEW_LABEL[shown] : ''
   const choices = reviewChoices(shown, who)
   const enabled = choices.length > 0
-  function pick(next: ReviewStatus) {
+  // 관리자가 초록 체크(수정완료)를 누르면 메뉴 없이 바로 빈칸 (2026-10-14 요청: 최종 완료 → 처음으로)
+  const resetOnClick = shown === 'done' && who.admin
+  function pick(next: ReviewStatus, reset = false) {
     setOpen(false)
     start(async () => {
       setShown(next)
-      const res = await updateDealInline(dealId, { field: 'reviewStatus', value: next })
+      const res = await updateDealInline(dealId, { field: 'reviewStatus', value: next, reset })
       if ('error' in res) toast.error(res.error)
       else apply(dealId, res.row)
     })
@@ -386,8 +388,8 @@ function ReviewMark({ dealId, value, who }: { dealId: string; value: ReviewStatu
         disabled={!enabled || pending}
         data-review={shown ?? 'none'}
         aria-label={label || '표시 없음'}
-        aria-expanded={enabled ? open : undefined}
-        title={enabled ? '눌러서 수정요청·수정완료·요청취소' : label || undefined}
+        aria-expanded={enabled && !resetOnClick ? open : undefined}
+        title={resetOnClick ? '수정완료 — 누르면 빈칸으로 돌아갑니다' : enabled ? '눌러서 수정요청·수정완료·요청취소' : label || undefined}
         className={cn(
           'inline-flex h-5 min-w-5 shrink-0 items-center justify-center gap-1 rounded border px-1 text-[10.5px] font-semibold leading-none',
           shown === 'requested' && 'border-red-300 bg-red-50 text-red-600',
@@ -398,7 +400,7 @@ function ReviewMark({ dealId, value, who }: { dealId: string; value: ReviewStatu
           shown === null && !enabled && 'border-slate-200',
           pending && 'opacity-60',
         )}
-        onClick={() => enabled && setOpen((o) => !o)}
+        onClick={() => (resetOnClick ? pick(null, true) : enabled && setOpen((o) => !o))}
       >
         {shown === 'done' ? <Check className="size-3.5" strokeWidth={3} /> : label || '·'}
       </button>
