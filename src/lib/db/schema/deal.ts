@@ -74,6 +74,8 @@ export const deal = pgTable(
     ),
     settlementYear: integer('settlement_year'),
     settlementMonth: integer('settlement_month'),
+    // 결산일 (2026-10-14 요청: 결산연월 → 결산연월일). 비어 있으면 연월만
+    settlementDay: integer('settlement_day'),
     purchasePricingRaw: text('purchase_pricing_raw'),
     purchaseAmountNet: numeric('purchase_amount_net', { precision: 15, scale: 2 }),
     purchaseVat: numeric('purchase_vat', { precision: 15, scale: 2 }),
