@@ -341,6 +341,7 @@ export async function listDeals(f: DealListFilters = {}) {
       profitAdjustMemo: deal.profitAdjustMemo,
       fxRate: deal.fxRate,
       commissionPct: deal.commissionPct,
+      commissionAmount: deal.commissionAmount,
       // 추가 성과급 대상자 (2026-10-14)
       incentiveShares: sql<IncentiveShare[]>`coalesce((select json_agg(json_build_object('userId', s.user_id, 'name', u.name, 'rate', s.rate::text) order by s.sort_order, s.id) from deal_incentive_share s join users u on u.id = s.user_id where s.deal_id = ${deal.id}), '[]'::json)`,
       salesPaidStatus: deal.salesPaidStatus,
@@ -417,6 +418,7 @@ export async function getInlineRow(id: string) {
       profitAdjustMemo: deal.profitAdjustMemo,
       fxRate: deal.fxRate,
       commissionPct: deal.commissionPct,
+      commissionAmount: deal.commissionAmount,
       salesPaidStatus: deal.salesPaidStatus,
       purchasePaidStatus: deal.purchasePaidStatus,
       salesDueDate: deal.salesDueDate,
