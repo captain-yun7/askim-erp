@@ -102,7 +102,7 @@ function Amount({
         className,
       )}
     >
-      ₩ {formatKRW(value)}
+      ₩ {formatKRW(Math.round(value))}
     </TableCell>
   )
 }
