@@ -77,3 +77,28 @@ test('월별 손익 — 매출총이익이 매출장표 손익(통장)과 같다
   const pnlJan = won(await page.locator('tbody tr').first().locator('td').nth(1).innerText())
   expect(pnlJan).toBe(jan)
 })
+
+test('계정항목 성과금 — 매출·매입 없이 성과금만 넣으면 그 금액이 성과급', async ({ page }) => {
+  await login(page)
+  await page.goto('/deals/new')
+  await page.locator('div:has(> label:text-is("거래코드")) input').first().fill('E2E1019-INC')
+  for (const label of ['담당자', '상품구분']) {
+    await page.locator(`div:has(> label:text-is("${label}")) [role=combobox]`).first().click()
+    const listbox = page.getByRole('listbox')
+    await listbox.getByRole('option').first().click()
+    await listbox.waitFor({ state: 'hidden' }).catch(() => {})
+  }
+  await page.locator('div:has(> label:text-is("계정항목")) [role=combobox]').click()
+  await page.getByRole('listbox').getByRole('option', { name: '성과금' }).click()
+  await page.locator('div:has(> label:text-is("품목명")) input').first().fill('E2E거래1019-성과금')
+  // 성과금 칸이 없으면 저장이 막힌다
+  await page.getByRole('button', { name: '확정저장' }).click()
+  await expect(page.getByText(/필수 항목이 비어 있습니다: 성과금 또는 조정 손익/)).toBeVisible()
+  await page.getByLabel('성과금', { exact: true }).fill('-105000')
+  await page.getByRole('button', { name: '확정저장' }).click()
+  await page.waitForURL((u) => u.pathname === '/deals')
+
+  await page.goto('/deals?fCode=E2E1019-INC&year=all')
+  const cell = rowOf(page, 'E2E1019-INC').locator('[data-col=incentiveAmount]')
+  await expect(cell).toHaveText('-105,000')
+})
