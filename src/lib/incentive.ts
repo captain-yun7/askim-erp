@@ -38,9 +38,19 @@ export function profitKrw(profit: string | number | null | undefined, currency: 
 /** 추가 성과급 대상자 (2026-10-14) — 담당자 외에 같은 거래 성과급을 나눠 받는 사람 */
 export type IncentiveShare = { userId: string; name: string; rate: string }
 
-/** 담당자 몫 + 추가 대상자 몫. 기준 금액이 없으면 null */
-export function incentiveTotal(base: string | number | null | undefined, stored: string | number | null | undefined, shares: IncentiveShare[] = []): number | null {
-  const own = incentiveAmount(base, stored)
+/** 계정항목 '성과금' (2026-10-14 요청) — 매출·매입 없이 성과금만 넣는 거래 */
+export const INCENTIVE_ACCOUNT_NAME = '성과금'
+
+/** 성과금 직접 입력값(commission_amount) — 숫자면 그 값, 아니면 null */
+export function fixedIncentive(v: string | number | null | undefined): number | null {
+  if (v === null || v === undefined || v === '') return null
+  const n = typeof v === 'string' ? parseFloat(v) : v
+  return Number.isFinite(n) ? n : null
+}
+
+/** 담당자 몫 + 추가 대상자 몫. 담당자 몫은 성과금을 직접 넣었으면 그 값. 기준 금액도 직접 입력도 없으면 null */
+export function incentiveTotal(base: string | number | null | undefined, stored: string | number | null | undefined, shares: IncentiveShare[] = [], fixed: string | number | null = null): number | null {
+  const own = fixedIncentive(fixed) ?? incentiveAmount(base, stored)
   if (own === null) return null
   return shares.reduce((a, s) => a + (incentiveAmount(base, s.rate) ?? 0), own)
 }

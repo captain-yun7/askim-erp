@@ -115,7 +115,7 @@ export default async function DealsPage({
   let incentiveCount = 0
   for (const r of rows) {
     if (!me || !canViewCommission(me, { status: r.status as 'draft' | 'confirmed' | 'closed', ownerUserId: r.ownerUserId })) continue
-    const amount = incentiveTotal(profitKrw(r.profit, r.currency, r.fxRate), r.commissionPct, r.incentiveShares)
+    const amount = incentiveTotal(profitKrw(r.profit, r.currency, r.fxRate), r.commissionPct, r.incentiveShares, r.commissionAmount)
     if (amount == null) continue
     incentiveSum += amount
     incentiveCount++
@@ -269,6 +269,7 @@ export default async function DealsPage({
             ...r,
             // 볼 수 없는 거래의 요율은 화면으로 내려보내지 않는다
             commissionPct: canViewIncentive ? r.commissionPct : null,
+            commissionAmount: canViewIncentive ? r.commissionAmount : null,
             incentiveShares: canViewIncentive ? r.incentiveShares : [],
             canTogglePaid:
               me != null &&

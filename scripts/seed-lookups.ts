@@ -35,6 +35,8 @@ const ACCOUNTS = [
   { code: 'balance',          nameKo: '잔금',   displayOrder: 6 },
   // 2026-10-08 요청
   { code: 'survey_fee',       nameKo: '실측비',  displayOrder: 7 },
+  // 2026-10-14 요청 — 매출·매입 없이 성과금만 넣는 거래
+  { code: 'incentive',        nameKo: '성과금',  displayOrder: 8 },
 ] as const
 
 const SALES_METHODS = [

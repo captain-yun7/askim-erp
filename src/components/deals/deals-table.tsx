@@ -21,7 +21,7 @@ import { AttachmentButton } from '@/components/attachments/attachment-button'
 import { cn } from '@/lib/utils'
 import { formatSettlement, parseSettlement } from '@/lib/settlement'
 import { formatDate, formatKRW } from '@/lib/format'
-import { incentiveAmount, incentivePercentText, incentiveRate, incentiveTotal, profitKrw, type IncentiveShare } from '@/lib/incentive'
+import { fixedIncentive, incentiveAmount, incentivePercentText, incentiveRate, incentiveTotal, profitKrw, type IncentiveShare } from '@/lib/incentive'
 import { setIncentiveShares } from '@/server/actions/incentive-shares'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { REVIEW_LABEL, reviewChoices, type ReviewStatus } from '@/lib/review-mark'
@@ -49,6 +49,8 @@ type Row = {
   profitAdjustMemo?: string | null
   fxRate?: string | null
   commissionPct?: string | null
+  /** 성과금 직접 입력 (계정항목 성과금, 2026-10-14) */
+  commissionAmount?: string | null
   incentiveShares?: IncentiveShare[]
   canViewIncentive?: boolean
   canEditIncentive?: boolean
@@ -370,11 +372,13 @@ function ReviewMark({ dealId, value, who }: { dealId: string; value: ReviewStatu
   const label = shown ? REVIEW_LABEL[shown] : ''
   const choices = reviewChoices(shown, who)
   const enabled = choices.length > 0
-  function pick(next: ReviewStatus) {
+  // 관리자가 초록 체크(수정완료)를 누르면 메뉴 없이 바로 빈칸 (2026-10-14 요청: 최종 완료 → 처음으로)
+  const resetOnClick = shown === 'done' && who.admin
+  function pick(next: ReviewStatus, reset = false) {
     setOpen(false)
     start(async () => {
       setShown(next)
-      const res = await updateDealInline(dealId, { field: 'reviewStatus', value: next })
+      const res = await updateDealInline(dealId, { field: 'reviewStatus', value: next, reset })
       if ('error' in res) toast.error(res.error)
       else apply(dealId, res.row)
     })
@@ -386,8 +390,8 @@ function ReviewMark({ dealId, value, who }: { dealId: string; value: ReviewStatu
         disabled={!enabled || pending}
         data-review={shown ?? 'none'}
         aria-label={label || '표시 없음'}
-        aria-expanded={enabled ? open : undefined}
-        title={enabled ? '눌러서 수정요청·수정완료·요청취소' : label || undefined}
+        aria-expanded={enabled && !resetOnClick ? open : undefined}
+        title={resetOnClick ? '수정완료 — 누르면 빈칸으로 돌아갑니다' : enabled ? '눌러서 수정요청·수정완료·요청취소' : label || undefined}
         className={cn(
           'inline-flex h-5 min-w-5 shrink-0 items-center justify-center gap-1 rounded border px-1 text-[10.5px] font-semibold leading-none',
           shown === 'requested' && 'border-red-300 bg-red-50 text-red-600',
@@ -398,7 +402,7 @@ function ReviewMark({ dealId, value, who }: { dealId: string; value: ReviewStatu
           shown === null && !enabled && 'border-slate-200',
           pending && 'opacity-60',
         )}
-        onClick={() => enabled && setOpen((o) => !o)}
+        onClick={() => (resetOnClick ? pick(null, true) : enabled && setOpen((o) => !o))}
       >
         {shown === 'done' ? <Check className="size-3.5" strokeWidth={3} /> : label || '·'}
       </button>
@@ -840,13 +844,14 @@ const ShareUsersCtx = createContext<ShareUser[]>([])
  * 성과급 칸 (2026-10-14: 추가 성과급 대상자) — 담당자 몫 + 추가 대상자 몫의 합계.
  * 누르면 사람별로 나눠 보이고, 수정 권한이 있으면 사람·요율을 더하거나 뺀다
  */
-function IncentiveAmountCell({ dealId, show, editable, base, stored, ownerName, initialShares }: { dealId: string; show: boolean; editable: boolean; base: number | null; stored: string | null; ownerName: string | null; initialShares: IncentiveShare[] }) {
+function IncentiveAmountCell({ dealId, show, editable, base, stored, fixed, ownerName, initialShares }: { dealId: string; show: boolean; editable: boolean; base: number | null; stored: string | null; fixed: string | null; ownerName: string | null; initialShares: IncentiveShare[] }) {
   const [shares, setShares] = useState(initialShares)
   const [pending, start] = useTransition()
   const [pick, setPick] = useState('')
   const [percent, setPercent] = useState('5')
   const users = useContext(ShareUsersCtx)
-  const amount = show ? incentiveTotal(base, stored, shares) : null
+  const amount = show ? incentiveTotal(base, stored, shares, fixed) : null
+  const own = fixedIncentive(fixed)
   if (amount === null) return <span className="text-muted-foreground/60" title={show ? '환율이 없어 계산할 수 없습니다' : undefined}>-</span>
   if (!editable && shares.length === 0) return <span className={cn(amount < 0 && 'text-destructive')}>{formatKRW(amount)}</span>
 
@@ -884,8 +889,8 @@ function IncentiveAmountCell({ dealId, show, editable, base, stored, ownerName, 
       <PopoverContent align="end" data-incentive-shares={dealId} className="gap-1 text-[12px]">
         <span className="grid grid-cols-[1fr_auto_auto_1.25rem] items-center gap-x-2 gap-y-1">
           <span className="text-muted-foreground">담당 {ownerName ?? '-'}</span>
-          <span className="text-right tabular-nums">{incentivePercentText(incentiveRate(stored))}%</span>
-          <span className="text-right tabular-nums">{won(stored)}</span>
+          <span className="text-right tabular-nums">{own !== null ? '직접 입력' : `${incentivePercentText(incentiveRate(stored))}%`}</span>
+          <span className="text-right tabular-nums">{own !== null ? formatKRW(own) : won(stored)}</span>
           <span />
           {shares.map((s) => (
             <Fragment key={s.userId}>
@@ -1377,6 +1382,7 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
                     editable={Boolean(r.canEditIncentive)}
                     base={base}
                     stored={r.commissionPct ?? null}
+                    fixed={r.commissionAmount ?? null}
                     ownerName={r.ownerName}
                     initialShares={r.incentiveShares ?? []}
                   />
