@@ -21,7 +21,7 @@ import { AttachmentButton } from '@/components/attachments/attachment-button'
 import { cn } from '@/lib/utils'
 import { formatSettlement, parseSettlement } from '@/lib/settlement'
 import { formatDate, formatKRW } from '@/lib/format'
-import { incentiveAmount, incentivePercentText, incentiveRate, incentiveTotal, profitKrw, type IncentiveShare } from '@/lib/incentive'
+import { fixedIncentive, incentiveAmount, incentivePercentText, incentiveRate, incentiveTotal, profitKrw, type IncentiveShare } from '@/lib/incentive'
 import { setIncentiveShares } from '@/server/actions/incentive-shares'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { REVIEW_LABEL, reviewChoices, type ReviewStatus } from '@/lib/review-mark'
@@ -49,6 +49,8 @@ type Row = {
   profitAdjustMemo?: string | null
   fxRate?: string | null
   commissionPct?: string | null
+  /** 성과금 직접 입력 (계정항목 성과금, 2026-10-14) */
+  commissionAmount?: string | null
   incentiveShares?: IncentiveShare[]
   canViewIncentive?: boolean
   canEditIncentive?: boolean
@@ -842,13 +844,14 @@ const ShareUsersCtx = createContext<ShareUser[]>([])
  * 성과급 칸 (2026-10-14: 추가 성과급 대상자) — 담당자 몫 + 추가 대상자 몫의 합계.
  * 누르면 사람별로 나눠 보이고, 수정 권한이 있으면 사람·요율을 더하거나 뺀다
  */
-function IncentiveAmountCell({ dealId, show, editable, base, stored, ownerName, initialShares }: { dealId: string; show: boolean; editable: boolean; base: number | null; stored: string | null; ownerName: string | null; initialShares: IncentiveShare[] }) {
+function IncentiveAmountCell({ dealId, show, editable, base, stored, fixed, ownerName, initialShares }: { dealId: string; show: boolean; editable: boolean; base: number | null; stored: string | null; fixed: string | null; ownerName: string | null; initialShares: IncentiveShare[] }) {
   const [shares, setShares] = useState(initialShares)
   const [pending, start] = useTransition()
   const [pick, setPick] = useState('')
   const [percent, setPercent] = useState('5')
   const users = useContext(ShareUsersCtx)
-  const amount = show ? incentiveTotal(base, stored, shares) : null
+  const amount = show ? incentiveTotal(base, stored, shares, fixed) : null
+  const own = fixedIncentive(fixed)
   if (amount === null) return <span className="text-muted-foreground/60" title={show ? '환율이 없어 계산할 수 없습니다' : undefined}>-</span>
   if (!editable && shares.length === 0) return <span className={cn(amount < 0 && 'text-destructive')}>{formatKRW(amount)}</span>
 
@@ -886,8 +889,8 @@ function IncentiveAmountCell({ dealId, show, editable, base, stored, ownerName, 
       <PopoverContent align="end" data-incentive-shares={dealId} className="gap-1 text-[12px]">
         <span className="grid grid-cols-[1fr_auto_auto_1.25rem] items-center gap-x-2 gap-y-1">
           <span className="text-muted-foreground">담당 {ownerName ?? '-'}</span>
-          <span className="text-right tabular-nums">{incentivePercentText(incentiveRate(stored))}%</span>
-          <span className="text-right tabular-nums">{won(stored)}</span>
+          <span className="text-right tabular-nums">{own !== null ? '직접 입력' : `${incentivePercentText(incentiveRate(stored))}%`}</span>
+          <span className="text-right tabular-nums">{own !== null ? formatKRW(own) : won(stored)}</span>
           <span />
           {shares.map((s) => (
             <Fragment key={s.userId}>
@@ -1379,6 +1382,7 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
                     editable={Boolean(r.canEditIncentive)}
                     base={base}
                     stored={r.commissionPct ?? null}
+                    fixed={r.commissionAmount ?? null}
                     ownerName={r.ownerName}
                     initialShares={r.incentiveShares ?? []}
                   />

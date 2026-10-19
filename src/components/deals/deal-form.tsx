@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { checkDealCode, createDeal, deleteDeal, lookupFxRate, updateDeal, type DealInput } from '@/server/actions/deals'
-import { profitKrw } from '@/lib/incentive'
+import { INCENTIVE_ACCOUNT_NAME, profitKrw } from '@/lib/incentive'
 import { CounterpartyCombobox } from './counterparty-combobox'
 import { CounterpartyQuickCreate } from '../counterparties/counterparty-quick-create'
 import { formatKRW } from '@/lib/format'
@@ -144,6 +144,7 @@ export function DealForm({
   // 자동 계산: VAT, 총액, 손익, 성과급
   const salesNet = parseFloat(String(form.salesAmountNet ?? 0)) || 0
   const purchaseNet = parseFloat(String(form.purchaseAmountNet ?? 0)) || 0
+  const incentiveOnly = lookups.accounts.find((a) => a.id === form.accountId)?.nameKo === INCENTIVE_ACCOUNT_NAME
   const autoProfit = salesNet - purchaseNet
   // 손익 수동 조정 (2026-10-15 요청): 넣으면 자동 계산 대신 이 값으로 성과급·리포트 계산
   const adjusted = form.profitAdjusted != null && String(form.profitAdjusted).trim() !== ''
@@ -207,6 +208,11 @@ export function DealForm({
     for (const [label, v] of base) if (empty(v)) out.push(label)
     const salesUsed = !empty(form.issuerCounterpartyId) || !empty(form.salesAmountNet)
     const purchaseUsed = !empty(form.supplierCounterpartyId) || !empty(form.purchaseAmountNet)
+    // 계정항목 성과금 (2026-10-14 요청): 매출·매입 없이 성과금(또는 조정 손익)만 있으면 된다
+    if (incentiveOnly) {
+      if (!salesUsed && !purchaseUsed && empty(form.commissionAmount) && empty(form.profitAdjusted)) out.push('성과금 또는 조정 손익')
+      return out
+    }
     if (!salesUsed && !purchaseUsed) out.push('매출 또는 매입 중 하나')
     // '(매출처 없음)'·'(매입처 없음)' 거래처를 고르면 그 쪽 나머지 항목은 요구하지 않는다 (2026-10-15 요청)
     if (salesUsed && !isNoneParty(labels.issuer)) {
@@ -237,7 +243,8 @@ export function DealForm({
       toast.error(`필수 항목이 비어 있습니다: ${missing.join(', ')}`, { description: '별표(*) 항목을 모두 채운 뒤 저장해 주세요', duration: 8000 })
       return
     }
-    const payload = { ...form, status }
+    // 성과금 직접 입력은 계정항목이 성과금일 때만 남긴다
+    const payload = { ...form, commissionAmount: incentiveOnly ? form.commissionAmount : null, status }
     startTransition(async () => {
       const res = initial?.id
         ? await updateDeal(initial.id, payload)
@@ -661,6 +668,21 @@ export function DealForm({
             )}
             {adjusted && <span className="ml-1 text-xs text-muted-foreground">(자동 계산 {formatKRW(autoProfit)})</span>}
           </div>
+          {incentiveOnly && (
+            <div className="flex items-center gap-2" data-slot="incentive-only">
+              <label htmlFor="deal-commission-amount" className="text-muted-foreground" title="계정항목 성과금 — 매출·매입 없이 성과금만 넣습니다. 비우면 손익 × 인센티브(%)">
+                성과금
+              </label>
+              <AmountInput
+                id="deal-commission-amount"
+                aria-label="성과금"
+                value={form.commissionAmount}
+                onChange={(v) => set('commissionAmount', v)}
+                placeholder="직접 입력"
+                className="h-8 w-36 text-right font-mono"
+              />
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <label htmlFor="deal-profit-adjusted" className="text-muted-foreground" title="비워 두면 매출금 − 매입금으로 자동 계산합니다">
               조정 손익
