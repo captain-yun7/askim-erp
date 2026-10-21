@@ -1,5 +1,6 @@
 'use client'
 
+import { compactText, looseIncludes } from '@/lib/text-search'
 import Link from 'next/link'
 import { createContext, useContext, useMemo, useState, useTransition } from 'react'
 import { ArrowLeft, ExternalLink, Loader2 } from 'lucide-react'
@@ -163,8 +164,9 @@ function FormulaView({ formula, lines, months, valueOf, onPick }: { formula: Dri
 }
 
 function DetailView({ detail, cellValue, query, setQuery, exportArgs }: { detail: DrillDetail; cellValue: number; query: string; setQuery: (v: string) => void; exportArgs: { year: number; months: number[]; key: string; title: string } }) {
-  const q = query.trim().toLowerCase()
-  const match = (...texts: (string | null)[]) => !q || texts.some((t) => t?.toLowerCase().includes(q))
+  // 띄어쓰기 무시 (2026-10-21)
+  const q = compactText(query)
+  const match = (...texts: (string | null)[]) => !q || texts.some((t) => looseIncludes(t, q))
   const ok = Math.abs(detail.total - cellValue) < 1
   const dealRows = detail.kind === 'deals' ? detail.rows.filter((r) => match(r.dealCode, r.issuer, r.supplier, r.itemName, r.owner)) : []
   const expenseRows = detail.kind === 'expenses' ? detail.rows.filter((r) => match(r.itemName, r.counterparty, r.date)) : []

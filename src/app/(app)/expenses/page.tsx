@@ -1,13 +1,14 @@
 import Link from 'next/link'
 import { RememberList } from '@/components/list-return'
-import { and, desc, eq, ilike, isNull, or, sql } from 'drizzle-orm'
+import { desc, eq, sql } from 'drizzle-orm'
 import { Plus, Receipt, Upload, Wallet } from 'lucide-react'
 import { db } from '@/lib/db/client'
-import { getCurrentEntity } from '@/server/entity'
 import { expense, expenseCategory } from '@/lib/db/schema'
 import { buttonVariants } from '@/components/ui/button'
-import { CsvExportButton } from '@/components/csv-export-button'
-import { exportExpensesCsv } from '@/server/actions/export'
+import { XlsxExportButton } from '@/components/xlsx-export-button'
+import { exportExpensesXlsx } from '@/server/actions/export'
+import { expenseListWhere } from '@/server/queries/expenses'
+import { compactText } from '@/lib/text-search'
 import {
   Table,
   TableBody,
@@ -55,22 +56,9 @@ export default async function ExpensesPage({
     method: typeof sp.method === 'string' ? sp.method : undefined,
   }
 
-  const conds = [eq(expense.entity, await getCurrentEntity()), isNull(expense.deletedAt)]
-  if (filters.year) conds.push(eq(expense.year, filters.year))
-  if (filters.month) conds.push(eq(expense.month, filters.month))
-  if (filters.categoryId)
-    conds.push(eq(expense.expenseCategoryId, filters.categoryId))
-  if (filters.method)
-    conds.push(eq(expense.paymentMethod, filters.method as 'corporate_card'))
-  if (filters.q) {
-    const like = `%${filters.q}%`
-    conds.push(
-      or(ilike(expense.itemName, like), ilike(expense.counterpartyText, like))!,
-    )
-  }
-  const where = and(...conds)
+  const where = await expenseListWhere(filters)
   // 월·항목·검색으로 좁혔으면 전부 보여 준다 (100건에서 잘려 월초 내역이 안 보인다는 2026-09-28 문의)
-  const narrowed = Boolean(filters.month || filters.categoryId || filters.q)
+  const narrowed = Boolean(filters.month || filters.categoryId || (filters.q && compactText(filters.q)))
   const limit = narrowed ? 5000 : 100
 
   const [rows, [{ total }], [aggr], lookups] = await Promise.all([
@@ -91,7 +79,7 @@ export default async function ExpensesPage({
       .from(expense)
       .leftJoin(expenseCategory, eq(expenseCategory.id, expense.expenseCategoryId))
       .where(where)
-      .orderBy(desc(expense.expenseDate), desc(expense.createdAt))
+      .orderBy(desc(expense.expenseDate), desc(expense.createdAt), desc(expense.id))
       .limit(limit),
     db.select({ total: sql<number>`count(*)::int` }).from(expense).where(where),
     db
@@ -113,7 +101,7 @@ export default async function ExpensesPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <CsvExportButton action={exportExpensesCsv} filters={filters} />
+          <XlsxExportButton action={exportExpensesXlsx} filters={filters} label="엑셀 내보내기" />
           {me && canCreateExpense(me.role) && (
             <>
               <Link href="/expenses/upload" className={cn(buttonVariants({ variant: 'outline' }), 'gap-1.5')}>

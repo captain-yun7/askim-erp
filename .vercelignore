@@ -4,5 +4,6 @@ test-results
 docker
 e2e
 scripts
-*.xlsx
+# 루트의 고객 원본 엑셀만 제외 — public/templates 양식은 배포돼야 한다 (2026-10-21 양식 다운로드 404)
+/*.xlsx
 .env*

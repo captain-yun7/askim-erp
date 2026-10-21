@@ -1,15 +1,11 @@
 import Link from 'next/link'
 import { RememberList } from '@/components/list-return'
-import { and, asc, eq, ilike, isNull, or, sql } from 'drizzle-orm'
 import { Plus } from 'lucide-react'
-import { db } from '@/lib/db/client'
-import { getCurrentEntity } from '@/server/entity'
-import { counterparty } from '@/lib/db/schema'
 import { buttonVariants } from '@/components/ui/button'
-import { CsvExportButton } from '@/components/csv-export-button'
-import { exportCounterpartiesCsv } from '@/server/actions/export'
+import { XlsxExportButton } from '@/components/xlsx-export-button'
+import { exportCounterpartiesXlsx } from '@/server/actions/export'
+import { listCounterparties } from '@/server/queries/counterparties'
 import { getAttachmentCounts } from '@/server/actions/attachments'
-import { isClientType } from '@/lib/client-type'
 import { CounterpartiesTable } from '@/components/counterparties/counterparties-table'
 import { CounterpartiesFilters } from '@/components/counterparties/counterparties-filters'
 import { cn } from '@/lib/utils'
@@ -18,50 +14,15 @@ import { canCreateCounterparty, canDeleteCounterparty, canViewBankInfo, getSessi
 export default async function CounterpartiesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; role?: string; noBiz?: string; ctype?: string }>
+  searchParams: Promise<{ [k: string]: string | string[] | undefined }>
 }) {
-  const { q, role, noBiz, ctype } = await searchParams
+  const sp = await searchParams
+  // 같은 이름이 두 번 오면(?q=a&q=b) 배열이 된다 — 글자 하나만 받는다
+  const str = (v: string | string[] | undefined) => (typeof v === 'string' ? v : undefined)
+  const [q, role, noBiz, ctype] = [str(sp.q), str(sp.role), str(sp.noBiz), str(sp.ctype)]
   const user = await getSessionUser()
   const showBank = user ? canViewBankInfo(user.role) : false
-  const conds = [eq(counterparty.entity, await getCurrentEntity()), isNull(counterparty.deletedAt), eq(counterparty.isActive, true)]
-  if (q)
-    conds.push(
-      or(
-        ilike(counterparty.name, `%${q}%`),
-        ilike(counterparty.businessNo, `%${q}%`),
-      )!,
-    )
-  if (role)
-    conds.push(sql`${counterparty.roleTags} @> ARRAY[${role}]::text[]`)
-  // 거래처 구분 필터 (2026-09-28): 값 또는 'none'(미지정)
-  if (ctype === 'none') conds.push(isNull(counterparty.clientType))
-  else if (isClientType(ctype)) conds.push(eq(counterparty.clientType, ctype))
-  if (noBiz)
-    conds.push(
-      or(
-        isNull(counterparty.businessNo),
-        eq(counterparty.businessNo, ''),
-      )!,
-    )
-
-  const rows = await db
-    .select({
-      id: counterparty.id,
-      name: counterparty.name,
-      businessNo: counterparty.businessNo,
-      roleTags: counterparty.roleTags,
-      clientType: counterparty.clientType,
-      paymentTerm: counterparty.paymentTerm,
-      officialFeeRate: counterparty.officialFeeRate,
-      bankName: counterparty.bankName,
-      accountHolder: counterparty.accountHolder,
-      accountNo: counterparty.accountNo,
-      memo: counterparty.memo,
-    })
-    .from(counterparty)
-    .where(and(...conds))
-    // 전체 표시 (2026-10-14 요청) — 1천여 건이라 한 번에 그려도 충분
-    .orderBy(asc(counterparty.name))
+  const rows = await listCounterparties({ q, role, noBiz: Boolean(noBiz), ctype })
 
   // 첨부 개수 (2026-10-08: 사업자등록증·통장사본)
   const attachmentCounts = await getAttachmentCounts('counterparty', rows.map((r) => r.id))
@@ -77,10 +38,7 @@ export default async function CounterpartiesPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <CsvExportButton
-            action={exportCounterpartiesCsv}
-            filters={{ q, role, noBiz: Boolean(noBiz) }}
-          />
+          <XlsxExportButton action={exportCounterpartiesXlsx} filters={{ q, role, noBiz: Boolean(noBiz), ctype }} label="엑셀 내보내기" />
           {user && canCreateCounterparty(user.role) && (
             <Link
               href="/counterparties/new"
