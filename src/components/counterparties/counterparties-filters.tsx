@@ -55,7 +55,7 @@ export function CounterpartiesFilters({
       </div>
 
       <Select
-        key={initial.role ?? 'all'}
+        key={`role-${initial.role ?? 'all'}`}
         defaultValue={initial.role ?? 'all'}
         onValueChange={(v) => update({ role: v ?? undefined })}
       >
@@ -73,7 +73,7 @@ export function CounterpartiesFilters({
         </SelectContent>
       </Select>
 
-      <Select key={initial.ctype ?? 'all'} defaultValue={initial.ctype ?? 'all'} onValueChange={(v) => update({ ctype: v ?? undefined })}>
+      <Select key={`ctype-${initial.ctype ?? 'all'}`} defaultValue={initial.ctype ?? 'all'} onValueChange={(v) => update({ ctype: v ?? undefined })}>
         <SelectTrigger className={chip} data-active={Boolean(initial.ctype)} aria-label="거래처 구분">
           <SelectValue />
           <span className="text-muted-foreground">구분</span>

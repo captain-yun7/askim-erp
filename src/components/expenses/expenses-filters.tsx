@@ -65,7 +65,7 @@ export function ExpensesFilters({
       </div>
 
       <Select
-        key={initial.year ?? 'all'}
+        key={`year-${initial.year ?? 'all'}`}
         defaultValue={initial.year ? String(initial.year) : 'all'}
         onValueChange={(v) => update({ year: v ?? undefined })}
       >
@@ -84,7 +84,7 @@ export function ExpensesFilters({
       </Select>
 
       <Select
-        key={initial.month ?? 'all'}
+        key={`month-${initial.month ?? 'all'}`}
         defaultValue={initial.month ? String(initial.month) : 'all'}
         onValueChange={(v) => update({ month: v ?? undefined })}
       >
@@ -103,7 +103,7 @@ export function ExpensesFilters({
       </Select>
 
       <Select
-        key={initial.categoryId ?? 'all'}
+        key={`category-${initial.categoryId ?? 'all'}`}
         defaultValue={initial.categoryId ? String(initial.categoryId) : 'all'}
         onValueChange={(v) => update({ categoryId: v ?? undefined })}
       >
