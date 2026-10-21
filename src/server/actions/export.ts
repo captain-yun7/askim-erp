@@ -39,10 +39,12 @@ export async function exportDealsXlsx(filters: DealListFilters): Promise<XlsxRes
     const { rows } = await listDeals({ ...filters, page: 1, pageSize: 5000 })
     const foreign = !entityInfo(await getCurrentEntity()).hasVat
     // 화면처럼 소수점은 버림
-    const won = (v: string | number | null | undefined) => {
+    // 원화는 화면처럼 소수점 버림, 외화(달러·위안)는 센트까지
+    const num = (v: string | number | null | undefined, currency = 'KRW') => {
       if (v === null || v === undefined || v === '') return null
       const n = typeof v === 'string' ? parseFloat(v) : v
-      return Number.isFinite(n) ? Math.trunc(n) : null
+      if (!Number.isFinite(n)) return null
+      return currency === 'KRW' ? Math.trunc(n) : Math.round(n * 100) / 100
     }
     const vat = <T,>(...v: T[]) => (foreign ? [] : v)
 
@@ -71,12 +73,12 @@ export async function exportDealsXlsx(filters: DealListFilters): Promise<XlsxRes
         r.advertiserName && r.advertiserName !== r.issuerName ? r.advertiserName : '',
         r.supplierName ?? '',
         r.itemName ?? '',
-        won(r.salesAmountNet),
-        ...vat(won(r.salesVat)),
-        won(r.salesAmountGross),
-        won(r.purchaseAmountNet),
-        ...vat(won(r.purchaseVat)),
-        won(r.purchaseAmountGross),
+        num(r.salesAmountNet, r.currency),
+        ...vat(num(r.salesVat, r.currency)),
+        num(r.salesAmountGross, r.currency),
+        num(r.purchaseAmountNet, r.currency),
+        ...vat(num(r.purchaseVat, r.currency)),
+        num(r.purchaseAmountGross, r.currency),
         hasSales ? (r.salesPaidStatus === 'completed' ? '입금' : '미입금') : '',
         hasPurchase ? (r.purchasePaidStatus === 'completed' ? '결산' : '미결산') : '',
         r.salesMethodName ?? '',
@@ -85,10 +87,10 @@ export async function exportDealsXlsx(filters: DealListFilters): Promise<XlsxRes
         r.salesPaidDate ?? '',
         r.settlementYear && r.settlementMonth ? formatSettlement(r.settlementYear, r.settlementMonth, r.settlementDay) : '',
         r.purchasePaidDate ?? '',
-        won(r.profit),
-        ...(foreign ? [won(krw)] : []),
+        num(r.profit, r.currency),
+        ...(foreign ? [num(krw)] : []),
         canView ? `${incentivePercentText(incentiveRate(r.commissionPct))}%` : '',
-        canView ? won(incentiveTotal(base, r.commissionPct, r.incentiveShares, r.commissionAmount)) : null,
+        canView ? num(incentiveTotal(base, r.commissionPct, r.incentiveShares, r.commissionAmount)) : null,
         r.supplierBankName ?? '',
         r.supplierAccountNo ?? '',
         r.supplierAccountHolder ?? '',
@@ -163,7 +165,7 @@ export async function exportExpensesXlsx(filters: ExpenseListFilters): Promise<X
       r.counterpartyText ?? '',
       r.category ?? '',
       PAYMENT_LABEL[r.paymentMethod] ?? r.paymentMethod,
-      r.amount == null ? null : Math.trunc(parseFloat(r.amount)),
+      r.amount == null ? null : Math.round(parseFloat(r.amount) * 100) / 100,
     ])
     const filename = `판관비_${filters.year ?? '전체'}${filters.month ? `-${String(filters.month).padStart(2, '0')}` : ''}.xlsx`
     await audit({ action: 'export.xlsx', targetType: 'export', targetLabel: filename, summary: `엑셀 다운로드 ${filename} (${rows.length}건)`, detail: filters })
