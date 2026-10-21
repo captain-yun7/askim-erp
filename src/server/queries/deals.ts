@@ -49,6 +49,8 @@ export type DealListFilters = {
   fSalesPaid?: string
   fPurchaseDue?: string
   fPurchasePaid?: string
+  /** 매출수단 (2026-10-21 요청) — id, '-' 는 비어 있는 거래 */
+  fSalesMethod?: string
   year?: number
   /** 귀속연도 다중 선택 (2026-09-16 피드백) */
   years?: number[]
@@ -253,6 +255,8 @@ export async function listDeals(f: DealListFilters = {}) {
   if (f.fPaid === 'unpaid') conds.push(sql`${deal.salesPaidStatus} <> 'completed'`, hasSales)
   if (f.fSettled === 'settled') conds.push(eq(deal.purchasePaidStatus, 'completed'), hasPurchase)
   if (f.fSettled === 'unsettled') conds.push(sql`${deal.purchasePaidStatus} <> 'completed'`, hasPurchase)
+  if (f.fSalesMethod === '-') conds.push(isNull(deal.salesMethodId))
+  else if (f.fSalesMethod && /^\d+$/.test(f.fSalesMethod)) conds.push(eq(deal.salesMethodId, Number(f.fSalesMethod)))
 
   if (f.q) {
     const like = `%${f.q}%`
@@ -357,6 +361,7 @@ export async function listDeals(f: DealListFilters = {}) {
       settlementMonth: deal.settlementMonth,
       settlementDay: deal.settlementDay,
       categoryName: dealCategory.nameKo,
+      salesMethodId: deal.salesMethodId,
       salesMethodName: salesMethod.nameKo,
       reviewStatus: deal.reviewStatus,
       // 매체사 계좌정보 (2026-10-08 요청: 아이콘을 눌러 보고, 내보내기에 포함)
@@ -433,8 +438,11 @@ export async function getInlineRow(id: string) {
       accrualYear: deal.accrualYear,
       accrualMonth: deal.accrualMonth,
       reviewStatus: deal.reviewStatus,
+      salesMethodId: deal.salesMethodId,
+      salesMethodName: salesMethod.nameKo,
     })
     .from(deal)
+    .leftJoin(salesMethod, eq(salesMethod.id, deal.salesMethodId))
     .where(eq(deal.id, id))
     .limit(1)
   const changes = await getRecentChanges([id])

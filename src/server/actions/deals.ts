@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { db } from '@/lib/db/client'
 import { getCurrentEntity } from '@/server/entity'
 import { entityInfo } from '@/lib/entity'
-import { account, deal, reviewRequestLog, users } from '@/lib/db/schema'
+import { account, deal, reviewRequestLog, salesMethod, users } from '@/lib/db/schema'
 import {
   canCreateDeal,
   canDeleteDeal,
@@ -348,6 +348,11 @@ const inlineSchema = z.union([
     value: z.object({ year: z.coerce.number().int().min(2000).max(2100).nullable(), month: z.coerce.number().int().min(1).max(12).nullable(), day: z.coerce.number().int().min(1).max(31).nullable().optional() }),
   }),
   z.object({
+    // 매출수단 목록에서 바로 고르기 (2026-10-21 요청) — null 이면 비움
+    field: z.literal('salesMethodId'),
+    value: z.coerce.number().int().positive().nullable(),
+  }),
+  z.object({
     field: z.literal('accrual'),
     value: z.object({ year: z.coerce.number().int().min(2000).max(2100), month: z.coerce.number().int().min(1).max(12) }),
   }),
@@ -388,6 +393,17 @@ export async function updateDealInline(
     await db.update(deal).set({ ...patch, updatedBy: user.id }).where(eq(deal.id, id))
     await recordDealChanges(id, existing, patch, user.id)
     await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} 결산연월일 ${formatSettlement(existing.settlementYear, existing.settlementMonth, existing.settlementDay)} → ${formatSettlement(value.year, value.month, day)}`, detail: diffFields(existing as Record<string, unknown>, patch) })
+    return { ok: true, row: await getInlineRow(id) }
+  }
+  if (field === 'salesMethodId') {
+    const ids = [existing.salesMethodId, value].filter((v): v is number => v != null)
+    const names = new Map((ids.length ? await db.select({ id: salesMethod.id, nameKo: salesMethod.nameKo }).from(salesMethod).where(inArray(salesMethod.id, ids)) : []).map((m) => [m.id, m.nameKo]))
+    if (value != null && !names.has(value)) return { error: '없는 매출수단입니다' }
+    const patch = { salesMethodId: value }
+    await db.update(deal).set({ ...patch, updatedBy: user.id }).where(eq(deal.id, id))
+    await recordDealChanges(id, existing, patch, user.id)
+    const name = (v: number | null) => (v == null ? '-' : (names.get(v) ?? String(v)))
+    await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} 매출수단 ${name(existing.salesMethodId)} → ${name(value)}`, detail: diffFields(existing as Record<string, unknown>, patch) })
     return { ok: true, row: await getInlineRow(id) }
   }
   if (field === 'accrual') {
