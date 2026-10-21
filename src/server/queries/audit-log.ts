@@ -1,3 +1,4 @@
+import { compactText, looseLike } from '@/server/text-search'
 import { and, desc, eq, gte, ilike, lt, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
 import { auditLog } from '@/lib/db/schema'
@@ -20,9 +21,9 @@ export async function listAuditLogs(f: AuditFilters) {
   if (f.to) conds.push(lt(auditLog.at, new Date(new Date(`${f.to}T00:00:00+09:00`).getTime() + 86_400_000)))
   if (f.userId) conds.push(eq(auditLog.userId, f.userId))
   if (f.action) conds.push(f.action.endsWith('.') ? ilike(auditLog.action, `${f.action}%`) : eq(auditLog.action, f.action))
-  if (f.q) {
-    const like = `%${f.q.trim()}%`
-    conds.push(or(ilike(auditLog.summary, like), ilike(auditLog.targetLabel, like), ilike(auditLog.targetId, like), ilike(auditLog.userName, like))!)
+  // 띄어쓰기 무시 검색 (2026-10-21)
+  if (f.q && compactText(f.q)) {
+    conds.push(or(looseLike(auditLog.summary, f.q), looseLike(auditLog.targetLabel, f.q), looseLike(auditLog.targetId, f.q), looseLike(auditLog.userName, f.q))!)
   }
   const where = conds.length ? and(...conds) : undefined
   const [rows, [{ total }]] = await Promise.all([

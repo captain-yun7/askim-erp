@@ -1,4 +1,5 @@
-import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm'
+import { compactText, looseLike } from '@/server/text-search'
+import { and, asc, desc, eq, inArray, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm'
 import { alias, type PgColumn } from 'drizzle-orm/pg-core'
 import { db } from '@/lib/db/client'
 import { getCurrentEntity } from '@/server/entity'
@@ -216,22 +217,21 @@ export async function listDeals(f: DealListFilters = {}) {
   if (f.paidStatus === 'unpaid') conds.push(eq(deal.salesPaidStatus, 'pending'), hasSales)
   if (f.paidStatus === 'unsettled') conds.push(eq(deal.purchasePaidStatus, 'pending'), hasPurchase)
 
-  if (f.fCode) conds.push(ilike(deal.dealCode, `%${f.fCode.trim()}%`))
-  if (f.fIssuer) {
-    const like = `%${f.fIssuer.trim()}%`
+  // 글자 검색은 띄어쓰기 무시 (2026-10-21 요청)
+  const cpName = sql.raw('c.name')
+  if (f.fCode && compactText(f.fCode)) conds.push(looseLike(deal.dealCode, f.fCode))
+  if (f.fIssuer && compactText(f.fIssuer)) {
     conds.push(
       or(
-        sql`exists (select 1 from counterparty c where c.id = ${deal.issuerCounterpartyId} and c.name ilike ${like})`,
-        ilike(deal.advertiserName, like),
-        sql`exists (select 1 from counterparty c where c.id = ${deal.advertiserCounterpartyId} and c.name ilike ${like})`,
+        sql`exists (select 1 from counterparty c where c.id = ${deal.issuerCounterpartyId} and ${looseLike(cpName, f.fIssuer)})`,
+        looseLike(deal.advertiserName, f.fIssuer),
+        sql`exists (select 1 from counterparty c where c.id = ${deal.advertiserCounterpartyId} and ${looseLike(cpName, f.fIssuer)})`,
       )!,
     )
   }
-  if (f.fItem) conds.push(ilike(deal.itemName, `%${f.fItem.trim()}%`))
-  if (f.fSupplier)
-    conds.push(
-      sql`exists (select 1 from counterparty c where c.id = ${deal.supplierCounterpartyId} and c.name ilike ${`%${f.fSupplier.trim()}%`})`,
-    )
+  if (f.fItem && compactText(f.fItem)) conds.push(looseLike(deal.itemName, f.fItem))
+  if (f.fSupplier && compactText(f.fSupplier))
+    conds.push(sql`exists (select 1 from counterparty c where c.id = ${deal.supplierCounterpartyId} and ${looseLike(cpName, f.fSupplier)})`)
 
   const columnConds = [
     numberCond(deal.salesAmountNet, f.fSales),
@@ -258,14 +258,13 @@ export async function listDeals(f: DealListFilters = {}) {
   if (f.fSalesMethod === '-') conds.push(isNull(deal.salesMethodId))
   else if (f.fSalesMethod && /^\d+$/.test(f.fSalesMethod)) conds.push(eq(deal.salesMethodId, Number(f.fSalesMethod)))
 
-  if (f.q) {
-    const like = `%${f.q}%`
+  if (f.q && compactText(f.q)) {
     conds.push(
       or(
-        ilike(deal.dealCode, like),
-        ilike(deal.itemName, like),
-        ilike(deal.advertiserName, like),
-        sql`exists (select 1 from counterparty c where c.id in (${deal.issuerCounterpartyId}, ${deal.advertiserCounterpartyId}, ${deal.supplierCounterpartyId}) and c.name ilike ${like})`,
+        looseLike(deal.dealCode, f.q),
+        looseLike(deal.itemName, f.q),
+        looseLike(deal.advertiserName, f.q),
+        sql`exists (select 1 from counterparty c where c.id in (${deal.issuerCounterpartyId}, ${deal.advertiserCounterpartyId}, ${deal.supplierCounterpartyId}) and ${looseLike(cpName, f.q)})`,
       )!,
     )
   }
