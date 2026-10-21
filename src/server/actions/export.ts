@@ -155,8 +155,9 @@ export async function exportExpensesXlsx(filters: ExpenseListFilters): Promise<X
       .from(expense)
       .leftJoin(expenseCategory, eq(expenseCategory.id, expense.expenseCategoryId))
       .where(await expenseListWhere(filters))
-      .orderBy(desc(expense.expenseDate), desc(expense.createdAt))
-      .limit(5000)
+      .orderBy(desc(expense.expenseDate), desc(expense.createdAt), desc(expense.id))
+      // 판관비는 4천여 건이라 5천 제한에 곧 닿는다 (2026-10-21) — 엑셀은 넉넉히
+      .limit(50000)
 
     const headers = ['지출일', '품목', '거래처', '항목', '수단', '금액']
     const body = rows.map((r): XlsxCell[] => [

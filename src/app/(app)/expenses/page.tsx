@@ -79,7 +79,7 @@ export default async function ExpensesPage({
       .from(expense)
       .leftJoin(expenseCategory, eq(expenseCategory.id, expense.expenseCategoryId))
       .where(where)
-      .orderBy(desc(expense.expenseDate), desc(expense.createdAt))
+      .orderBy(desc(expense.expenseDate), desc(expense.createdAt), desc(expense.id))
       .limit(limit),
     db.select({ total: sql<number>`count(*)::int` }).from(expense).where(where),
     db
