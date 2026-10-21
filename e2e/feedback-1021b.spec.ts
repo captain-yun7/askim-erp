@@ -109,3 +109,12 @@ test('판관비 업로드 양식 — 받아지고, 그대로 올리면 읽힌다
   await page.locator('#upload-file').setInputFiles({ name: dl.suggestedFilename(), mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: readFileSync(file) })
   await expect(page.getByTestId('upload-summary')).toContainText('읽은 행 2건')
 })
+
+test('판관비 — 좁히지 않아도 엑셀 앞부분이 화면 100건과 같은 순서', async ({ page }) => {
+  await login(page)
+  await page.goto('/expenses')
+  const screen = await page.locator('tbody tr').evaluateAll((trs) => trs.map((tr) => [...tr.querySelectorAll('td')].slice(1, 3).map((td) => (td as HTMLElement).innerText.trim()).join('|')))
+  test.skip(screen.length < 2, '판관비 데이터 없음')
+  const { rows } = await download(page, () => page.getByRole('button', { name: '엑셀 내보내기' }).click())
+  expect(rows.slice(1, screen.length + 1).map((r) => `${r[0]}|${r[1] || '-'}`)).toEqual(screen)
+})
