@@ -1,14 +1,14 @@
 import Link from 'next/link'
 import { RememberList } from '@/components/list-return'
-import { and, desc, eq, isNull, or, sql } from 'drizzle-orm'
+import { desc, eq, sql } from 'drizzle-orm'
 import { Plus, Receipt, Upload, Wallet } from 'lucide-react'
 import { db } from '@/lib/db/client'
-import { getCurrentEntity } from '@/server/entity'
 import { expense, expenseCategory } from '@/lib/db/schema'
 import { buttonVariants } from '@/components/ui/button'
 import { XlsxExportButton } from '@/components/xlsx-export-button'
 import { exportExpensesXlsx } from '@/server/actions/export'
 import { expenseListWhere } from '@/server/queries/expenses'
+import { compactText } from '@/lib/text-search'
 import {
   Table,
   TableBody,
@@ -58,7 +58,7 @@ export default async function ExpensesPage({
 
   const where = await expenseListWhere(filters)
   // 월·항목·검색으로 좁혔으면 전부 보여 준다 (100건에서 잘려 월초 내역이 안 보인다는 2026-09-28 문의)
-  const narrowed = Boolean(filters.month || filters.categoryId || filters.q)
+  const narrowed = Boolean(filters.month || filters.categoryId || (filters.q && compactText(filters.q)))
   const limit = narrowed ? 5000 : 100
 
   const [rows, [{ total }], [aggr], lookups] = await Promise.all([

@@ -14,9 +14,12 @@ import { canCreateCounterparty, canDeleteCounterparty, canViewBankInfo, getSessi
 export default async function CounterpartiesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; role?: string; noBiz?: string; ctype?: string }>
+  searchParams: Promise<{ [k: string]: string | string[] | undefined }>
 }) {
-  const { q, role, noBiz, ctype } = await searchParams
+  const sp = await searchParams
+  // 같은 이름이 두 번 오면(?q=a&q=b) 배열이 된다 — 글자 하나만 받는다
+  const str = (v: string | string[] | undefined) => (typeof v === 'string' ? v : undefined)
+  const [q, role, noBiz, ctype] = [str(sp.q), str(sp.role), str(sp.noBiz), str(sp.ctype)]
   const user = await getSessionUser()
   const showBank = user ? canViewBankInfo(user.role) : false
   const rows = await listCounterparties({ q, role, noBiz: Boolean(noBiz), ctype })
