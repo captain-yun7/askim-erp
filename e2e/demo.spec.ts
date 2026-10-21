@@ -1,6 +1,8 @@
 import { test, expect, type Page } from '@playwright/test'
 import { fillRequiredDeal } from './helpers/deal-form'
 import { execSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import * as XLSX from 'xlsx'
 
 const ADMIN = { email: 'admin@askim.local', password: 'askim2026!' }
 const SALES = { email: 'kim.hj@askim.local', password: 'askim2026!' }
@@ -62,20 +64,17 @@ test.describe.serial('관리자 핵심 쓰기 플로우', () => {
     await expect(page.getByText(EXP_ITEM)).toBeVisible()
   })
 
-  test('④ 거래 목록 CSV 다운로드 → BOM + 헤더 검증', async ({ page }) => {
+  test('④ 거래 목록 엑셀 다운로드 → 헤더 검증', async ({ page }) => {
     await login(page, ADMIN)
     await page.goto('/deals')
     const [download] = await Promise.all([
       page.waitForEvent('download'),
-      page.getByRole('button', { name: 'CSV 내보내기' }).click(),
+      page.getByRole('button', { name: '엑셀 내보내기' }).first().click(),
     ])
-    const stream = await download.createReadStream()
-    const chunks: Buffer[] = []
-    for await (const c of stream) chunks.push(c as Buffer)
-    const text = Buffer.concat(chunks).toString('utf-8')
-    expect(text.charCodeAt(0)).toBe(0xfeff) // UTF-8 BOM
-    expect(text).toContain('거래코드')
-    expect(download.suggestedFilename()).toMatch(/\.csv$/)
+    const wb = XLSX.read(readFileSync((await download.path())!))
+    const [head] = XLSX.utils.sheet_to_json<string[]>(wb.Sheets[wb.SheetNames[0]], { header: 1 })
+    expect(head[0]).toBe('거래코드')
+    expect(download.suggestedFilename()).toMatch(/\.xlsx$/)
   })
 
   test('⑤ Lookup 마스터 수정 → 저장 성공 (메모 변경 후 원복)', async ({ page }) => {
