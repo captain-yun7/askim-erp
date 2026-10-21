@@ -1,6 +1,6 @@
 'use server'
 
-import * as XLSX from 'xlsx'
+import { toXlsx, type XlsxCell } from '@/lib/xlsx'
 import { getSessionUser, canAccessBackoffice } from '@/server/auth/guards'
 import { buildLedgerLines, getSalesLedger } from '@/server/queries/reports-ledger'
 import { getReportCellDetail } from '@/server/actions/report-detail'
@@ -15,18 +15,7 @@ import { audit } from '@/server/audit'
 /** 리포트 엑셀(xlsx) 다운로드 (2026-09-09 피드백) — base64 로 전달, 클라이언트에서 저장 */
 export type XlsxResult = { ok: true; filename: string; base64: string } | { error: string }
 
-type Cell = string | number | null
-type Sheet = { name: string; rows: Cell[][]; widths?: number[] }
-
-function toXlsx(sheets: Sheet[]): string {
-  const wb = XLSX.utils.book_new()
-  for (const s of sheets) {
-    const ws = XLSX.utils.aoa_to_sheet(s.rows)
-    if (s.widths) ws['!cols'] = s.widths.map((wch) => ({ wch }))
-    XLSX.utils.book_append_sheet(wb, ws, s.name.slice(0, 31))
-  }
-  return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer).toString('base64')
-}
+type Cell = XlsxCell
 
 async function guard(): Promise<{ error: string } | null> {
   const user = await getSessionUser()

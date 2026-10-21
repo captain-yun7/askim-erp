@@ -73,6 +73,7 @@ type Row = {
   recentChanges?: RecentChanges
   attachmentCount?: number
   categoryName: string | null
+  salesMethodId?: number | null
   salesMethodName?: string | null
   reviewStatus?: 'requested' | 'done' | null
   supplierBankName?: string | null
@@ -98,6 +99,7 @@ type InlineField =
   | 'commissionPct'
   | 'settlement'
   | 'reviewStatus'
+  | 'salesMethodId'
 
 /** 인라인 수정 결과를 그 행에만 반영 — 목록 전체를 다시 불러오지 않는다 (성능, 2026-10-09) */
 const PatchCtx = createContext<(id: string, patch: Partial<Row>) => void>(() => {})
@@ -305,6 +307,46 @@ function InlineDate({
       onClick={() => setEditing(true)}
     >
       {label}
+    </button>
+  )
+}
+
+type SalesMethodOption = { id: number; nameKo: string }
+
+/** 매출수단 — 클릭하면 목록에서 고른다 (2026-10-21 요청). 행마다 셀렉트를 미리 그리지 않고 누를 때만 연다 (성능) */
+function InlineSalesMethod({ dealId, value, name, options, enabled }: { dealId: string; value: number | null; name: string | null; options: SalesMethodOption[]; enabled: boolean }) {
+  const { pending, save } = useInlineSave(dealId)
+  const [editing, setEditing] = useState(false)
+  if (!enabled) return <span>{name ?? '-'}</span>
+  if (editing) {
+    return (
+      <select
+        autoFocus
+        aria-label="매출수단 선택"
+        defaultValue={value ?? ''}
+        className="h-6 rounded border border-primary bg-background px-0.5 text-[12px] outline-none"
+        onChange={(e) => {
+          setEditing(false)
+          const next = e.target.value ? Number(e.target.value) : null
+          if (next !== value) save('salesMethodId', next)
+        }}
+        onBlur={() => setEditing(false)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') setEditing(false)
+        }}
+      >
+        <option value="">-</option>
+        {options.map((m) => (
+          <option key={m.id} value={m.id}>
+            {m.nameKo}
+          </option>
+        ))}
+      </select>
+    )
+  }
+  return (
+    <button type="button" title="클릭해서 매출수단 선택" className={cn('rounded px-0.5 hover:bg-accent/60', pending && 'opacity-70')} onClick={() => setEditing(true)}>
+      {name ?? '-'}
     </button>
   )
 }
@@ -629,6 +671,7 @@ export type ColumnFilters = {
   fSalesPaid?: string
   fPurchaseDue?: string
   fPurchasePaid?: string
+  fSalesMethod?: string
 }
 
 /** 처음에 그리는 행 수 · 스크롤마다 더 그리는 행 수 */
@@ -698,12 +741,14 @@ function ColumnFilterSelect({
   title,
   options,
   ariaLabel,
+  className,
 }: {
   param: string
   value?: string
   title: string
   options: { value: string; label: string }[]
   ariaLabel?: string
+  className?: string
 }) {
   const router = useRouter()
 
@@ -713,7 +758,7 @@ function ColumnFilterSelect({
       aria-label={ariaLabel ?? `${param} 검색`}
       title={title}
       value={value ?? ''}
-      className={cn(filterInputClass, 'w-16 min-w-0 px-0.5', !value && 'text-muted-foreground/70')}
+      className={cn(filterInputClass, 'w-16 min-w-0 px-0.5', className, !value && 'text-muted-foreground/70')}
       onChange={(e) => applyColumnFilter(router, param, e.target.value)}
     >
       {options.map((o) => (
@@ -725,7 +770,7 @@ function ColumnFilterSelect({
   )
 }
 
-function FilterHeaderRow({ filters, foreign }: { filters: ColumnFilters; foreign: boolean }) {
+function FilterHeaderRow({ filters, foreign, salesMethods }: { filters: ColumnFilters; foreign: boolean; salesMethods: SalesMethodOption[] }) {
   // 금액도 "공백 / 입력됨"으로 거를 수 있게 (2026-10-08 요청) — 셀렉트가 검색식 '-' / '+' 를 대신 넣는다
   const amount = (param: keyof ColumnFilters) => {
     const v = filters[param]
@@ -825,7 +870,17 @@ function FilterHeaderRow({ filters, foreign }: { filters: ColumnFilters; foreign
           />
         </div>
       </TableHead>
-      <TableHead />
+      <TableHead className="py-1">
+        {/* 매출수단으로 거르기 (2026-10-21 요청) */}
+        <ColumnFilterSelect
+          param="fSalesMethod"
+          value={filters.fSalesMethod}
+          title="매출수단"
+          ariaLabel="매출수단 검색"
+          className="w-24"
+          options={[{ value: '', label: '전체' }, ...salesMethods.map((m) => ({ value: String(m.id), label: m.nameKo })), { value: '-', label: '공백' }]}
+        />
+      </TableHead>
       {!foreign && date('fSalesInvoice')}
       {!foreign && date('fPurchaseInvoice')}
       {/* 헤더가 두 줄(예정일/실제일)인 컬럼은 필터도 두 칸 (2026-09-16 피드백) */}
@@ -1061,7 +1116,7 @@ function BulkBar({ container, showAll, foreign }: { container: React.RefObject<H
 /**
  * foreign: 미국·중국법인 (2026-10-12 요청) — 부가세·계산서 발행일 칸을 빼고, 손익 옆에 손익(KRW)을 넣는다. 성과급 = 손익(KRW) × 인센티브
  */
-export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = false, foreign = false, shareUsers = [] }: { rows: Row[]; columnFilters?: ColumnFilters; canCopy?: boolean; foreign?: boolean; shareUsers?: ShareUser[] }) {
+export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = false, foreign = false, shareUsers = [], salesMethods = [] }: { rows: Row[]; columnFilters?: ColumnFilters; canCopy?: boolean; foreign?: boolean; shareUsers?: ShareUser[]; salesMethods?: SalesMethodOption[] }) {
   const colCount = foreign ? 20 : 23
   // 인라인 수정 결과는 서버가 돌려준 그 행 값으로 덮어쓴다. 서버 목록이 새로 오면 비운다
   const [patches, setPatches] = useState<Record<string, Partial<Row>>>({})
@@ -1159,7 +1214,7 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
             <TableHead className="text-right" title="기본 5% · 거래마다 따로 정할 수 있습니다">인센티브<br />(%)</TableHead>
             <TableHead className="text-right" title={foreign ? '인센티브(%) × 손익(KRW)' : '인센티브(%) × 손익'}>성과급</TableHead>
           </TableRow>
-          <FilterHeaderRow filters={columnFilters} foreign={foreign} />
+          <FilterHeaderRow filters={columnFilters} foreign={foreign} salesMethods={salesMethods} />
         </TableHeader>
         <TableBody>
           {rows.length === 0 && (
@@ -1324,7 +1379,9 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
                     )}
                   </div>
                 </TableCell>
-                <TableCell className="whitespace-nowrap text-[12px] text-muted-foreground" data-col="salesMethod">{r.salesMethodName ?? '-'}</TableCell>
+                <TableCell {...cell('salesMethod', 'whitespace-nowrap text-[12px] text-muted-foreground')} data-col="salesMethod">
+                  <InlineSalesMethod dealId={r.id} value={r.salesMethodId ?? null} name={r.salesMethodName ?? null} options={salesMethods} enabled={r.canTogglePaid} />
+                </TableCell>
                 {!foreign && (
                   <TableCell {...cell('salesInvoice', 'text-[12px] tabular-nums')}>
                     <InlineDate dealId={r.id} field="salesInvoiceDate" value={r.salesInvoiceDate} enabled={r.canTogglePaid} muted />

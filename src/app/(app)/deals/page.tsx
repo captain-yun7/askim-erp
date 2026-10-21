@@ -11,8 +11,8 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
-import { CsvExportButton } from '@/components/csv-export-button'
-import { exportDealsCsv } from '@/server/actions/export'
+import { XlsxExportButton } from '@/components/xlsx-export-button'
+import { exportDealsXlsx } from '@/server/actions/export'
 import { DealsTable } from '@/components/deals/deals-table'
 import { DealsFilters } from '@/components/deals/deals-filters'
 import { DealQuickAdd } from '@/components/deals/deal-quick-add'
@@ -47,10 +47,12 @@ function pickColumnFilters(sp: SP) {
   const out: Partial<Record<(typeof TEXT_COLUMN_FILTERS)[number], string>> & {
     fPaid?: 'paid' | 'unpaid'
     fSettled?: 'settled' | 'unsettled'
+    fSalesMethod?: string
   } = {}
   for (const k of TEXT_COLUMN_FILTERS) if (typeof sp[k] === 'string' && sp[k]) out[k] = sp[k]
   if (sp.fPaid === 'paid' || sp.fPaid === 'unpaid') out.fPaid = sp.fPaid
   if (sp.fSettled === 'settled' || sp.fSettled === 'unsettled') out.fSettled = sp.fSettled
+  if (typeof sp.fSalesMethod === 'string' && /^(\d+|-)$/.test(sp.fSalesMethod)) out.fSalesMethod = sp.fSalesMethod
   return out
 }
 
@@ -132,7 +134,7 @@ export default async function DealsPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <CsvExportButton action={exportDealsCsv} filters={filters} />
+          <XlsxExportButton action={exportDealsXlsx} filters={filters} label="엑셀 내보내기" />
           {me && canCreateDeal(me.role) && (
             <Link href="/deals/new" className={cn(buttonVariants(), 'gap-1.5')}>
               <Plus className="size-4" />새 거래
@@ -233,6 +235,7 @@ export default async function DealsPage({
               sort: filters.sort,
               dir: filters.dir,
             }}
+            exportButton={<XlsxExportButton action={exportDealsXlsx} filters={filters} label="엑셀 내보내기" iconOnly />}
           />
         </div>
 
@@ -254,6 +257,8 @@ export default async function DealsPage({
         <DealsTable
           canCopy={me != null && canCreateDeal(me.role)}
           foreign={foreign}
+          // 미국·중국법인은 세금계산서·현금영수증 없음 (거래 화면과 같은 목록)
+          salesMethods={foreign ? lookups.salesMethods.filter((m) => m.nameKo !== '세금계산서' && m.nameKo !== '현금영수증') : lookups.salesMethods}
           shareUsers={lookups.users.filter((u) => u.role !== 'viewer').map((u) => ({ id: u.id, name: u.name }))}
           columnFilters={{
             fCode: filters.fCode,

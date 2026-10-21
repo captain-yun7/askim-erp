@@ -1,5 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { execSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import * as XLSX from 'xlsx'
 import path from 'node:path'
 
 /** 2026-10-08 요청사항 10건 중 화면 기능 9건 (법인 선택 제외) */
@@ -56,8 +58,9 @@ test('② 매체사 옆 계좌정보 아이콘 · 내보내기에 계좌정보 �
   await expect(page.locator('[data-slot=bank-info]')).toContainText('E2E은행')
   await expect(page.locator('[data-slot=bank-info]')).toContainText('123-456-789')
   await expect(page.locator('[data-slot=bank-info]')).toContainText('E2E예금주')
-  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /CSV 내보내기/ }).click()])
-  const text = (await (await download.createReadStream()).toArray()).join('')
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: '엑셀 내보내기' }).first().click()])
+  const wb = XLSX.read(readFileSync((await download.path())!))
+  const text = XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]])
   expect(text).toContain('매체사 계좌번호')
   expect(text).toContain('123-456-789')
 })
