@@ -1,24 +1,20 @@
 'use server'
 
-import { and, asc, desc, eq, ilike, isNull, or, sql } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
 import { getCurrentEntity } from '@/server/entity'
-import {
-  counterparty,
-  expense,
-  expenseCategory,
-} from '@/lib/db/schema'
+import { expense, expenseCategory } from '@/lib/db/schema'
 import { listDeals, type DealListFilters } from '@/server/queries/deals'
-import { canViewBankInfo, canViewCommission, getSessionUser } from '@/server/auth/guards'
+import { listCounterparties, type CounterpartyListFilters } from '@/server/queries/counterparties'
+import { expenseListWhere, type ExpenseListFilters } from '@/server/queries/expenses'
+import { clientTypeLabel } from '@/lib/client-type'
+import { canAccessBackoffice, canViewBankInfo, canViewCommission, getSessionUser } from '@/server/auth/guards'
 import { entityInfo } from '@/lib/entity'
 import { formatSettlement } from '@/lib/settlement'
 import { incentivePercentText, incentiveRate, incentiveTotal, profitKrw } from '@/lib/incentive'
 import { toXlsx, type XlsxCell } from '@/lib/xlsx'
 import type { XlsxResult } from '@/server/actions/report-export'
-import { toCsv } from '@/lib/csv'
 import { audit } from '@/server/audit'
-
-type ExportResult = { ok: true; filename: string; csv: string } | { error: string }
 
 const ROLE_LABEL: Record<string, string> = {
   media: '매체사',
@@ -31,12 +27,7 @@ const PAYMENT_LABEL: Record<string, string> = {
   corporate_card: '법인카드',
   personal_card: '개인카드',
   cash: '현금',
-}
-
-function numStr(v: string | number | null): string {
-  if (v === null || v === undefined || v === '') return ''
-  const n = typeof v === 'string' ? parseFloat(v) : v
-  return isNaN(n) ? '' : String(n)
+  bank_transfer: '이체',
 }
 
 /** 거래 목록 엑셀 (2026-10-21 요청: 화면 내용 그대로) — 화면과 같은 필터·정렬·컬럼 순서. 성과급은 볼 수 있는 거래만 */
@@ -114,116 +105,42 @@ export async function exportDealsXlsx(filters: DealListFilters): Promise<XlsxRes
   }
 }
 
-export type CounterpartyExportFilters = {
-  q?: string
-  role?: string
-  noBiz?: boolean
-}
-
-export async function exportCounterpartiesCsv(
-  filters: CounterpartyExportFilters,
-): Promise<ExportResult> {
+/** 거래처 목록 엑셀 (2026-10-21 요청: CSV 대신 엑셀) — 화면과 같은 조건·순서·컬럼 */
+export async function exportCounterpartiesXlsx(filters: CounterpartyListFilters): Promise<XlsxResult> {
   const user = await getSessionUser()
   if (!user) return { error: '로그인 필요' }
 
   try {
-    const conds = [
-      eq(counterparty.entity, await getCurrentEntity()),
-      isNull(counterparty.deletedAt),
-      eq(counterparty.isActive, true),
-    ]
-    if (filters.q)
-      conds.push(
-        or(
-          ilike(counterparty.name, `%${filters.q}%`),
-          ilike(counterparty.businessNo, `%${filters.q}%`),
-        )!,
-      )
-    if (filters.role)
-      conds.push(sql`${counterparty.roleTags} @> ARRAY[${filters.role}]::text[]`)
-    if (filters.noBiz)
-      conds.push(
-        or(
-          isNull(counterparty.businessNo),
-          eq(counterparty.businessNo, ''),
-        )!,
-      )
-
-    const rows = await db
-      .select({
-        name: counterparty.name,
-        businessNo: counterparty.businessNo,
-        roleTags: counterparty.roleTags,
-        paymentTerm: counterparty.paymentTerm,
-        officialFeeRate: counterparty.officialFeeRate,
-        bankName: counterparty.bankName,
-        accountHolder: counterparty.accountHolder,
-        accountNo: counterparty.accountNo,
-        memo: counterparty.memo,
-      })
-      .from(counterparty)
-      .where(and(...conds))
-      .orderBy(asc(counterparty.name))
-      .limit(5000)
-
+    const rows = await listCounterparties(filters)
     const showBank = canViewBankInfo(user.role)
-    const headers = [
-      '상호명',
-      '사업자번호',
-      '역할',
-      ...(showBank ? ['거래은행', '예금주', '계좌번호'] : []),
-      '결제일',
-      '수수료',
-      '비고',
-    ]
-
-    const csvRows = rows.map((r): (string | number | null)[] => [
+    const headers = ['상호명', '사업자번호', '역할', '구분', ...(showBank ? ['거래은행', '예금주', '계좌번호'] : []), '수수료', '결제일', '비고']
+    const body = rows.map((r): XlsxCell[] => [
       r.name,
       r.businessNo ?? '',
       r.roleTags.map((t) => ROLE_LABEL[t] ?? t).join(', '),
+      clientTypeLabel(r.clientType),
       ...(showBank ? [r.bankName ?? '', r.accountHolder ?? '', r.accountNo ?? ''] : []),
-      r.paymentTerm ?? '',
       r.officialFeeRate ?? '',
+      r.paymentTerm ?? '',
       r.memo ?? '',
     ])
-
-    await audit({ action: 'export.csv', targetType: 'export', targetLabel: 'counterparties.csv', summary: `CSV 내보내기 counterparties.csv (${csvRows.length}건)`, detail: filters })
-    return { ok: true, filename: 'counterparties.csv', csv: toCsv(headers, csvRows) }
+    const filename = '거래처.xlsx'
+    await audit({ action: 'export.xlsx', targetType: 'export', targetLabel: filename, summary: `엑셀 다운로드 ${filename} (${rows.length}건)`, detail: filters })
+    const widths = headers.map((h) => (h === '상호명' || h === '비고' ? 30 : 14))
+    return { ok: true, filename, base64: toXlsx([{ name: '거래처', rows: [headers, ...body], widths }]) }
   } catch (e) {
-    return { error: e instanceof Error ? e.message : '내보내기 실패' }
+    console.error('exportCounterpartiesXlsx', e)
+    return { error: '내보내기 실패' }
   }
 }
 
-export type ExpenseExportFilters = {
-  q?: string
-  year?: number
-  month?: number
-  categoryId?: number
-  method?: string
-}
-
-export async function exportExpensesCsv(
-  filters: ExpenseExportFilters,
-): Promise<ExportResult> {
+/** 판관비 목록 엑셀 (2026-10-21 요청: CSV 대신 엑셀) — 화면과 같은 조건·순서. 판관비 화면을 볼 수 있는 사람만 */
+export async function exportExpensesXlsx(filters: ExpenseListFilters): Promise<XlsxResult> {
   const user = await getSessionUser()
   if (!user) return { error: '로그인 필요' }
+  if (!canAccessBackoffice(user.role)) return { error: '권한이 없습니다' }
 
   try {
-    const conds = [eq(expense.entity, await getCurrentEntity()), isNull(expense.deletedAt)]
-    if (filters.year) conds.push(eq(expense.year, filters.year))
-    if (filters.month) conds.push(eq(expense.month, filters.month))
-    if (filters.categoryId)
-      conds.push(eq(expense.expenseCategoryId, filters.categoryId))
-    if (filters.method)
-      conds.push(eq(expense.paymentMethod, filters.method as 'corporate_card'))
-    if (filters.q) {
-      const like = `%${filters.q}%`
-      conds.push(
-        or(ilike(expense.itemName, like), ilike(expense.counterpartyText, like))!,
-      )
-    }
-    const where = and(...conds)
-
     const rows = await db
       .select({
         date: expense.expenseDate,
@@ -235,25 +152,24 @@ export async function exportExpensesCsv(
       })
       .from(expense)
       .leftJoin(expenseCategory, eq(expenseCategory.id, expense.expenseCategoryId))
-      .where(where)
+      .where(await expenseListWhere(filters))
       .orderBy(desc(expense.expenseDate), desc(expense.createdAt))
       .limit(5000)
 
     const headers = ['지출일', '품목', '거래처', '항목', '수단', '금액']
-
-    const csvRows = rows.map((r): (string | number | null)[] => [
+    const body = rows.map((r): XlsxCell[] => [
       r.date,
       r.itemName ?? '',
       r.counterpartyText ?? '',
       r.category ?? '',
       PAYMENT_LABEL[r.paymentMethod] ?? r.paymentMethod,
-      numStr(r.amount),
+      r.amount == null ? null : Math.trunc(parseFloat(r.amount)),
     ])
-
-    const filename = filters.year ? `expenses_${filters.year}.csv` : 'expenses.csv'
-    await audit({ action: 'export.csv', targetType: 'export', targetLabel: filename, summary: `CSV 내보내기 ${filename} (${csvRows.length}건)`, detail: filters })
-    return { ok: true, filename, csv: toCsv(headers, csvRows) }
+    const filename = `판관비_${filters.year ?? '전체'}${filters.month ? `-${String(filters.month).padStart(2, '0')}` : ''}.xlsx`
+    await audit({ action: 'export.xlsx', targetType: 'export', targetLabel: filename, summary: `엑셀 다운로드 ${filename} (${rows.length}건)`, detail: filters })
+    return { ok: true, filename, base64: toXlsx([{ name: '판관비', rows: [headers, ...body], widths: [12, 36, 24, 14, 10, 14] }]) }
   } catch (e) {
-    return { error: e instanceof Error ? e.message : '내보내기 실패' }
+    console.error('exportExpensesXlsx', e)
+    return { error: '내보내기 실패' }
   }
 }

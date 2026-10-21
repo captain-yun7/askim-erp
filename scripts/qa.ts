@@ -16,7 +16,9 @@ import {
   canManageUsers,
   canCreateExpense,
 } from '@/server/auth/guards'
-import { toCsv } from '@/lib/csv'
+import * as XLSX from 'xlsx'
+import { toXlsx } from '@/lib/xlsx'
+import { compactPattern, looseIncludes } from '@/lib/text-search'
 import { parseDateFilter, parseNumberFilter } from '@/lib/column-filter'
 
 let pass = 0
@@ -158,9 +160,9 @@ async function main() {
   check('or 가 든 raw sql 조건은 괄호로 묶임', bare.length === 0, bare.slice(0, 3).join(' / '))
 
   console.log('\n[5] 거래처 목록 — 역할 필터')
-  const cpMedia = await listCounterparties({ role: 'media', limit: 100 })
+  const cpMedia = await listCounterparties({ role: 'media' })
   check('매체사 필터 결과', cpMedia.length >= 0, `매체사 ${cpMedia.length}건`)
-  const cpAll = await listCounterparties({ limit: 5 })
+  const cpAll = await listCounterparties({})
   check('전체 거래처 조회', cpAll.length > 0, `샘플 ${cpAll.length}건`)
 
   console.log('\n[6] 대시보드')
@@ -186,12 +188,13 @@ async function main() {
   check('admin: 사용자 관리 가능', canManageUsers('admin') === true)
   check('viewer: 판관비 등록 불가', canCreateExpense('viewer') === false)
 
-  console.log('\n[8] CSV 유틸 (BOM / 이스케이프 / 인젝션 방지)')
-  const csv = toCsv(['상호명', '금액', '메모'], [['㈜가, 나', 1000, '=cmd()'], ['따옴"표', 2000, '정상']])
-  check('UTF-8 BOM 선두', csv.charCodeAt(0) === 0xfeff)
-  check('쉼표 셀 따옴표 감쌈', csv.includes('"㈜가, 나"'))
-  check('인젝션(=) prefix 방지', /'?=cmd\(\)|"'=cmd\(\)/.test(csv) || csv.includes("'=cmd()") || csv.includes('"\'=cmd()"'), 'snippet=' + JSON.stringify(csv.split('\r\n')[1]))
-  check('내부 따옴표 이스케이프', csv.includes('"따옴""표"'))
+  console.log('\n[8] 엑셀 내보내기 유틸 (수식 실행 방지 / 띄어쓰기 무시 검색)')
+  const wb = XLSX.read(Buffer.from(toXlsx([{ name: 't', rows: [['상호명', '금액', '메모'], ['㈜가, 나', 1000, '=cmd()']] }]), 'base64'))
+  const cell = wb.Sheets.t['C2']
+  check('=로 시작하는 글자는 수식이 아닌 글자', cell?.t === 's' && !cell.f, JSON.stringify(cell))
+  check('숫자는 숫자 칸', wb.Sheets.t['B2']?.t === 'n')
+  check('띄어쓰기 무시 판정', looseIncludes('에이 커뮤니케이션즈', '에이커뮤 니케이션') && !looseIncludes('에이 커뮤니케이션즈', '에이씨'))
+  check('like 특수문자는 글자 그대로', compactPattern('10% _a') === '%10\\%\\_a%', compactPattern('10% _a'))
 
   console.log('\n[9] 쓰기 경로 — 거래 INSERT + 생성컬럼(profit) + 목록 반영 → 정리')
   const [u] = await db.select({ id: users.id }).from(users).where(eq(users.role, 'sales')).limit(1)
