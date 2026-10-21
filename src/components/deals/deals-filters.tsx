@@ -3,7 +3,7 @@
 import { currentFilterParams, pushFilterParams } from '@/lib/filter-nav'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
-import { ArrowDownWideNarrow, ArrowUpNarrowWide, Check, ChevronDown, Download, Search } from 'lucide-react'
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, Check, ChevronDown, Search } from 'lucide-react'
 import { DEAL_SORT_LABEL, type DealSort } from '@/lib/deal-sort'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -31,6 +31,7 @@ export function DealsFilters({
   yearOptions,
   allYears = false,
   initial,
+  exportButton,
 }: {
   categories: Cat[]
   users: User[]
@@ -50,6 +51,7 @@ export function DealsFilters({
     sort?: DealSort
     dir?: 'asc' | 'desc'
   }
+  exportButton?: React.ReactNode
 }) {
   const router = useRouter()
 
@@ -183,13 +185,8 @@ export function DealsFilters({
         {initial.dir === 'asc' ? <ArrowUpNarrowWide className="size-4" /> : <ArrowDownWideNarrow className="size-4" />}
       </button>
 
-      <button
-        type="button"
-        title="내보내기"
-        className="ml-auto grid size-9 shrink-0 place-items-center rounded-full border bg-background text-muted-foreground transition-colors hover:bg-muted"
-      >
-        <Download className="size-4" />
-      </button>
+      {/* 화면 내용 그대로 엑셀 (2026-10-21: 이 버튼이 아무 동작도 안 하던 문제) */}
+      {exportButton && <div className="ml-auto">{exportButton}</div>}
     </div>
   )
 }

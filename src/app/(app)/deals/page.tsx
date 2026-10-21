@@ -11,8 +11,8 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
-import { CsvExportButton } from '@/components/csv-export-button'
-import { exportDealsCsv } from '@/server/actions/export'
+import { XlsxExportButton } from '@/components/xlsx-export-button'
+import { exportDealsXlsx } from '@/server/actions/export'
 import { DealsTable } from '@/components/deals/deals-table'
 import { DealsFilters } from '@/components/deals/deals-filters'
 import { DealQuickAdd } from '@/components/deals/deal-quick-add'
@@ -134,7 +134,7 @@ export default async function DealsPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <CsvExportButton action={exportDealsCsv} filters={filters} />
+          <XlsxExportButton action={exportDealsXlsx} filters={filters} label="엑셀 내보내기" />
           {me && canCreateDeal(me.role) && (
             <Link href="/deals/new" className={cn(buttonVariants(), 'gap-1.5')}>
               <Plus className="size-4" />새 거래
@@ -235,6 +235,7 @@ export default async function DealsPage({
               sort: filters.sort,
               dir: filters.dir,
             }}
+            exportButton={<XlsxExportButton action={exportDealsXlsx} filters={filters} label="엑셀 내보내기" iconOnly />}
           />
         </div>
 
