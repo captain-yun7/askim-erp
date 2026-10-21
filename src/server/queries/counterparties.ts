@@ -1,8 +1,9 @@
-import { and, asc, eq, ilike, isNull, or, sql } from 'drizzle-orm'
+import { and, asc, eq, isNull, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
 import { getCurrentEntity } from '@/server/entity'
 import { counterparty } from '@/lib/db/schema'
 import { compactText, looseLike } from '@/server/text-search'
+import { compactPattern } from '@/lib/text-search'
 import { isClientType } from '@/lib/client-type'
 
 export type CounterpartyListFilters = { q?: string; role?: string; noBiz?: boolean; ctype?: string }
@@ -58,11 +59,11 @@ export async function searchCounterparties(q: string, limit = 20) {
   const term = normalizeName(q)
   const conds = [eq(counterparty.entity, await getCurrentEntity()), isNull(counterparty.deletedAt), eq(counterparty.isActive, true)]
   if (term) {
-    const like = `%${term}%`
+    // % _ 는 글자 그대로, 줄바꿈 없는 공백·전각 공백도 무시 (2026-10-21)
     conds.push(
       or(
-        sql`regexp_replace(lower(${counterparty.name}), '\\(주\\)|（주）|주식회사|[[:space:]()（）㈜]', '', 'g') like ${like}`,
-        ilike(counterparty.businessNo, `%${q.trim()}%`),
+        sql`regexp_replace(lower(${counterparty.name}), ${'\\(주\\)|（주）|주식회사|[[:space:]()（）㈜\u00a0\u3000\ufeff]'}, '', 'g') like ${compactPattern(term)}`,
+        looseLike(counterparty.businessNo, q),
       )!,
     )
   }
