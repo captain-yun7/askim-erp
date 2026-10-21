@@ -84,3 +84,15 @@ test('성과급 보정(2026-10-14) — 성과금만 있던 행이 빈 거래로 
   const codes = await page.locator('[data-slot=deals-scroll] tbody tr td:first-child a').allInnerTexts()
   expect(codes).toEqual(['AZ260318'])
 })
+
+test('판관비 업로드 양식(2026-10-21) — 배포에 포함돼 받아진다', async ({ page }) => {
+  // 파일만 받아 본다 (화면 이동·저장 없음). .vercelignore 가 xlsx 를 빼서 404 였던 사고 재발 방지
+  const res = await page.request.get('/templates/expense-upload-template.xlsx', { maxRedirects: 0 })
+  expect(res.status()).toBe(200)
+  expect((await res.body()).subarray(0, 2).toString()).toBe('PK')
+})
+
+test('띄어쓰기 무시 검색(2026-10-21) — 붙여 쓴 검색어로 띄어 쓴 거래처를 찾는다', async ({ page }) => {
+  await page.goto(`/counterparties?q=${encodeURIComponent('매출처없음')}`)
+  await expect(page.locator('tbody tr', { hasText: '(매출처 없음)' })).toHaveCount(1)
+})
