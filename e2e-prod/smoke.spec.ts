@@ -106,6 +106,15 @@ test('보증금 한 표(2026-10-23) — 탭 없이 한 표, 처음엔 반환완�
   await expect(page.getByRole('button', { name: '상태 골라 보기' })).toBeVisible()
   // 2026-10-27: 전속계약도 상태가 보인다 (0026 적용 확인)
   await expect(page.locator('tbody tr[data-kind=exclusive] td[data-col=status]').first()).toHaveText(/계약중|계약종료/)
+  // 구분 제목으로 전속계약만 골라 보면 상태 메뉴엔 계약 상태만 (화면 안에서만 거름, 저장 없음)
+  await page.getByRole('button', { name: '구분 골라 보기' }).click()
+  const kindMenu = page.locator('[data-slot=deposit-kind-filter]')
+  await kindMenu.getByRole('menuitemcheckbox', { name: /^보증금/ }).click()
+  await kindMenu.getByRole('menuitemcheckbox', { name: /^보유자산/ }).click()
+  await page.keyboard.press('Escape')
+  for (const k of await page.locator('tbody tr[data-kind]').evaluateAll((trs) => trs.map((tr) => tr.getAttribute('data-kind')))) expect(k).toBe('exclusive')
+  await page.getByRole('button', { name: '상태 골라 보기' }).click()
+  await expect(page.locator('[data-slot=deposit-status-filter]').getByRole('menuitemcheckbox')).toHaveCount(2)
 })
 
 test('거래 금액 칸 합계(2026-10-23) — Ctrl+클릭한 두 칸의 합계가 보인다 (읽기만)', async ({ page }) => {

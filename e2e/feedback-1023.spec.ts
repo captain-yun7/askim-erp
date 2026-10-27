@@ -126,6 +126,47 @@ test('전속계약도 상태가 있다 — 계약종료로 저장하면 보이�
   await expect(row).toHaveCount(0)
 })
 
+test('구분 제목을 눌러 골라 보고, 상태 메뉴엔 그 구분의 상태만 나온다', async ({ page }) => {
+  // 2026-10-27 요청: 상태 메뉴가 복잡하다, 구분으로도 나눠 보기
+  await login(page)
+  await page.goto('/deposits')
+  const rows = page.locator('tbody tr[data-kind]')
+  const kindMenu = page.locator('[data-slot=deposit-kind-filter]')
+  const statusMenu = page.locator('[data-slot=deposit-status-filter]')
+  const options = async () => {
+    await page.getByRole('button', { name: '상태 골라 보기' }).click()
+    await expect(statusMenu).toBeVisible()
+    const names = (await statusMenu.getByRole('menuitemcheckbox').allInnerTexts()).map((t) => t.replace(/\d+/g, '').trim())
+    await page.keyboard.press('Escape')
+    await expect(statusMenu).toBeHidden()
+    return names
+  }
+  expect(await options()).toEqual(['미반환', '보유', '상계예정', '계약중', '반환완료', '계약종료', '처분'])
+
+  // 전속계약만
+  await page.getByRole('button', { name: '구분 골라 보기' }).click()
+  const exclusiveCount = Number((await kindMenu.getByRole('menuitemcheckbox', { name: /^전속계약/ }).innerText()).replace(/\D/g, ''))
+  await kindMenu.getByRole('menuitemcheckbox', { name: /^보증금/ }).click()
+  await kindMenu.getByRole('menuitemcheckbox', { name: /^보유자산/ }).click()
+  await page.keyboard.press('Escape')
+  await expect(rows).toHaveCount(exclusiveCount)
+  expect(new Set(await rows.evaluateAll((trs) => trs.map((tr) => tr.getAttribute('data-kind'))))).toEqual(new Set(['exclusive']))
+  expect(await options()).toEqual(['계약중', '계약종료'])
+  await expect(page.locator('[data-slot=deposit-filter-note]')).toContainText('전속계약')
+
+  // 보증금만 → 보증금 상태 넷
+  await page.getByRole('button', { name: '구분 골라 보기' }).click()
+  await kindMenu.getByRole('menuitemcheckbox', { name: /^보증금/ }).click()
+  await kindMenu.getByRole('menuitemcheckbox', { name: /^전속계약/ }).click()
+  await page.keyboard.press('Escape')
+  expect(await options()).toEqual(['미반환', '보유', '상계예정', '반환완료'])
+  for (const k of await rows.evaluateAll((trs) => trs.map((tr) => tr.getAttribute('data-kind')))) expect(k).toBe('deposit')
+
+  await page.getByRole('button', { name: '구분 골라 보기' }).click()
+  await kindMenu.getByRole('menuitem', { name: '전체 보기' }).click()
+  expect(await page.locator('tbody tr[data-kind=exclusive]').count()).toBeGreaterThan(0)
+})
+
 test('자산 추가 창 상태는 보유/처분', async ({ page }) => {
   await login(page)
   await page.goto('/deposits')

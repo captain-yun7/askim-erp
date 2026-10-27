@@ -89,6 +89,15 @@ const DEFAULT_FILTER: StatusFilter[] = ['unreturned', 'held', 'offset', 'active'
 const filterOf = (kind: ContractKind, status: ExclusiveContract['status']): StatusFilter =>
   kind === 'asset' ? (status === 'active' ? 'held' : 'disposed') : status
 
+/** 구분 칸 필터 (2026-10-27 요청) — 고른 구분에 해당하는 상태만 상태 메뉴에 보인다 */
+const KINDS = ['deposit', 'exclusive', 'asset'] as const
+type Kind = (typeof KINDS)[number]
+const STATUSES_OF: Record<Kind, StatusFilter[]> = {
+  deposit: ['unreturned', 'held', 'offset', 'returned'],
+  exclusive: ['active', 'ended'],
+  asset: ['held', 'disposed'],
+}
+
 type Item =
   | { kind: 'deposit'; status: StatusFilter; row: Deposit }
   | { kind: ContractKind; status: StatusFilter; row: ExclusiveContract }
@@ -110,6 +119,7 @@ export function DepositBoard({
   const [depositEditing, setDepositEditing] = useState<DepositEditing>(null)
   const [contractEditing, setContractEditing] = useState<ContractEditing>(null)
   const [statuses, setStatuses] = useState<StatusFilter[]>(DEFAULT_FILTER)
+  const [kinds, setKinds] = useState<Kind[]>([...KINDS])
 
   const items: Item[] = [
     ...deposits.map((row) => ({ kind: 'deposit' as const, status: row.status as StatusFilter, row })),
@@ -117,20 +127,28 @@ export function DepositBoard({
       contracts.filter((c) => c.kind === kind).map((row) => ({ kind, status: filterOf(kind, row.status), row })),
     ),
   ]
-  const shown = items.filter((it) => statuses.includes(it.status))
-  const countOf = (s: StatusFilter) => items.filter((it) => it.status === s).length
-  const isDefault = statuses.length === DEFAULT_FILTER.length && DEFAULT_FILTER.every((s) => statuses.includes(s))
-  const isAll = statuses.length === STATUS_FILTERS.length
+  const inKinds = items.filter((it) => kinds.includes(it.kind))
+  const shown = inKinds.filter((it) => statuses.includes(it.status))
+  const statusOptions = STATUS_FILTERS.filter((s) => kinds.some((k) => STATUSES_OF[k].includes(s)))
+  const picked = statusOptions.filter((s) => statuses.includes(s))
+  const countOf = (s: StatusFilter) => inKinds.filter((it) => it.status === s).length
+  const kindCount = (k: Kind) => items.filter((it) => it.kind === k && statuses.includes(it.status)).length
+  const isDefault = statusOptions.every((s) => statuses.includes(s) === DEFAULT_FILTER.includes(s))
+  const isAll = picked.length === statusOptions.length
+  const allKinds = kinds.length === KINDS.length
   const toggle = (s: StatusFilter, on: boolean) =>
     setStatuses((p) => (on ? STATUS_FILTERS.filter((x) => x === s || p.includes(x)) : p.filter((x) => x !== s)))
+  const toggleKind = (k: Kind, on: boolean) =>
+    setKinds((p) => (on ? KINDS.filter((x) => x === k || p.includes(x)) : p.filter((x) => x !== k)))
+  const statusNote = isAll ? '' : isDefault ? '지금 보유·계약중' : picked.map((s) => FILTER_LABEL[s]).join(' · ') || '선택한 상태 없음'
 
   return (
     <div>
       <div className="flex items-center justify-between gap-3 px-4 pt-3">
         <span className="text-[12.5px] text-muted-foreground" data-slot="deposit-filter-note">
-          {isAll ? '전체' : isDefault ? '지금 보유·계약중' : statuses.map((s) => FILTER_LABEL[s]).join(' · ') || '선택한 상태 없음'}
+          {[allKinds ? '' : kinds.map((k) => KIND_LABEL[k]).join(' · ') || '선택한 구분 없음', statusNote].filter(Boolean).join(' / ') || '전체'}
           {' '}· <b className="text-foreground">{shown.length}</b>건
-          {!isAll && <span className="ml-1.5">(상태 칸 머리를 누르면 골라 볼 수 있습니다)</span>}
+          <span className="ml-1.5">(표 제목의 구분·상태를 누르면 골라 볼 수 있습니다)</span>
         </span>
         {editable && (
           <div className="flex gap-1.5">
@@ -154,7 +172,18 @@ export function DepositBoard({
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-10">No.</TableHead>
-              <TableHead>구분</TableHead>
+              <TableHead>
+                <HeaderFilter label="구분" active={!allKinds} slot="deposit-kind-filter">
+                  {KINDS.map((k) => (
+                    <DropdownMenuCheckboxItem key={k} checked={kinds.includes(k)} onCheckedChange={(on) => toggleKind(k, on)}>
+                      {KIND_LABEL[k]}
+                      <span className="ml-auto pl-3 text-xs text-muted-foreground tabular-nums">{kindCount(k)}</span>
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setKinds([...KINDS])}>전체 보기</DropdownMenuItem>
+                </HeaderFilter>
+              </TableHead>
               <TableHead>거래처·매체명</TableHead>
               <TableHead>내용</TableHead>
               <TableHead>담당자</TableHead>
@@ -162,28 +191,17 @@ export function DepositBoard({
               <TableHead>입금일</TableHead>
               <TableHead>반환일</TableHead>
               <TableHead>
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    aria-label="상태 골라 보기"
-                    title="눌러서 상태 골라 보기"
-                    className={cn('-mx-1 inline-flex items-center gap-0.5 rounded px-1 hover:bg-accent/60', !isAll && 'text-foreground')}
-                  >
-                    상태
-                    <ChevronDown className="size-3.5" />
-                    {!isAll && <span aria-hidden className="size-1.5 rounded-full bg-brand" />}
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-auto min-w-48" data-slot="deposit-status-filter">
-                    {STATUS_FILTERS.map((s) => (
-                      <DropdownMenuCheckboxItem key={s} checked={statuses.includes(s)} onCheckedChange={(on) => toggle(s, on)}>
-                        {FILTER_LABEL[s]}
-                        <span className="ml-auto pl-3 text-xs text-muted-foreground tabular-nums">{countOf(s)}</span>
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => setStatuses([...STATUS_FILTERS])}>전체 보기</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setStatuses(DEFAULT_FILTER)}>지금 보유·계약중만 보기</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <HeaderFilter label="상태" active={!isAll} slot="deposit-status-filter">
+                  {statusOptions.map((s) => (
+                    <DropdownMenuCheckboxItem key={s} checked={statuses.includes(s)} onCheckedChange={(on) => toggle(s, on)}>
+                      {FILTER_LABEL[s]}
+                      <span className="ml-auto pl-3 text-xs text-muted-foreground tabular-nums">{countOf(s)}</span>
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setStatuses([...STATUS_FILTERS])}>전체 보기</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setStatuses(DEFAULT_FILTER)}>지금 보유·계약중만 보기</DropdownMenuItem>
+                </HeaderFilter>
               </TableHead>
               <TableHead>비고</TableHead>
               <TableHead className="w-12">첨부</TableHead>
@@ -273,9 +291,35 @@ export function DepositBoard({
       </div>
 
       {/* 저장한 상태가 지금 필터에 빠져 있으면 보이게 넣는다 (반환완료로 저장했는데 목록에서 사라지지 않게) */}
-      <DepositDialog editing={depositEditing} setEditing={setDepositEditing} onSaved={(s) => toggle(s as StatusFilter, true)} />
-      <ContractDialog editing={contractEditing} setEditing={setContractEditing} onSaved={(kind, s) => toggle(filterOf(kind, s), true)} />
+      <DepositDialog editing={depositEditing} setEditing={setDepositEditing} onSaved={(s) => {
+          toggle(s as StatusFilter, true)
+          toggleKind('deposit', true)
+        }} />
+      <ContractDialog editing={contractEditing} setEditing={setContractEditing} onSaved={(kind, s) => {
+          toggle(filterOf(kind, s), true)
+          toggleKind(kind, true)
+        }} />
     </div>
+  )
+}
+
+/** 엑셀 필터처럼 표 제목을 눌러 골라 보기 */
+function HeaderFilter({ label, active, slot, children }: { label: string; active: boolean; slot: string; children: React.ReactNode }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label={`${label} 골라 보기`}
+        title={`눌러서 ${label} 골라 보기`}
+        className={cn('-mx-1 inline-flex items-center gap-0.5 rounded px-1 hover:bg-accent/60', active && 'text-foreground')}
+      >
+        {label}
+        <ChevronDown className="size-3.5" />
+        {active && <span aria-hidden className="size-1.5 rounded-full bg-brand" />}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-auto min-w-48" data-slot={slot}>
+        {children}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
