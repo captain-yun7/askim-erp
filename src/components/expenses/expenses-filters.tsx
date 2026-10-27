@@ -55,7 +55,7 @@ export function ExpensesFilters({
         <Input
           key={initial.q ?? ''}
           defaultValue={initial.q ?? ''}
-          placeholder="품목, 거래처 검색..."
+          placeholder="품목, 거래처, 금액 검색..."
           className="h-9 rounded-lg pl-9"
           onKeyDown={(e) => {
             if (e.key === 'Enter')
