@@ -104,6 +104,8 @@ test('보증금 한 표(2026-10-23) — 탭 없이 한 표, 처음엔 반환완�
   const statuses = (await page.locator('tbody tr[data-kind] td[data-col=status]').allInnerTexts()).map((t) => t.trim())
   expect(statuses).not.toContain('반환완료')
   await expect(page.getByRole('button', { name: '상태 골라 보기' })).toBeVisible()
+  // 2026-10-27: 전속계약도 상태가 보인다 (0026 적용 확인)
+  await expect(page.locator('tbody tr[data-kind=exclusive] td[data-col=status]').first()).toHaveText(/계약중|계약종료/)
 })
 
 test('거래 금액 칸 합계(2026-10-23) — Ctrl+클릭한 두 칸의 합계가 보인다 (읽기만)', async ({ page }) => {
