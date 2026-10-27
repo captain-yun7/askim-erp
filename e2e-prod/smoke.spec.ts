@@ -96,3 +96,22 @@ test('띄어쓰기 무시 검색(2026-10-21) — 붙여 쓴 검색어로 띄어 
   await page.goto(`/counterparties?q=${encodeURIComponent('매출처없음')}`)
   await expect(page.locator('tbody tr', { hasText: '(매출처 없음)' })).toHaveCount(1)
 })
+
+test('보증금 한 표(2026-10-23) — 탭 없이 한 표, 처음엔 반환완료 없음', async ({ page }) => {
+  await page.goto('/deposits')
+  await expect(page.getByRole('tablist')).toHaveCount(0)
+  await expect(page.locator('tbody tr[data-kind]').first()).toBeVisible()
+  const statuses = (await page.locator('tbody tr[data-kind] td[data-col=status]').allInnerTexts()).map((t) => t.trim())
+  expect(statuses).not.toContain('반환완료')
+  await expect(page.getByRole('button', { name: '상태 골라 보기' })).toBeVisible()
+})
+
+test('거래 금액 칸 합계(2026-10-23) — Ctrl+클릭한 두 칸의 합계가 보인다 (읽기만)', async ({ page }) => {
+  await openDeals(page)
+  const cells = page.locator('[data-slot=deals-scroll] tbody tr[data-row-id] td[data-sum=salesGross][data-num]')
+  const nums = await Promise.all([0, 1].map(async (i) => Number(await cells.nth(i).getAttribute('data-num'))))
+  for (const i of [0, 1]) await cells.nth(i).click({ modifiers: ['ControlOrMeta'] })
+  const bar = page.locator('[data-slot=cell-sum]')
+  await expect(bar).toContainText('개수: 2')
+  await expect(bar.locator('[data-slot=cell-sum-total]')).toHaveText((nums[0] + nums[1]).toLocaleString('ko-KR'))
+})
