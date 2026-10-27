@@ -186,7 +186,7 @@ export function DepositBoard({
             {shown.length === 0 && (
               <TableRow>
                 <TableCell colSpan={editable ? 12 : 11} className="py-12 text-center text-sm text-muted-foreground">
-                  고른 상태에 해당하는 건이 없습니다
+                  {items.length ? '고른 상태에 해당하는 건이 없습니다' : '등록된 보증금·계약·자산이 없습니다'}
                 </TableCell>
               </TableRow>
             )}
@@ -195,9 +195,9 @@ export function DepositBoard({
                 <TableRow key={`d${it.row.id}`} data-kind="deposit">
                   <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
                   <TableCell><KindBadge kind="deposit" /></TableCell>
-                  <TableCell className="min-w-24 max-w-44 whitespace-normal break-keep font-medium">{it.row.counterpartyName}</TableCell>
-                  <TableCell className="max-w-60 truncate text-[12.5px]" title={it.row.description ?? undefined}>{it.row.description ?? '-'}</TableCell>
-                  <TableCell className="text-[12.5px]">{it.row.ownerName ?? '-'}</TableCell>
+                  <TableCell className="min-w-24 max-w-40 whitespace-normal break-keep font-medium">{it.row.counterpartyName}</TableCell>
+                  <TableCell className="max-w-48 truncate text-[12.5px]" title={it.row.description ?? undefined}>{it.row.description ?? '-'}</TableCell>
+                  <TableCell className="max-w-20 whitespace-normal break-keep text-[12.5px]">{it.row.ownerName ?? '-'}</TableCell>
                   <TableCell className="text-right font-mono text-[12.5px] tabular-nums">{formatKRW(it.row.amount)}</TableCell>
                   <TableCell className="font-mono text-xs tabular-nums">{formatDate(it.row.paidDate)}</TableCell>
                   <TableCell className="font-mono text-xs tabular-nums">{formatDate(it.row.returnedDate)}</TableCell>
@@ -206,7 +206,7 @@ export function DepositBoard({
                       {STATUS_LABEL[it.row.status]}
                     </span>
                   </TableCell>
-                  <TableCell className="max-w-44 truncate text-xs text-muted-foreground" title={it.row.memo ?? ''}>
+                  <TableCell className="max-w-32 truncate text-xs text-muted-foreground" title={it.row.memo ?? ''}>
                     {it.row.memo ?? ''}
                   </TableCell>
                   <TableCell>
@@ -226,19 +226,19 @@ export function DepositBoard({
                 <TableRow key={`c${it.row.id}`} data-kind={it.kind}>
                   <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
                   <TableCell><KindBadge kind={it.kind} /></TableCell>
-                  <TableCell className="min-w-24 max-w-44 whitespace-normal break-keep font-medium">{it.row.mediaName}</TableCell>
-                  <TableCell className="min-w-52 max-w-72 whitespace-normal break-keep text-[12.5px]">
+                  <TableCell className="min-w-24 max-w-40 whitespace-normal break-keep font-medium">{it.row.mediaName}</TableCell>
+                  <TableCell className="min-w-48 max-w-64 whitespace-normal break-keep text-[12.5px]">
                     <div className="line-clamp-2" title={it.row.contractTerms ?? undefined}>{it.row.contractTerms || '-'}</div>
                     <div className="mt-0.5 line-clamp-2 text-[11.5px] text-muted-foreground">
                       {[it.row.mediaType, it.row.contractPeriod, it.row.hasMonthlyFee && `월 고정비 ${it.row.hasMonthlyFee}`].filter(Boolean).join(' · ')}
                     </div>
                   </TableCell>
-                  <TableCell className="text-[12.5px]">{it.row.ownerName ?? '-'}</TableCell>
+                  <TableCell className="max-w-20 whitespace-normal break-keep text-[12.5px]">{it.row.ownerName ?? '-'}</TableCell>
                   <TableCell className="text-right text-xs text-muted-foreground/60">-</TableCell>
                   <TableCell className="font-mono text-xs tabular-nums">{formatDate(it.row.depositPaidDate)}</TableCell>
                   <TableCell className="font-mono text-xs tabular-nums">{formatDate(it.row.depositReturnedDate)}</TableCell>
                   <TableCell data-col="status" className="text-xs text-muted-foreground/60">-</TableCell>
-                  <TableCell className="max-w-44 truncate text-xs text-muted-foreground" title={it.row.memo ?? ''}>
+                  <TableCell className="max-w-32 truncate text-xs text-muted-foreground" title={it.row.memo ?? ''}>
                     {it.row.memo ?? ''}
                   </TableCell>
                   <TableCell>
@@ -260,7 +260,8 @@ export function DepositBoard({
         </Table>
       </div>
 
-      <DepositDialog editing={depositEditing} setEditing={setDepositEditing} />
+      {/* 저장한 상태가 지금 필터에 빠져 있으면 보이게 넣는다 (반환완료로 저장했는데 목록에서 사라지지 않게) */}
+      <DepositDialog editing={depositEditing} setEditing={setDepositEditing} onSaved={(s) => toggle(s as StatusFilter, true)} />
       <ContractDialog editing={contractEditing} setEditing={setContractEditing} />
     </div>
   )
@@ -332,7 +333,7 @@ const depositDraftOf = (r: Deposit): DepositEditing => ({
   },
 })
 
-function DepositDialog({ editing, setEditing }: { editing: DepositEditing; setEditing: React.Dispatch<React.SetStateAction<DepositEditing>> }) {
+function DepositDialog({ editing, setEditing, onSaved }: { editing: DepositEditing; setEditing: React.Dispatch<React.SetStateAction<DepositEditing>>; onSaved: (status: string) => void }) {
   const { pending, run } = useSave()
 
   function submit() {
@@ -350,7 +351,10 @@ function DepositDialog({ editing, setEditing }: { editing: DepositEditing; setEd
           status: d.status,
           memo: d.memo,
         }),
-      () => setEditing(null),
+      () => {
+        onSaved(d.status)
+        setEditing(null)
+      },
     )
   }
 
