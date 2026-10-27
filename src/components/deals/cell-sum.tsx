@@ -28,8 +28,10 @@ export function CellSumBar({ container, version, fractional }: { container: Reac
     const root = container.current
     if (!root) return
     let anchor: string | null = null
-    let drag: { start: string; moved: boolean } | null = null
-    let swallowClick = false
+    let drag: { start: string; last: string; moved: boolean; x: number; y: number; raf: number } | null = null
+    // 끌거나 Ctrl·Shift 로 고른 직후의 클릭만 삼킨다 — 놓친 플래그가 나중 클릭을 먹지 않게 시간으로 제한
+    let swallowUntil = 0
+    const swallowNext = () => (swallowUntil = performance.now() + 500)
 
     const cellAt = (t: EventTarget | null) => (t instanceof Element ? t.closest<HTMLElement>('td[data-sum]') : null)
     /** 두 칸을 꼭짓점으로 하는 사각형 안의 금액 칸 */
@@ -50,42 +52,16 @@ export function CellSumBar({ container, version, fractional }: { container: Reac
         }
       return out
     }
-
-    const onDown = (e: MouseEvent) => {
-      swallowClick = false
-      if (e.button !== 0) return
-      const t = e.target as Element
-      if (t.closest('input, select, textarea, [role=dialog]')) return
-      const td = cellAt(t)
-      if (!td) {
-        // 표 밖(위 일괄 수정 줄 등)은 그대로 두고, 표 안 다른 칸을 누르면 해제
-        if (t.closest('table')) setPicked([])
-        return
-      }
-      const key = keyOf(td)
-      if (e.metaKey || e.ctrlKey) {
-        e.preventDefault()
-        swallowClick = true
-        anchor = key
-        setPicked((p) => (p.some((x) => x.key === key) ? p.filter((x) => x.key !== key) : [...p, pick(td)]))
-        return
-      }
-      if (e.shiftKey && anchor) {
-        e.preventDefault()
-        swallowClick = true
-        setPicked(rect(anchor, key))
-        return
-      }
-      anchor = key
-      drag = { start: key, moved: false }
-      setPicked([])
+    const blurEditor = () => {
+      const el = document.activeElement
+      if (el instanceof HTMLElement && root.contains(el)) el.blur()
     }
-    const onOver = (e: MouseEvent) => {
-      if (!drag || !(e.buttons & 1)) return
-      const td = cellAt(e.target)
-      if (!td) return
+
+    const extendTo = (td: HTMLElement) => {
+      if (!drag) return
       const key = keyOf(td)
-      if (!drag.moved && key === drag.start) return
+      if (key === drag.last) return
+      drag.last = key
       if (!drag.moved) {
         drag.moved = true
         // 끄는 동안 글자 선택 대신 칸 선택
@@ -94,15 +70,83 @@ export function CellSumBar({ container, version, fractional }: { container: Reac
       }
       setPicked(rect(drag.start, key))
     }
+
+    // 표 가장자리로 끌면 엑셀처럼 저절로 스크롤
+    const scroller = () => root.querySelector<HTMLElement>('[data-slot=deals-scroll]')
+    const autoScroll = () => {
+      if (!drag) return
+      const box = scroller()
+      if (box) {
+        const r = box.getBoundingClientRect()
+        const top = r.top + (box.querySelector('thead')?.getBoundingClientRect().height ?? 0)
+        const edge = 28
+        const dy = drag.y > r.bottom - edge ? drag.y - (r.bottom - edge) : drag.y < top + edge ? drag.y - (top + edge) : 0
+        const dx = drag.x > r.right - edge ? drag.x - (r.right - edge) : drag.x < r.left + edge ? drag.x - (r.left + edge) : 0
+        if (drag.moved && (dx || dy)) {
+          box.scrollBy(Math.max(-40, Math.min(40, dx)), Math.max(-40, Math.min(40, dy)))
+          // 스크롤로 마우스 밑에 온 칸까지 넓힌다
+          const x = Math.min(Math.max(drag.x, r.left + 2), r.right - 12)
+          const y = Math.min(Math.max(drag.y, top + 2), r.bottom - 12)
+          const td = cellAt(document.elementFromPoint(x, y))
+          if (td && root.contains(td)) extendTo(td)
+        }
+      }
+      drag.raf = requestAnimationFrame(autoScroll)
+    }
+
+    const onDown = (e: MouseEvent) => {
+      swallowUntil = 0
+      if (e.button !== 0) return
+      const t = e.target as Element
+      if (t.closest('input, select, textarea, [role=dialog]')) return
+      const td = cellAt(t)
+      const mod = e.metaKey || e.ctrlKey
+      if (!td) {
+        // 표 밖(위 일괄 수정 줄 등)이나 Ctrl+클릭(새 탭 열기)은 그대로 두고, 표 안 다른 칸을 누르면 해제
+        if (!mod && !e.shiftKey && t.closest('table')) setPicked([])
+        return
+      }
+      const key = keyOf(td)
+      if (mod) {
+        e.preventDefault()
+        blurEditor()
+        swallowNext()
+        anchor = key
+        setPicked((p) => (p.some((x) => x.key === key) ? p.filter((x) => x.key !== key) : [...p, pick(td)]))
+        return
+      }
+      if (e.shiftKey && anchor) {
+        e.preventDefault()
+        blurEditor()
+        swallowNext()
+        setPicked(rect(anchor, key))
+        return
+      }
+      anchor = key
+      drag = { start: key, last: key, moved: false, x: e.clientX, y: e.clientY, raf: requestAnimationFrame(autoScroll) }
+      setPicked([])
+    }
+    const onOver = (e: MouseEvent) => {
+      if (!drag || !(e.buttons & 1)) return
+      const td = cellAt(e.target)
+      if (td) extendTo(td)
+    }
+    const onMove = (e: MouseEvent) => {
+      if (!drag) return
+      drag.x = e.clientX
+      drag.y = e.clientY
+    }
     const onUp = () => {
-      if (drag?.moved) swallowClick = true
+      if (!drag) return
+      if (drag.moved) swallowNext()
+      cancelAnimationFrame(drag.raf)
       drag = null
       root.style.userSelect = ''
     }
     // 끌거나 Ctrl·Shift 로 고른 뒤의 클릭은 금액 수정 창을 열지 않는다
     const onClick = (e: MouseEvent) => {
-      if (!swallowClick) return
-      swallowClick = false
+      if (performance.now() > swallowUntil || e.detail === 0) return
+      swallowUntil = 0
       e.preventDefault()
       e.stopPropagation()
     }
@@ -111,35 +155,37 @@ export function CellSumBar({ container, version, fractional }: { container: Reac
       if (e.ctrlKey && cellAt(e.target)) e.preventDefault()
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setPicked((p) => (p.length ? [] : p))
+      if (e.key !== 'Escape' || document.querySelector('[role=dialog]')) return
+      setPicked((p) => (p.length ? [] : p))
     }
     root.addEventListener('mousedown', onDown)
     root.addEventListener('mouseover', onOver)
     root.addEventListener('click', onClick, true)
     root.addEventListener('contextmenu', onMenu)
+    window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
     window.addEventListener('keydown', onKey)
     return () => {
+      if (drag) cancelAnimationFrame(drag.raf)
       root.removeEventListener('mousedown', onDown)
       root.removeEventListener('mouseover', onOver)
       root.removeEventListener('click', onClick, true)
       root.removeEventListener('contextmenu', onMenu)
+      window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
       window.removeEventListener('keydown', onKey)
       root.style.userSelect = ''
     }
   }, [container])
 
-  // 고른 칸 표시 — 표가 다시 그려져도(version) 다시 칠한다
+  // 고른 칸 표시 — 표가 다시 그려져도(version) 다시 칠한다. 칸을 한 번에 모아 찾는다 (수천 칸 선택 대비)
   useEffect(() => {
     const root = container.current
     if (!root) return
     for (const td of root.querySelectorAll<HTMLElement>('td[data-picked]')) delete td.dataset.picked
-    for (const { key } of picked) {
-      const [rowId, col] = key.split('|')
-      const td = root.querySelector<HTMLElement>(`tr[data-row-id="${CSS.escape(rowId)}"] td[data-sum="${col}"]`)
-      if (td) td.dataset.picked = ''
-    }
+    if (!picked.length) return
+    const want = new Set(picked.map((p) => p.key))
+    for (const td of root.querySelectorAll<HTMLElement>('tr[data-row-id] td[data-sum]')) if (want.has(keyOf(td))) td.dataset.picked = ''
   }, [picked, version, container])
 
   const nums = picked.flatMap((p) => (p.num === null ? [] : [p.num]))
@@ -147,7 +193,7 @@ export function CellSumBar({ container, version, fractional }: { container: Reac
 
   const fmt = (n: number) => n.toLocaleString('ko-KR', { maximumFractionDigits: fractional ? 2 : 0 })
   return (
-    <div data-slot="cell-sum" className="flex shrink-0 items-center justify-end gap-4 border-t bg-muted/40 px-4 py-1.5 text-[12.5px]">
+    <div data-slot="cell-sum" aria-live="polite" className="flex shrink-0 items-center justify-end gap-4 border-t bg-muted/40 px-4 py-1.5 text-[12.5px]">
       {stats ? (
         <>
           <span>
