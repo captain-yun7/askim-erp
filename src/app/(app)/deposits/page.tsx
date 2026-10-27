@@ -1,5 +1,4 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ContractTable, DepositTable } from '@/components/deposits/deposit-tables'
+import { DepositBoard } from '@/components/deposits/deposit-tables'
 import { getSessionUser } from '@/server/auth/guards'
 import { resolveDealScope } from '@/server/auth/deal-scope'
 import { listDeposits, listExclusiveContracts } from '@/server/queries/deposits'
@@ -46,28 +45,16 @@ export default async function DepositsPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="deposits" className="mt-5">
-        <TabsList>
-          <TabsTrigger value="deposits">보증금현황 ({deposits.count})</TabsTrigger>
-          <TabsTrigger value="contracts">전속매체 계약사항 ({contracts.length})</TabsTrigger>
-          <TabsTrigger value="assets">보유자산 현황 ({assets.length})</TabsTrigger>
-        </TabsList>
-        <TabsContent value="deposits">
-          <section className="overflow-hidden rounded-xl border bg-card">
-            <DepositTable rows={deposits.rows} editable={editable} attachments={depositAtt} />
-          </section>
-        </TabsContent>
-        <TabsContent value="contracts">
-          <section className="overflow-hidden rounded-xl border bg-card">
-            <ContractTable rows={contracts} editable={editable} attachments={contractAtt} />
-          </section>
-        </TabsContent>
-        <TabsContent value="assets">
-          <section className="overflow-hidden rounded-xl border bg-card">
-            <ContractTable rows={assets} editable={editable} kind="asset" attachments={contractAtt} />
-          </section>
-        </TabsContent>
-      </Tabs>
+      {/* 탭으로 나누지 않고 한 표로 (2026-10-23 요청) */}
+      <section className="mt-5 overflow-hidden rounded-xl border bg-card">
+        <DepositBoard
+          deposits={deposits.rows}
+          contracts={[...contracts, ...assets]}
+          editable={editable}
+          depositAttachments={depositAtt}
+          contractAttachments={contractAtt}
+        />
+      </section>
     </div>
   )
 }
