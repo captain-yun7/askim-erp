@@ -183,6 +183,13 @@
       "when": 1792389024699,
       "tag": "0025_settlement_day",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1793083257708,
+      "tag": "0026_contract_status",
+      "breakpoints": true
     }
   ]
 }

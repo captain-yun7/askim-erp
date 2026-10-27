@@ -52,6 +52,8 @@ export const exclusiveContract = pgTable('exclusive_contract', {
   contractPeriod: text('contract_period'),
   contractTerms: text('contract_terms'),
   hasMonthlyFee: text('has_monthly_fee', { enum: ['O', 'X'] }),
+  // active = 계약중(자산은 보유) | ended = 계약종료(자산은 처분) — 2026-10-27 요청
+  status: text('status', { enum: ['active', 'ended'] }).notNull().default('active'),
   depositPaidDate: date('deposit_paid_date'),
   depositReturnedDate: date('deposit_returned_date'),
   memo: text('memo'),
