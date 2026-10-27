@@ -18,6 +18,7 @@ import { Check, Copy, Landmark, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DateInput } from '@/components/ui/date-input'
 import { AttachmentButton } from '@/components/attachments/attachment-button'
+import { CellSumBar, sumAttrs } from '@/components/deals/cell-sum'
 import { cn } from '@/lib/utils'
 import { formatSettlement, parseSettlement } from '@/lib/settlement'
 import { formatDate, formatKRW } from '@/lib/format'
@@ -1177,6 +1178,8 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
         'min-h-0 flex-1 overflow-auto overscroll-contain border-b',
         '[&::-webkit-scrollbar]:size-2.5 [&::-webkit-scrollbar-track]:bg-muted/60 [&::-webkit-scrollbar-corner]:bg-muted/60',
         '[&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/50',
+        // 합계용으로 고른 금액 칸
+        '[&_td[data-picked]]:bg-primary/15! [&_td[data-picked]]:shadow-[inset_0_0_0_1px_var(--primary)]',
       )}
     >
       <table className="w-full caption-bottom text-sm">
@@ -1240,7 +1243,7 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
               return { ...h, className: cn(className, h.className) }
             }
             return (
-              <TableRow key={r.id} className="hover:bg-muted/60">
+              <TableRow key={r.id} data-row-id={r.id} className="hover:bg-muted/60">
                 <TableCell {...cell('code')}>
                   <span className="flex items-center gap-2">
                   <ReviewMark dealId={r.id} value={r.reviewStatus ?? null} who={r.reviewWho ?? { admin: false, owner: false }} />
@@ -1328,26 +1331,26 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
                 <TableCell {...cell('item', 'max-w-56 truncate text-[12.5px]')} title={r.itemName ?? undefined}>
                   {r.itemName ?? <span className="text-muted-foreground">-</span>}
                 </TableCell>
-                <TableCell {...cell('salesNet', 'text-right text-[13px] tabular-nums')}>
+                <TableCell {...cell('salesNet', 'text-right text-[13px] tabular-nums')} {...sumAttrs('salesNet', r.salesAmountNet)}>
                   <InlineAmount dealId={r.id} field="salesAmountNet" value={r.salesAmountNet} enabled={r.canTogglePaid} memo={r.salesMemo} memoLabel="매출 비고" />
                 </TableCell>
                 {!foreign && (
-                  <TableCell {...cell('salesVat', 'text-right text-[13px] text-muted-foreground tabular-nums')}>
+                  <TableCell {...cell('salesVat', 'text-right text-[13px] text-muted-foreground tabular-nums')} {...sumAttrs('salesVat', r.salesVat)}>
                     {formatKRW(r.salesVat)}
                   </TableCell>
                 )}
-                <TableCell className="text-right text-[13px] tabular-nums" data-col="salesGross">
+                <TableCell className="text-right text-[13px] tabular-nums" data-col="salesGross" {...sumAttrs('salesGross', r.salesAmountGross)}>
                   {formatKRW(r.salesAmountGross ?? null)}
                 </TableCell>
-                <TableCell {...cell('purchaseNet', 'text-right text-[13px] tabular-nums')}>
+                <TableCell {...cell('purchaseNet', 'text-right text-[13px] tabular-nums')} {...sumAttrs('purchaseNet', r.purchaseAmountNet)}>
                   <InlineAmount dealId={r.id} field="purchaseAmountNet" value={r.purchaseAmountNet} enabled={r.canTogglePaid} memo={r.purchaseMemo} memoLabel="매입 비고" />
                 </TableCell>
                 {!foreign && (
-                  <TableCell {...cell('purchaseVat', 'text-right text-[13px] text-muted-foreground tabular-nums')}>
+                  <TableCell {...cell('purchaseVat', 'text-right text-[13px] text-muted-foreground tabular-nums')} {...sumAttrs('purchaseVat', r.purchaseVat)}>
                     {formatKRW(r.purchaseVat)}
                   </TableCell>
                 )}
-                <TableCell className="text-right text-[13px] tabular-nums" data-col="purchaseGross">
+                <TableCell className="text-right text-[13px] tabular-nums" data-col="purchaseGross" {...sumAttrs('purchaseGross', r.purchaseAmountGross)}>
                   {formatKRW(r.purchaseAmountGross ?? null)}
                 </TableCell>
                 <TableCell {...cell('paid')}>
@@ -1415,6 +1418,7 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
                 </TableCell>
                 <TableCell
                   {...cell('profit', cn('text-right text-[13px] font-medium tabular-nums', loss ? 'text-destructive' : 'text-success-foreground'))}
+                  {...sumAttrs('profit', r.profit)}
                   {...(r.profitAdjusted != null ? { 'data-adjusted': '1', title: `조정 손익 (자동 계산 ${formatKRW((parseFloat(r.salesAmountNet ?? '') || 0) - (parseFloat(r.purchaseAmountNet ?? '') || 0))})${r.profitAdjustMemo ? ` · ${r.profitAdjustMemo}` : ''}` } : {})}
                 >
                   {r.profitAdjusted != null && <span className="mr-1 rounded bg-amber-100 px-1 text-[10px] font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">조정</span>}
@@ -1423,6 +1427,7 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
                 {foreign && (
                   <TableCell
                     data-col="profitKrw"
+                    {...sumAttrs('profitKrw', krw)}
                     className={cn('text-right text-[13px] tabular-nums', krw != null && krw < 0 && 'text-destructive')}
                     title={r.fxRate ? `환율 ${parseFloat(r.fxRate).toLocaleString()} (매출 입금일 기준)` : '환율 없음 — 매출 입금일을 넣으면 자동으로 채워집니다'}
                   >
@@ -1432,7 +1437,7 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
                 <TableCell className="text-right text-[13px] tabular-nums" data-col="incentiveRate">
                   {r.canViewIncentive ? <InlineIncentive dealId={r.id} stored={r.commissionPct ?? null} enabled={Boolean(r.canEditIncentive)} /> : <span className="text-muted-foreground/60">-</span>}
                 </TableCell>
-                <TableCell className="text-right text-[13px] tabular-nums" data-col="incentiveAmount">
+                <TableCell className="text-right text-[13px] tabular-nums" data-col="incentiveAmount" {...sumAttrs('incentiveAmount', r.canViewIncentive ? incentiveTotal(base, r.commissionPct ?? null, r.incentiveShares ?? [], r.commissionAmount ?? null) : null)}>
                   <IncentiveAmountCell
                     dealId={r.id}
                     show={Boolean(r.canViewIncentive)}
@@ -1460,6 +1465,7 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
         </TableBody>
       </table>
     </div>
+    <CellSumBar key={`sum-${search}`} container={container} version={rows} fractional={foreign} />
     </div>
     </ShareUsersCtx.Provider>
     </PatchCtx.Provider>
