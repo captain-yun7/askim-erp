@@ -97,6 +97,15 @@ test('띄어쓰기 무시 검색(2026-10-21) — 붙여 쓴 검색어로 띄어 
   await expect(page.locator('tbody tr', { hasText: '(매출처 없음)' })).toHaveCount(1)
 })
 
+test('판관비 금액 검색(2026-10-27) — 첫 행 금액으로 찾으면 같은 금액만 나온다 (읽기만)', async ({ page }) => {
+  await page.goto('/expenses')
+  const amount = (await page.locator('tbody tr').first().locator('td').nth(6).innerText()).trim()
+  await page.goto(`/expenses?q=${encodeURIComponent(amount)}`)
+  const amounts = (await page.locator('tbody tr td:nth-child(7)').allInnerTexts()).map((t) => t.trim())
+  expect(amounts.length).toBeGreaterThan(0)
+  for (const a of amounts) expect(a).toBe(amount)
+})
+
 test('보증금 한 표(2026-10-23) — 탭 없이 한 표, 처음엔 반환완료 없음', async ({ page }) => {
   await page.goto('/deposits')
   await expect(page.getByRole('tablist')).toHaveCount(0)
