@@ -42,7 +42,7 @@ test.describe('보증금 한 표', () => {
     }
     const countIn = async (label: string) => Number((await menu.getByRole('menuitemcheckbox', { name: new RegExp(`^${label}`) }).innerText()).replace(/\D/g, ''))
     await open()
-    const counts = { held: await countIn('보유'), returned: await countIn('반환완료'), none: await countIn('상태 없음') }
+    const counts = { held: await countIn('보유'), returned: await countIn('반환완료'), active: await countIn('계약중') }
     const before = await rows.count()
 
     // 반환완료를 켜면 그만큼 늘어난다
@@ -50,14 +50,14 @@ test.describe('보증금 한 표', () => {
     await expect(rows).toHaveCount(before + counts.returned)
 
     // 보유만 남기기
-    for (const label of ['미반환', '상계예정', '반환완료', '상태 없음']) await menu.getByRole('menuitemcheckbox', { name: new RegExp(`^${label}`) }).click()
+    for (const label of ['미반환', '상계예정', '계약중', '반환완료', '계약종료', '처분']) await menu.getByRole('menuitemcheckbox', { name: new RegExp(`^${label}`) }).click()
     await expect(rows).toHaveCount(counts.held)
     for (const s of await statuses()) expect(s).toBe('보유')
 
     await menu.getByRole('menuitem', { name: '전체 보기' }).click()
     await expect(menu).toBeHidden()
     await open()
-    await menu.getByRole('menuitem', { name: '반환완료 빼고 보기' }).click()
+    await menu.getByRole('menuitem', { name: '지금 보유·계약중만 보기' }).click()
     await expect(rows).toHaveCount(before)
   })
 
@@ -90,6 +90,49 @@ test('반환완료로 저장해도 목록에서 사라지지 않는다', async (
   page.once('dialog', (d) => d.accept())
   await row.getByRole('button', { name: '삭제' }).click()
   await expect(row).toHaveCount(0)
+})
+
+test('전속계약도 상태가 있다 — 계약종료로 저장하면 보이고, 기본 보기에선 빠진다', async ({ page }) => {
+  // 2026-10-27 요청: 계약·자산 상태가 비어 있던 것
+  await login(page)
+  await page.goto('/deposits')
+  const menu = page.locator('[data-slot=deposit-status-filter]')
+  const statusOf = (name: string) => page.locator('tbody tr', { hasText: name }).locator('td[data-col=status]')
+  // 기존 계약은 계약중
+  await expect(page.locator('tbody tr[data-kind=exclusive] td[data-col=status]').first()).toHaveText('계약중')
+
+  await page.getByRole('button', { name: '전속계약 추가' }).click()
+  const dlg = page.getByRole('dialog')
+  await dlg.locator('input').first().fill('E2E거래처1027계약')
+  await expect(dlg.getByLabel('상태')).toHaveValue('active')
+  await dlg.getByLabel('상태').selectOption({ label: '계약종료' })
+  await dlg.getByRole('button', { name: '저장' }).click()
+  await expect(dlg).toBeHidden()
+  await expect(statusOf('E2E거래처1027계약')).toHaveText('계약종료')
+
+  // 기본 보기로 돌리면 빠진다
+  await page.getByRole('button', { name: '상태 골라 보기' }).click()
+  await menu.getByRole('menuitem', { name: '지금 보유·계약중만 보기' }).click()
+  await expect(page.locator('tbody tr', { hasText: 'E2E거래처1027계약' })).toHaveCount(0)
+
+  // 계약종료만 골라 보면 나오고, 지운다
+  await page.getByRole('button', { name: '상태 골라 보기' }).click()
+  await menu.getByRole('menuitemcheckbox', { name: /^계약종료/ }).click()
+  await page.keyboard.press('Escape')
+  const row = page.locator('tbody tr', { hasText: 'E2E거래처1027계약' })
+  await expect(row).toHaveCount(1)
+  page.once('dialog', (d) => d.accept())
+  await row.getByRole('button', { name: '삭제' }).click()
+  await expect(row).toHaveCount(0)
+})
+
+test('자산 추가 창 상태는 보유/처분', async ({ page }) => {
+  await login(page)
+  await page.goto('/deposits')
+  await page.getByRole('button', { name: '자산 추가' }).click()
+  const dlg = page.getByRole('dialog')
+  await expect(dlg.getByLabel('상태').locator('option')).toHaveText(['보유', '처분'])
+  await dlg.getByRole('button', { name: '취소' }).click()
 })
 
 test.describe('거래 금액 칸 합계', () => {
