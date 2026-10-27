@@ -75,6 +75,23 @@ test.describe('보증금 한 표', () => {
   })
 })
 
+test('반환완료로 저장해도 목록에서 사라지지 않는다', async ({ page }) => {
+  await login(page)
+  await page.goto('/deposits')
+  await page.getByRole('button', { name: '보증금 추가' }).click()
+  const dlg = page.getByRole('dialog')
+  await dlg.locator('input').first().fill('E2E거래처1023반환')
+  await dlg.locator('select').selectOption({ label: '반환완료' })
+  await dlg.getByRole('button', { name: '저장' }).click()
+  await expect(dlg).toBeHidden()
+  const row = page.locator('tbody tr', { hasText: 'E2E거래처1023반환' })
+  await expect(row).toHaveCount(1)
+  await expect(row.locator('td[data-col=status]')).toHaveText('반환완료')
+  page.once('dialog', (d) => d.accept())
+  await row.getByRole('button', { name: '삭제' }).click()
+  await expect(row).toHaveCount(0)
+})
+
 test.describe('거래 금액 칸 합계', () => {
   // 끌 칸이 화면 가장자리(스크롤바·합계 줄) 밑에 걸리지 않게 넓은 창
   test.use({ viewport: { width: 1600, height: 1000 } })
@@ -152,5 +169,23 @@ test.describe('거래 금액 칸 합계', () => {
     await expect(page.locator('[data-slot=deals-scroll] input[inputmode=numeric]')).toHaveCount(1)
     await expect(page.locator('td[data-picked]')).toHaveCount(0)
     await page.keyboard.press('Escape')
+  })
+
+  test('표 아래 가장자리로 끌면 저절로 스크롤되며 범위가 넓어진다', async ({ page }) => {
+    await login(page)
+    await page.goto('/deals?year=all')
+    await ready(page)
+    const box = (await page.locator('[data-slot=deals-scroll]').boundingBox())!
+    const first = page.locator('[data-slot=deals-scroll] tbody tr[data-row-id]').first().locator('td[data-sum=salesNet]')
+    const a = (await first.boundingBox())!
+    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(a.x + a.width / 2, box.y + box.height - 5, { steps: 5 })
+    const visible = await page.locator('td[data-picked]').count()
+    await page.waitForTimeout(1200)
+    await page.mouse.up()
+    expect(await page.locator('[data-slot=deals-scroll]').evaluate((el) => el.scrollTop)).toBeGreaterThan(0)
+    expect(await page.locator('td[data-picked]').count()).toBeGreaterThan(visible)
+    await expect(page.locator('[data-slot=deals-scroll] input[inputmode=numeric]')).toHaveCount(0)
   })
 })
