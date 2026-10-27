@@ -71,6 +71,7 @@ const contractSchema = z.object({
   contractPeriod: z.string().trim().optional().nullable(),
   contractTerms: z.string().trim().optional().nullable(),
   hasMonthlyFee: z.enum(['O', 'X']).nullable(),
+  status: z.enum(['active', 'ended']).default('active'),
   depositPaidDate: dateStr,
   depositReturnedDate: dateStr,
   memo: z.string().trim().optional().nullable(),

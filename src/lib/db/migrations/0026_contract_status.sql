@@ -1,0 +1,1 @@
+ALTER TABLE "exclusive_contract" ADD COLUMN "status" text DEFAULT 'active' NOT NULL;
