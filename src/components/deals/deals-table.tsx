@@ -906,6 +906,7 @@ function IncentiveAmountCell({ dealId, show, editable, base, stored, fixed, owne
   const [pick, setPick] = useState('')
   const [percent, setPercent] = useState('5')
   const users = useContext(ShareUsersCtx)
+  const apply = useContext(PatchCtx)
   const amount = show ? incentiveTotal(base, stored, shares, fixed) : null
   const own = fixedIncentive(fixed)
   if (amount === null) return <span className="text-muted-foreground/60" title={show ? '환율이 없어 계산할 수 없습니다' : undefined}>-</span>
@@ -917,6 +918,8 @@ function IncentiveAmountCell({ dealId, show, editable, base, stored, fixed, owne
       if ('error' in res) toast.error(res.error)
       else {
         setShares(res.shares)
+        // 행에도 알려 합계용 값(data-num)이 화면과 같게
+        apply(dealId, { incentiveShares: res.shares })
         setPick('')
       }
     })
