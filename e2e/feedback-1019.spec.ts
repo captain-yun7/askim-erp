@@ -64,7 +64,7 @@ test('보증금 — 상태 필터로 골라 보기', async ({ page }) => {
   await menu.getByRole('menuitem', { name: '전체 보기' }).click()
   const all = await rows.count()
   await page.getByRole('button', { name: '상태 골라 보기' }).click()
-  for (const label of ['미반환', '상계예정', '계약중', '반환완료', '계약종료', '처분']) await menu.getByRole('menuitemcheckbox', { name: new RegExp(`^${label}`) }).click()
+  for (const label of ['계약중', '반환완료', '계약종료']) await menu.getByRole('menuitemcheckbox', { name: new RegExp(`^${label}`) }).click()
   await expect(rows).toHaveCount(held)
   for (const s of await rows.locator('td[data-col=status]').allInnerTexts()) expect(s.trim()).toBe('보유')
   await menu.getByRole('menuitem', { name: '전체 보기' }).click()

@@ -42,17 +42,14 @@ import {
 import type { Deposit, ExclusiveContract } from '@/lib/db/schema'
 import { AttachmentButton } from '@/components/attachments/attachment-button'
 
+// 보증금 상태는 보유·반환완료 둘만 (2026-10-28 요청: 미반환·상계예정은 보유로 합침)
 const STATUS_LABEL: Record<string, string> = {
   held: '보유',
   returned: '반환완료',
-  offset: '상계예정',
-  unreturned: '미반환',
 }
 const STATUS_TONE: Record<string, string> = {
   held: 'bg-accent text-accent-foreground',
   returned: 'bg-primary/10 text-primary',
-  offset: 'bg-muted text-muted-foreground',
-  unreturned: 'bg-destructive/10 text-destructive',
 }
 
 function useSave() {
@@ -80,27 +77,24 @@ const CONTRACT_STATUS_LABEL: Record<ContractKind, Record<ExclusiveContract['stat
   asset: { active: '보유', ended: '처분' },
 }
 
-/** 상태 칸 필터 — 보유 자산은 보증금 '보유'와 함께 묶는다 */
-const STATUS_FILTERS = ['unreturned', 'held', 'offset', 'active', 'returned', 'ended', 'disposed'] as const
+/** 상태 칸 필터 — 보유·계약중·반환완료·계약종료 (2026-10-28 요청) */
+const STATUS_FILTERS = ['held', 'active', 'returned', 'ended'] as const
 type StatusFilter = (typeof STATUS_FILTERS)[number]
-const FILTER_LABEL: Record<StatusFilter, string> = { ...STATUS_LABEL, active: '계약중', ended: '계약종료', disposed: '처분' } as Record<StatusFilter, string>
-/** 처음엔 지금 가지고 있는 것만 — 반환완료·계약종료·처분을 뺀다 */
-const DEFAULT_FILTER: StatusFilter[] = ['unreturned', 'held', 'offset', 'active']
-const filterOf = (kind: ContractKind, status: ExclusiveContract['status']): StatusFilter =>
-  kind === 'asset' ? (status === 'active' ? 'held' : 'disposed') : status
+const FILTER_LABEL: Record<StatusFilter, string> = { held: '보유', active: '계약중', returned: '반환완료', ended: '계약종료' }
+/** 처음엔 지금 가지고 있는 것만 — 반환완료·계약종료를 뺀다 */
+const DEFAULT_FILTER: StatusFilter[] = ['held', 'active']
 
-/** 구분 칸 필터 (2026-10-27 요청) — 고른 구분에 해당하는 상태만 상태 메뉴에 보인다 */
-const KINDS = ['deposit', 'exclusive', 'asset'] as const
+/** 구분 칸 필터 (2026-10-27 요청) — 고른 구분에 해당하는 상태만 상태 메뉴에 보인다. 보유자산은 2026-10-28 요청으로 뺌 */
+const KINDS = ['deposit', 'exclusive'] as const
 type Kind = (typeof KINDS)[number]
 const STATUSES_OF: Record<Kind, StatusFilter[]> = {
-  deposit: ['unreturned', 'held', 'offset', 'returned'],
+  deposit: ['held', 'returned'],
   exclusive: ['active', 'ended'],
-  asset: ['held', 'disposed'],
 }
 
 type Item =
   | { kind: 'deposit'; status: StatusFilter; row: Deposit }
-  | { kind: ContractKind; status: StatusFilter; row: ExclusiveContract }
+  | { kind: 'exclusive'; status: StatusFilter; row: ExclusiveContract }
 
 export function DepositBoard({
   deposits,
@@ -123,9 +117,7 @@ export function DepositBoard({
 
   const items: Item[] = [
     ...deposits.map((row) => ({ kind: 'deposit' as const, status: row.status as StatusFilter, row })),
-    ...(['exclusive', 'asset'] as const).flatMap((kind) =>
-      contracts.filter((c) => c.kind === kind).map((row) => ({ kind, status: filterOf(kind, row.status), row })),
-    ),
+    ...contracts.filter((c) => c.kind === 'exclusive').map((row) => ({ kind: 'exclusive' as const, status: row.status, row })),
   ]
   const inKinds = items.filter((it) => kinds.includes(it.kind))
   const shown = inKinds.filter((it) => statuses.includes(it.status))
@@ -160,10 +152,6 @@ export function DepositBoard({
               <Plus className="size-3.5" />
               전속계약 추가
             </Button>
-            <Button size="sm" variant="outline" className="gap-1" onClick={() => setContractEditing({ id: null, kind: 'asset', draft: emptyContract })}>
-              <Plus className="size-3.5" />
-              자산 추가
-            </Button>
           </div>
         )}
       </div>
@@ -184,7 +172,7 @@ export function DepositBoard({
                   <DropdownMenuItem onClick={() => setKinds([...KINDS])}>전체 보기</DropdownMenuItem>
                 </HeaderFilter>
               </TableHead>
-              <TableHead>거래처·매체명</TableHead>
+              <TableHead>거래처(매체명)</TableHead>
               <TableHead>내용</TableHead>
               <TableHead>담당자</TableHead>
               <TableHead className="text-right">금액</TableHead>
@@ -212,7 +200,7 @@ export function DepositBoard({
             {shown.length === 0 && (
               <TableRow>
                 <TableCell colSpan={editable ? 12 : 11} className="py-12 text-center text-sm text-muted-foreground">
-                  {items.length ? '고른 상태에 해당하는 건이 없습니다' : '등록된 보증금·계약·자산이 없습니다'}
+                  {items.length ? '고른 상태에 해당하는 건이 없습니다' : '등록된 보증금·계약이 없습니다'}
                 </TableCell>
               </TableRow>
             )}
@@ -279,7 +267,7 @@ export function DepositBoard({
                       pending={pending}
                       onEdit={() => setContractEditing(contractDraftOf(it.row, it.kind))}
                       onDelete={() => {
-                        if (confirm(`'${it.row.mediaName}' ${it.kind === 'asset' ? '자산' : '계약'}을 삭제할까요?`)) run(() => deleteExclusiveContract(it.row.id))
+                        if (confirm(`'${it.row.mediaName}' 계약을 삭제할까요?`)) run(() => deleteExclusiveContract(it.row.id))
                       }}
                     />
                   )}
@@ -295,9 +283,9 @@ export function DepositBoard({
           toggle(s as StatusFilter, true)
           toggleKind('deposit', true)
         }} />
-      <ContractDialog editing={contractEditing} setEditing={setContractEditing} onSaved={(kind, s) => {
-          toggle(filterOf(kind, s), true)
-          toggleKind(kind, true)
+      <ContractDialog editing={contractEditing} setEditing={setContractEditing} onSaved={(_kind, s) => {
+          toggle(s, true)
+          toggleKind('exclusive', true)
         }} />
     </div>
   )

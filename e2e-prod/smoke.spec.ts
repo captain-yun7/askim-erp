@@ -119,7 +119,6 @@ test('보증금 한 표(2026-10-23) — 탭 없이 한 표, 처음엔 반환완�
   await page.getByRole('button', { name: '구분 골라 보기' }).click()
   const kindMenu = page.locator('[data-slot=deposit-kind-filter]')
   await kindMenu.getByRole('menuitemcheckbox', { name: /^보증금/ }).click()
-  await kindMenu.getByRole('menuitemcheckbox', { name: /^보유자산/ }).click()
   await page.keyboard.press('Escape')
   for (const k of await page.locator('tbody tr[data-kind]').evaluateAll((trs) => trs.map((tr) => tr.getAttribute('data-kind')))) expect(k).toBe('exclusive')
   await page.getByRole('button', { name: '상태 골라 보기' }).click()

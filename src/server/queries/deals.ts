@@ -102,16 +102,23 @@ function dateCond(cols: PgColumn[], raw: string | undefined): SQL | undefined {
   return f.kind === 'empty' ? and(...per) : or(...per)
 }
 
-/** 결산예정일 검색 — 날짜가 없으면 목록에 보이는 결산연월(1일 기준)로 비교 */
+/**
+ * 결산연월일 검색 — 목록에 보이는 결산연월일(결산연도·월·일)로만 비교 (2026-10-28: 안 보이는 옛 결산예정일로 걸러 10월 검색에 11월이 나옴).
+ * 일이 있으면 그 날짜, 없으면 그 달이 검색 범위와 겹치면 나온다.
+ */
 function purchaseDueCond(raw: string | undefined): SQL | undefined {
   const f = parseDateFilter(raw)
   if (!f) return undefined
+  const hasYm = sql`(${deal.settlementYear} is not null and ${deal.settlementMonth} between 1 and 12)`
+  if (f.kind === 'empty') return sql`(not ${hasYm})`
+  if (f.kind === 'nonempty') return hasYm
   const ym = sql`make_date(${deal.settlementYear}, ${deal.settlementMonth}, 1)`
-  const hasYm = sql`${deal.settlementYear} is not null and ${deal.settlementMonth} between 1 and 12`
-  if (f.kind === 'empty') return sql`(${deal.purchaseDueDate} is null and not (${hasYm}))`
+  const day = sql`(${ym} + (${deal.settlementDay} - 1) * interval '1 day')::date`
   // or 가 들어가는 식은 전체를 괄호로 묶는다 — 안 묶으면 다른 필터와 and 로 이어질 때 앞 조건이 전부 무시된다 (2026-09-29)
-  if (f.kind === 'nonempty') return sql`(${deal.purchaseDueDate} is not null or (${hasYm}))`
-  return sql`((${deal.purchaseDueDate} >= ${f.from}::date and ${deal.purchaseDueDate} < ${f.toExclusive}::date) or (${deal.purchaseDueDate} is null and ${hasYm} and ${ym} >= date_trunc('month', ${f.from}::date) and ${ym} < ${f.toExclusive}::date))`
+  return sql`(${hasYm} and (
+    (${deal.settlementDay} is not null and ${day} >= ${f.from}::date and ${day} < ${f.toExclusive}::date)
+    or (${deal.settlementDay} is null and ${ym} >= date_trunc('month', ${f.from}::date) and ${ym} < ${f.toExclusive}::date)
+  ))`
 }
 
 /** 정렬 기준 → orderBy 목록. 같은 값끼리는 작성순(최신 위) */
