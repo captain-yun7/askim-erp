@@ -50,7 +50,8 @@ export default async function CounterpartiesPage({
         </div>
       </div>
 
-      <section className="mt-5 overflow-hidden rounded-2xl border bg-card">
+      {/* overflow-hidden 이면 선택 줄이 화면에 붙지 않는다(sticky) — clip 은 모서리만 자르고 붙음은 살린다 (2026-10-28) */}
+      <section className="mt-5 overflow-clip rounded-2xl border bg-card">
         <div className="border-b p-4">
           <RememberList path="/counterparties" />
           <CounterpartiesFilters initial={{ q, role, noBiz: Boolean(noBiz), ctype }} />

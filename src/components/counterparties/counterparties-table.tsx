@@ -89,7 +89,7 @@ export function CounterpartiesTable({ rows, showBank, canDelete, canEdit = false
   return (
     <>
       {selectable && visible.length > 0 && (
-        <div data-slot="bulk-bar" className="flex items-center gap-3 border-b bg-muted/50 px-4 py-2 text-[12.5px]">
+        <div data-slot="bulk-bar" className="sticky top-0 z-30 flex items-center gap-3 border-b bg-muted px-4 py-2 text-[12.5px] shadow-sm">
           <span>
             <b>{visible.length}</b>건 선택
           </span>
