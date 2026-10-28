@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { ChevronDown, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -96,6 +96,12 @@ type Item =
   | { kind: 'deposit'; status: StatusFilter; row: Deposit }
   | { kind: 'exclusive'; status: StatusFilter; row: ExclusiveContract }
 
+/** 거래처 이름순 (2026-10-28 요청) — 제목을 누를 때마다 가나다순 → 역순 → 원래 순서 */
+type NameSort = 'none' | 'asc' | 'desc'
+const NEXT_SORT: Record<NameSort, NameSort> = { none: 'asc', asc: 'desc', desc: 'none' }
+const nameCollator = new Intl.Collator('ko', { numeric: true })
+const nameOf = (it: Item) => (it.kind === 'deposit' ? it.row.counterpartyName : it.row.mediaName) ?? ''
+
 export function DepositBoard({
   deposits,
   contracts,
@@ -114,13 +120,15 @@ export function DepositBoard({
   const [contractEditing, setContractEditing] = useState<ContractEditing>(null)
   const [statuses, setStatuses] = useState<StatusFilter[]>(DEFAULT_FILTER)
   const [kinds, setKinds] = useState<Kind[]>([...KINDS])
+  const [nameSort, setNameSort] = useState<NameSort>('none')
 
   const items: Item[] = [
     ...deposits.map((row) => ({ kind: 'deposit' as const, status: row.status as StatusFilter, row })),
     ...contracts.filter((c) => c.kind === 'exclusive').map((row) => ({ kind: 'exclusive' as const, status: row.status, row })),
   ]
   const inKinds = items.filter((it) => kinds.includes(it.kind))
-  const shown = inKinds.filter((it) => statuses.includes(it.status))
+  const filtered = inKinds.filter((it) => statuses.includes(it.status))
+  const shown = nameSort === 'none' ? filtered : [...filtered].sort((a, b) => nameCollator.compare(nameOf(a), nameOf(b)) * (nameSort === 'asc' ? 1 : -1))
   const statusOptions = STATUS_FILTERS.filter((s) => kinds.some((k) => STATUSES_OF[k].includes(s)))
   const picked = statusOptions.filter((s) => statuses.includes(s))
   const countOf = (s: StatusFilter) => inKinds.filter((it) => it.status === s).length
@@ -172,7 +180,18 @@ export function DepositBoard({
                   <DropdownMenuItem onClick={() => setKinds([...KINDS])}>전체 보기</DropdownMenuItem>
                 </HeaderFilter>
               </TableHead>
-              <TableHead>거래처(매체명)</TableHead>
+              <TableHead aria-sort={nameSort === 'asc' ? 'ascending' : nameSort === 'desc' ? 'descending' : undefined}>
+                <button
+                  type="button"
+                  data-slot="deposit-name-sort"
+                  title="눌러서 거래처 이름순 정렬"
+                  className={cn('-mx-1 inline-flex items-center gap-0.5 rounded px-1 hover:bg-accent/60', nameSort !== 'none' && 'text-foreground')}
+                  onClick={() => setNameSort((p) => NEXT_SORT[p])}
+                >
+                  거래처(매체명)
+                  {nameSort === 'asc' ? <ArrowUp className="size-3.5" /> : nameSort === 'desc' ? <ArrowDown className="size-3.5" /> : <ArrowUpDown className="size-3.5 opacity-50" />}
+                </button>
+              </TableHead>
               <TableHead>내용</TableHead>
               <TableHead>담당자</TableHead>
               <TableHead className="text-right">금액</TableHead>
