@@ -134,3 +134,28 @@ test('거래 금액 칸 합계(2026-10-23) — Ctrl+클릭한 두 칸의 합계�
   await expect(bar).toContainText('개수: 2')
   await expect(bar.locator('[data-slot=cell-sum-total]')).toHaveText((nums[0] + nums[1]).toLocaleString('ko-KR'))
 })
+
+test('결산연월일 검색(2026-10-28) — 202610 으로 찾으면 화면 결산연월일이 모두 2026-10 (읽기만)', async ({ page }) => {
+  await openDeals(page, '?year=all&fPurchaseDue=202610')
+  const values = await page.locator('[data-slot=deals-scroll] table').evaluate((table) => {
+    const heads = [...table.querySelectorAll('thead tr:first-child th')]
+    const i = heads.findIndex((th) => th.textContent?.startsWith('결산연월일'))
+    return [...table.querySelectorAll('tbody tr[data-row-id]')].map((tr) => (tr.children[i]?.querySelector('div > div')?.textContent ?? '').trim())
+  })
+  expect(values.length).toBeGreaterThan(0)
+  for (const v of values) expect(v).toMatch(/^2026-10/)
+})
+
+test('보증금 상태 넷·보유자산 없음·칸 제목(2026-10-28), 담당자 이름 김도형 (읽기만)', async ({ page }) => {
+  await page.goto('/deposits')
+  await expect(page.getByRole('columnheader', { name: '거래처(매체명)' })).toBeVisible()
+  await expect(page.locator('tbody tr[data-kind=asset]')).toHaveCount(0)
+  await page.getByRole('button', { name: '상태 골라 보기' }).click()
+  const names = (await page.locator('[data-slot=deposit-status-filter]').getByRole('menuitemcheckbox').allInnerTexts()).map((t) => t.replace(/\d+/g, '').trim())
+  expect(names).toEqual(['보유', '계약중', '반환완료', '계약종료'])
+  await page.keyboard.press('Escape')
+  await openDeals(page)
+  await page.getByRole('button', { name: /담당자/ }).first().click()
+  await expect(page.getByText('김도형', { exact: true }).first()).toBeVisible()
+  await expect(page.getByText('김도형(AH)')).toHaveCount(0)
+})
