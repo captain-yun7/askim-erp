@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { and, eq, inArray, isNull } from 'drizzle-orm'
+import { and, eq, inArray, isNull, ne } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '@/lib/db/client'
 import { getCurrentEntity } from '@/server/entity'
@@ -66,6 +66,21 @@ function emptyToNull<T extends Record<string, unknown>>(obj: T): T {
   return out as T
 }
 
+/**
+ * 사업자번호는 법인 안에서 하나 (삭제한 거래처 포함). 겹치면 저장 전에 어느 거래처와 겹치는지 알려 준다
+ * (2026-10-28: 겹친 채 저장해 'This page couldn't load' 오류 화면이 뜸)
+ */
+async function businessNoTaken(entity: string, businessNo: string | null | undefined, exceptId?: string): Promise<string | null> {
+  if (!businessNo) return null
+  const [dup] = await db
+    .select({ name: counterparty.name, deletedAt: counterparty.deletedAt })
+    .from(counterparty)
+    .where(and(eq(counterparty.entity, entity), eq(counterparty.businessNo, businessNo), exceptId ? ne(counterparty.id, exceptId) : undefined))
+    .limit(1)
+  if (!dup) return null
+  return `사업자번호 ${businessNo} 는 이미 '${dup.name}'${dup.deletedAt ? '(삭제된 거래처)' : ''}에 등록되어 있습니다. 같은 회사면 그 거래처를 쓰거나, 번호가 잘못 들어간 쪽을 고쳐 주세요`
+}
+
 export async function createCounterparty(raw: unknown) {
   const user = await getSessionUser()
   if (!user) return { error: '로그인 필요' }
@@ -76,9 +91,12 @@ export async function createCounterparty(raw: unknown) {
     return { error: parsed.error.issues[0]?.message ?? '검증 실패' }
   }
   const data = emptyToNull(parsed.data)
+  const entity = await getCurrentEntity()
+  const taken = await businessNoTaken(entity, data.businessNo)
+  if (taken) return { error: taken }
   const [row] = await db
     .insert(counterparty)
-    .values({ ...data, entity: await getCurrentEntity(), createdBy: user.id })
+    .values({ ...data, entity, createdBy: user.id })
     .returning({ id: counterparty.id, name: counterparty.name })
   await audit({ action: 'counterparty.create', targetType: 'counterparty', targetId: row.id, targetLabel: row.name, summary: `거래처 등록 ${row.name}` })
   revalidatePath('/counterparties')
@@ -118,6 +136,8 @@ export async function updateCounterparty(id: string, raw: unknown) {
     }
   }
 
+  const taken = await businessNoTaken(existing.entity, data.businessNo, id)
+  if (taken) return { error: taken }
   await db.update(counterparty).set(data).where(eq(counterparty.id, id))
   const changed = diffFields(existing as Record<string, unknown>, data as Record<string, unknown>)
   await audit({ action: 'counterparty.update', targetType: 'counterparty', targetId: id, targetLabel: existing.name, summary: `거래처 수정 ${existing.name} (${Object.keys(changed).length}개 항목)`, detail: changed })
