@@ -190,6 +190,13 @@
       "when": 1793083257708,
       "tag": "0026_contract_status",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1793194967089,
+      "tag": "0027_bizno_live_only",
+      "breakpoints": true
     }
   ]
 }
