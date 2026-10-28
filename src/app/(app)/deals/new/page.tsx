@@ -10,7 +10,8 @@ import { requireWriter } from '@/server/auth/require-backoffice'
 
 /**
  * 새 거래 등록. `?copy=<거래 id>` 면 그 거래 내용을 채운 채로 연다 (2026-09-16 피드백: 거래 복사).
- * 거래코드는 비워 두고(직접 입력), 날짜·입금/결산 상태는 복사하지 않는다.
+ * 거래코드는 비워 두고(직접 입력), 입금·결산 상태와 광고 기간·지급일 등 나머지 날짜는 복사하지 않는다.
+ * 입금예정일·입금일·매출 세계발행일·결산연월일은 복사한다 (2026-10-28 요청).
  */
 export default async function NewDealPage({ searchParams }: { searchParams: Promise<{ copy?: string }> }) {
   await requireWriter('/deals')
@@ -42,6 +43,12 @@ export default async function NewDealPage({ searchParams }: { searchParams: Prom
         salesVat: source.salesVat,
         salesAmountGross: source.salesAmountGross,
         salesMemo: source.salesMemo,
+        salesDueDate: source.salesDueDate,
+        salesPaidDate: source.salesPaidDate,
+        salesInvoiceDate: source.salesInvoiceDate,
+        settlementYear: source.settlementYear,
+        settlementMonth: source.settlementMonth,
+        settlementDay: source.settlementDay,
         supplierCounterpartyId: source.supplierCounterpartyId,
         purchasePricingRaw: source.purchasePricingRaw,
         purchaseAmountNet: source.purchaseAmountNet,
@@ -70,7 +77,7 @@ export default async function NewDealPage({ searchParams }: { searchParams: Prom
         <div data-slot="copy-banner" className="mx-8 mt-4 flex items-center gap-2 rounded-md bg-info px-3 py-2 text-xs text-info-foreground">
           <Copy className="size-3.5" />
           <span>
-            <b className="font-medium">{source.dealCode}</b> 복사본입니다. 새 거래코드를 입력해 저장하세요 — 날짜와 입금·결산 상태는 복사되지 않았으니 확인 후 입력하세요.
+            <b className="font-medium">{source.dealCode}</b> 복사본입니다. 새 거래코드를 입력해 저장하세요 — 입금예정일·입금일·매출 세계발행일·결산연월일은 복사했고, 광고 기간·지급일·매입 세계발행일과 입금·결산 상태는 비어 있으니 확인 후 입력하세요.
           </span>
         </div>
       )}
