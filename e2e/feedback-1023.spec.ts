@@ -50,7 +50,7 @@ test.describe('보증금 한 표', () => {
     await expect(rows).toHaveCount(before + counts.returned)
 
     // 보유만 남기기
-    for (const label of ['미반환', '상계예정', '계약중', '반환완료', '계약종료', '처분']) await menu.getByRole('menuitemcheckbox', { name: new RegExp(`^${label}`) }).click()
+    for (const label of ['계약중', '반환완료', '계약종료']) await menu.getByRole('menuitemcheckbox', { name: new RegExp(`^${label}`) }).click()
     await expect(rows).toHaveCount(counts.held)
     for (const s of await statuses()) expect(s).toBe('보유')
 
@@ -61,10 +61,10 @@ test.describe('보증금 한 표', () => {
     await expect(rows).toHaveCount(before)
   })
 
-  test('추가 버튼 셋 — 전속계약·자산 추가 창이 각각 열린다 (저장 안 함)', async ({ page }) => {
+  test('추가 버튼 둘 — 보증금·전속계약 추가 창이 열리고, 자산 추가는 없다 (저장 안 함)', async ({ page }) => {
     await login(page)
     await page.goto('/deposits')
-    for (const [btn, title, name] of [['전속계약 추가', '전속계약 추가', '매체명'], ['자산 추가', '자산 추가', '자산명'], ['보증금 추가', '보증금 추가', '거래처명']] as const) {
+    for (const [btn, title, name] of [['전속계약 추가', '전속계약 추가', '매체명'], ['보증금 추가', '보증금 추가', '거래처명']] as const) {
       await page.getByRole('button', { name: btn }).click()
       const dlg = page.getByRole('dialog')
       await expect(dlg.getByRole('heading', { name: title })).toBeVisible()
@@ -72,6 +72,9 @@ test.describe('보증금 한 표', () => {
       await dlg.getByRole('button', { name: '취소' }).click()
       await expect(dlg).toBeHidden()
     }
+    // 2026-10-28: 보유자산 구분 삭제, 칸 제목 거래처(매체명)
+    await expect(page.getByRole('button', { name: '자산 추가' })).toHaveCount(0)
+    await expect(page.getByRole('columnheader', { name: '거래처(매체명)' })).toBeVisible()
   })
 })
 
@@ -141,13 +144,13 @@ test('구분 제목을 눌러 골라 보고, 상태 메뉴엔 그 구분의 상�
     await expect(statusMenu).toBeHidden()
     return names
   }
-  expect(await options()).toEqual(['미반환', '보유', '상계예정', '계약중', '반환완료', '계약종료', '처분'])
+  expect(await options()).toEqual(['보유', '계약중', '반환완료', '계약종료'])
 
   // 전속계약만
   await page.getByRole('button', { name: '구분 골라 보기' }).click()
   const exclusiveCount = Number((await kindMenu.getByRole('menuitemcheckbox', { name: /^전속계약/ }).innerText()).replace(/\D/g, ''))
   await kindMenu.getByRole('menuitemcheckbox', { name: /^보증금/ }).click()
-  await kindMenu.getByRole('menuitemcheckbox', { name: /^보유자산/ }).click()
+  await expect(kindMenu.getByRole('menuitemcheckbox')).toHaveCount(2)
   await page.keyboard.press('Escape')
   await expect(rows).toHaveCount(exclusiveCount)
   expect(new Set(await rows.evaluateAll((trs) => trs.map((tr) => tr.getAttribute('data-kind'))))).toEqual(new Set(['exclusive']))
@@ -159,21 +162,12 @@ test('구분 제목을 눌러 골라 보고, 상태 메뉴엔 그 구분의 상�
   await kindMenu.getByRole('menuitemcheckbox', { name: /^보증금/ }).click()
   await kindMenu.getByRole('menuitemcheckbox', { name: /^전속계약/ }).click()
   await page.keyboard.press('Escape')
-  expect(await options()).toEqual(['미반환', '보유', '상계예정', '반환완료'])
+  expect(await options()).toEqual(['보유', '반환완료'])
   for (const k of await rows.evaluateAll((trs) => trs.map((tr) => tr.getAttribute('data-kind')))) expect(k).toBe('deposit')
 
   await page.getByRole('button', { name: '구분 골라 보기' }).click()
   await kindMenu.getByRole('menuitem', { name: '전체 보기' }).click()
   expect(await page.locator('tbody tr[data-kind=exclusive]').count()).toBeGreaterThan(0)
-})
-
-test('자산 추가 창 상태는 보유/처분', async ({ page }) => {
-  await login(page)
-  await page.goto('/deposits')
-  await page.getByRole('button', { name: '자산 추가' }).click()
-  const dlg = page.getByRole('dialog')
-  await expect(dlg.getByLabel('상태').locator('option')).toHaveText(['보유', '처분'])
-  await dlg.getByRole('button', { name: '취소' }).click()
 })
 
 test.describe('거래 금액 칸 합계', () => {
