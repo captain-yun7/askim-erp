@@ -27,7 +27,7 @@ const depositSchema = z.object({
   amount: z.coerce.number().finite().min(0),
   paidDate: dateStr,
   returnedDate: dateStr,
-  status: z.enum(['held', 'returned', 'offset', 'unreturned']),
+  status: z.enum(['held', 'returned']),
   memo: z.string().trim().optional().nullable(),
 })
 

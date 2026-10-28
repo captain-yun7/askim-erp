@@ -7,10 +7,10 @@ import { formatKRW } from '@/lib/format'
 
 export default async function DepositsPage() {
   const user = await getSessionUser()
-  const [deposits, contracts, assets] = await Promise.all([listDeposits(user), listExclusiveContracts(user), listExclusiveContracts(user, 'asset')])
+  const [deposits, contracts] = await Promise.all([listDeposits(user), listExclusiveContracts(user)])
   const [depositAtt, contractAtt] = await Promise.all([
     getAttachmentCounts('deposit', deposits.rows.map((r) => String(r.id))),
-    getAttachmentCounts('contract', [...contracts, ...assets].map((r) => String(r.id))),
+    getAttachmentCounts('contract', contracts.map((r) => String(r.id))),
   ])
   const editable = user != null && user.role !== 'viewer'
   const scope = user ? await resolveDealScope(user) : null
@@ -49,7 +49,7 @@ export default async function DepositsPage() {
       <section className="mt-5 overflow-hidden rounded-xl border bg-card">
         <DepositBoard
           deposits={deposits.rows}
-          contracts={[...contracts, ...assets]}
+          contracts={contracts}
           editable={editable}
           depositAttachments={depositAtt}
           contractAttachments={contractAtt}
