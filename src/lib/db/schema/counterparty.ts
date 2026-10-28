@@ -46,9 +46,10 @@ export const counterparty = pgTable(
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
   },
   (t) => [
+    // 삭제된 거래처는 번호를 잡고 있지 않는다 (2026-10-28: 중복 정리 후 삭제했는데 등록이 막힘)
     uniqueIndex('counterparty_business_no_uq')
       .on(t.entity, t.businessNo)
-      .where(sql`${t.businessNo} IS NOT NULL`),
+      .where(sql`${t.businessNo} IS NOT NULL AND ${t.deletedAt} IS NULL`),
   ],
 )
 

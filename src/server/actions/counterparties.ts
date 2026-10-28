@@ -73,12 +73,12 @@ function emptyToNull<T extends Record<string, unknown>>(obj: T): T {
 async function businessNoTaken(entity: string, businessNo: string | null | undefined, exceptId?: string): Promise<string | null> {
   if (!businessNo) return null
   const [dup] = await db
-    .select({ name: counterparty.name, deletedAt: counterparty.deletedAt })
+    .select({ name: counterparty.name })
     .from(counterparty)
-    .where(and(eq(counterparty.entity, entity), eq(counterparty.businessNo, businessNo), exceptId ? ne(counterparty.id, exceptId) : undefined))
+    .where(and(eq(counterparty.entity, entity), eq(counterparty.businessNo, businessNo), isNull(counterparty.deletedAt), exceptId ? ne(counterparty.id, exceptId) : undefined))
     .limit(1)
   if (!dup) return null
-  return `사업자번호 ${businessNo} 는 이미 '${dup.name}'${dup.deletedAt ? '(삭제된 거래처)' : ''}에 등록되어 있습니다. 같은 회사면 그 거래처를 쓰거나, 번호가 잘못 들어간 쪽을 고쳐 주세요`
+  return `사업자번호 ${businessNo} 는 이미 '${dup.name}'에 등록되어 있습니다. 같은 회사면 그 거래처를 쓰거나, 번호가 잘못 들어간 쪽을 고쳐 주세요`
 }
 
 export async function createCounterparty(raw: unknown) {

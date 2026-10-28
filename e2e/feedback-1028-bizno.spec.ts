@@ -57,3 +57,21 @@ test('거래처 등록 — 같은 사업자번호면 알려 주고 만들지 않
   await expect(page.getByText(`이미 'E2E거래처0916-A'에 등록되어 있습니다`, { exact: false })).toBeVisible()
   expect(JSON.parse(sqlRun(`select count(*)::int n from counterparty where name='E2E거래처1028중복'`))[0].n).toBe(0)
 })
+
+test('같은 번호의 거래처를 삭제하면 — 그 번호로 다른 거래처를 저장할 수 있다 (위버케어·메디블록 사례)', async ({ page }) => {
+  await login(page)
+  sqlRun(`update counterparty set business_no='${NO}', deleted_at=null, is_active=true where name='E2E거래처0916-A'`)
+  const [a] = JSON.parse(sqlRun(`select id from counterparty where name='E2E거래처0916-A'`))
+  const [b] = JSON.parse(sqlRun(`select id from counterparty where name='E2E거래처0916-B'`))
+  // 화면에서 A 삭제
+  await page.goto(`/counterparties/${a.id}`)
+  page.once('dialog', (d) => d.accept())
+  await page.getByRole('button', { name: '거래처 삭제' }).first().click()
+  await page.waitForURL((u) => u.pathname === '/counterparties')
+  // B 에 같은 번호 넣고 저장
+  await page.goto(`/counterparties/${b.id}`)
+  await bizInput(page).fill(NO)
+  await page.getByRole('button', { name: '저장' }).click()
+  await expect(page.getByText('저장되었습니다')).toBeVisible()
+  expect(JSON.parse(sqlRun(`select business_no from counterparty where id='${b.id}'`))[0].business_no).toBe(NO)
+})

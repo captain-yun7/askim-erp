@@ -1,0 +1,2 @@
+DROP INDEX "counterparty_business_no_uq";--> statement-breakpoint
+CREATE UNIQUE INDEX "counterparty_business_no_uq" ON "counterparty" USING btree ("entity","business_no") WHERE "counterparty"."business_no" IS NOT NULL AND "counterparty"."deleted_at" IS NULL;
