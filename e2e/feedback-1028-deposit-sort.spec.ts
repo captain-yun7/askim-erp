@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 
-/** 2026-10-28 요청 — 보증금·전속계약 거래처 이름 오름차순으로 보기 */
+/** 2026-10-28·29 요청 — 보증금·전속계약: 전속계약 먼저, 그 다음 보증금, 각각 거래처 가나다순 */
 const ADMIN = { email: 'admin@askim.local', password: 'askim2026!' }
 
 async function login(page: Page) {
@@ -13,43 +13,41 @@ async function login(page: Page) {
 }
 
 const ko = new Intl.Collator('ko', { numeric: true })
+type Row = { kind: string; name: string }
+const readRows = (page: Page) =>
+  page.locator('tbody tr[data-kind]').evaluateAll((els) =>
+    els.map((e) => ({ kind: e.getAttribute('data-kind')!, name: (e.querySelectorAll('td')[2] as HTMLElement).innerText.trim() })),
+  )
+const expected = (rows: Row[], dir: 1 | -1) => [
+  ...rows.filter((r) => r.kind === 'exclusive').map((r) => r.name).sort((a, b) => ko.compare(a, b) * dir),
+  ...rows.filter((r) => r.kind === 'deposit').map((r) => r.name).sort((a, b) => ko.compare(a, b) * dir),
+]
 
-test('거래처(매체명) 제목을 누르면 가나다순 → 역순 → 원래 순서', async ({ page }) => {
+test('처음부터 전속계약 가나다순 → 보증금 가나다순, 제목을 누르면 각각 역순', async ({ page }) => {
   await login(page)
   await page.goto('/deposits')
-  const rows = page.locator('tbody tr[data-kind]')
-  await expect(rows.first()).toBeVisible()
-  const names = async () => (await rows.locator('td:nth-child(3)').allInnerTexts()).map((t) => t.trim())
-  const original = await names()
-  expect(original.length).toBeGreaterThan(3)
-  const asc = [...original].sort(ko.compare)
-  expect(original).not.toEqual(asc) // 원래 순서는 가나다순이 아니어야 검증이 의미 있다
+  await expect(page.locator('tbody tr[data-kind]').first()).toBeVisible()
+  const rows = await readRows(page)
+  expect(new Set(rows.map((r) => r.kind)).size).toBe(2)
+  // 전속계약이 모두 보증금보다 앞
+  const kinds = rows.map((r) => r.kind)
+  expect(kinds.lastIndexOf('exclusive')).toBeLessThan(kinds.indexOf('deposit'))
+  expect(rows.map((r) => r.name)).toEqual(expected(rows, 1))
+  expect((await page.locator('tbody tr[data-kind]').first().locator('td').first().innerText()).trim()).toBe('1')
 
-  const sortBtn = page.locator('[data-slot=deposit-name-sort]')
-  await sortBtn.click()
-  await expect.poll(names).toEqual(asc)
-  // 보증금·전속계약이 섞여서 정렬된다
-  const kinds = await rows.evaluateAll((els) => els.map((e) => e.getAttribute('data-kind')))
-  expect(new Set(kinds).size).toBe(2)
-  // No. 는 1부터 다시
-  expect((await rows.first().locator('td').first().innerText()).trim()).toBe('1')
-
-  await sortBtn.click()
-  await expect.poll(names).toEqual([...asc].reverse())
-
-  await sortBtn.click()
-  await expect.poll(names).toEqual(original)
+  const btn = page.locator('[data-slot=deposit-name-sort]')
+  await btn.click()
+  await expect.poll(async () => (await readRows(page)).map((r) => r.name)).toEqual(expected(rows, -1))
+  await btn.click()
+  await expect.poll(async () => (await readRows(page)).map((r) => r.name)).toEqual(expected(rows, 1))
 })
 
-test('정렬한 채로 상태를 바꿔도 가나다순이 유지된다', async ({ page }) => {
+test('상태를 바꿔도 같은 순서가 유지된다', async ({ page }) => {
   await login(page)
   await page.goto('/deposits')
-  const rows = page.locator('tbody tr[data-kind]')
-  await expect(rows.first()).toBeVisible()
-  await page.locator('[data-slot=deposit-name-sort]').click()
+  await expect(page.locator('tbody tr[data-kind]').first()).toBeVisible()
   await page.getByRole('button', { name: '상태 골라 보기' }).click()
-  const menu = page.locator('[data-slot=deposit-status-filter]')
-  await menu.getByRole('menuitem', { name: '전체 보기' }).click()
-  const names = (await rows.locator('td:nth-child(3)').allInnerTexts()).map((t) => t.trim())
-  expect(names).toEqual([...names].sort(ko.compare))
+  await page.locator('[data-slot=deposit-status-filter]').getByRole('menuitem', { name: '전체 보기' }).click()
+  const rows = await readRows(page)
+  expect(rows.map((r) => r.name)).toEqual(expected(rows, 1))
 })
