@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { ArrowDown, ArrowUp, ChevronDown, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -121,6 +121,9 @@ export function DepositBoard({
   const [statuses, setStatuses] = useState<StatusFilter[]>(DEFAULT_FILTER)
   const [kinds, setKinds] = useState<Kind[]>([...KINDS])
   const [nameSort, setNameSort] = useState<NameSort>('asc')
+  // 하이드레이션이 끝나 제목 메뉴·정렬을 누를 수 있게 됐다는 표시 (e2e 가 기다린다)
+  const [ready, setReady] = useState(false)
+  useEffect(() => setReady(true), [])
 
   const items: Item[] = [
     ...deposits.map((row) => ({ kind: 'deposit' as const, status: row.status as StatusFilter, row })),
@@ -145,7 +148,7 @@ export function DepositBoard({
   const statusNote = isAll ? '' : isDefault ? '지금 보유·계약중' : picked.map((s) => FILTER_LABEL[s]).join(' · ') || '선택한 상태 없음'
 
   return (
-    <div>
+    <div data-deposit-ready={ready || undefined}>
       <div className="flex items-center justify-between gap-3 px-4 pt-3">
         <span className="text-[12.5px] text-muted-foreground" data-slot="deposit-filter-note">
           {[allKinds ? '' : kinds.map((k) => KIND_LABEL[k]).join(' · ') || '선택한 구분 없음', statusNote].filter(Boolean).join(' / ') || '전체'}
