@@ -25,6 +25,7 @@ test.describe('보증금 한 표', () => {
   test('탭 없이 한 표, 처음엔 반환완료 빼고, 상태 칸 머리로 골라 본다', async ({ page }) => {
     await login(page)
     await page.goto('/deposits')
+    await page.locator('[data-deposit-ready]').waitFor({ timeout: 30_000 })
     await expect(page.getByRole('tablist')).toHaveCount(0)
     const rows = page.locator('tbody tr[data-kind]')
     await expect(rows.first()).toBeVisible()
@@ -64,6 +65,7 @@ test.describe('보증금 한 표', () => {
   test('추가 버튼 둘 — 보증금·전속계약 추가 창이 열리고, 자산 추가는 없다 (저장 안 함)', async ({ page }) => {
     await login(page)
     await page.goto('/deposits')
+    await page.locator('[data-deposit-ready]').waitFor({ timeout: 30_000 })
     for (const [btn, title, name] of [['전속계약 추가', '전속계약 추가', '매체명'], ['보증금 추가', '보증금 추가', '거래처명']] as const) {
       await page.getByRole('button', { name: btn }).click()
       const dlg = page.getByRole('dialog')
@@ -81,6 +83,7 @@ test.describe('보증금 한 표', () => {
 test('반환완료로 저장해도 목록에서 사라지지 않는다', async ({ page }) => {
   await login(page)
   await page.goto('/deposits')
+  await page.locator('[data-deposit-ready]').waitFor({ timeout: 30_000 })
   await page.getByRole('button', { name: '보증금 추가' }).click()
   const dlg = page.getByRole('dialog')
   await dlg.locator('input').first().fill('E2E거래처1023반환')
@@ -99,6 +102,7 @@ test('전속계약도 상태가 있다 — 계약종료로 저장하면 보이�
   // 2026-10-27 요청: 계약·자산 상태가 비어 있던 것
   await login(page)
   await page.goto('/deposits')
+  await page.locator('[data-deposit-ready]').waitFor({ timeout: 30_000 })
   const menu = page.locator('[data-slot=deposit-status-filter]')
   const statusOf = (name: string) => page.locator('tbody tr', { hasText: name }).locator('td[data-col=status]')
   // 기존 계약은 계약중
@@ -133,6 +137,7 @@ test('구분 제목을 눌러 골라 보고, 상태 메뉴엔 그 구분의 상�
   // 2026-10-27 요청: 상태 메뉴가 복잡하다, 구분으로도 나눠 보기
   await login(page)
   await page.goto('/deposits')
+  await page.locator('[data-deposit-ready]').waitFor({ timeout: 30_000 })
   const rows = page.locator('tbody tr[data-kind]')
   const kindMenu = page.locator('[data-slot=deposit-kind-filter]')
   const statusMenu = page.locator('[data-slot=deposit-status-filter]')

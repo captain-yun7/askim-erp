@@ -108,6 +108,7 @@ test('판관비 금액 검색(2026-10-27) — 첫 행 금액으로 찾으면 같
 
 test('보증금 한 표(2026-10-23) — 탭 없이 한 표, 처음엔 반환완료 없음', async ({ page }) => {
   await page.goto('/deposits')
+  await page.locator('[data-deposit-ready]').waitFor({ timeout: 30_000 })
   await expect(page.getByRole('tablist')).toHaveCount(0)
   await expect(page.locator('tbody tr[data-kind]').first()).toBeVisible()
   const statuses = (await page.locator('tbody tr[data-kind] td[data-col=status]').allInnerTexts()).map((t) => t.trim())
@@ -148,6 +149,7 @@ test('결산연월일 검색(2026-10-28) — 202610 으로 찾으면 화면 결�
 
 test('보증금 상태 넷·보유자산 없음·칸 제목(2026-10-28), 담당자 이름 김도형 (읽기만)', async ({ page }) => {
   await page.goto('/deposits')
+  await page.locator('[data-deposit-ready]').waitFor({ timeout: 30_000 })
   await expect(page.getByRole('columnheader', { name: '거래처(매체명)' })).toBeVisible()
   await expect(page.locator('tbody tr[data-kind=asset]')).toHaveCount(0)
   await page.getByRole('button', { name: '상태 골라 보기' }).click()
@@ -160,16 +162,16 @@ test('보증금 상태 넷·보유자산 없음·칸 제목(2026-10-28), 담당�
   await expect(page.getByText('김도형(AH)')).toHaveCount(0)
 })
 
-test('보증금 거래처 이름순(2026-10-29) — 제목을 누르면 가나다순, 다시 누르면 역순 (읽기만)', async ({ page }) => {
+test('보증금 순서(2026-10-29) — 전속계약 가나다순 다음 보증금 가나다순, 제목 누르면 역순 (읽기만)', async ({ page }) => {
   await page.goto('/deposits')
-  const rows = page.locator('tbody tr[data-kind]')
-  await expect(rows.first()).toBeVisible()
-  const names = async () => (await rows.locator('td:nth-child(3)').allInnerTexts()).map((t) => t.trim())
+  await page.locator('[data-deposit-ready]').waitFor({ timeout: 30_000 })
+  const tr = page.locator('tbody tr[data-kind]')
+  await expect(tr.first()).toBeVisible()
+  const read = () => tr.evaluateAll((els) => els.map((e) => ({ kind: e.getAttribute('data-kind')!, name: (e.querySelectorAll('td')[2] as HTMLElement).innerText.trim() })))
   const ko = new Intl.Collator('ko', { numeric: true })
-  const asc = [...(await names())].sort(ko.compare)
-  const btn = page.locator('[data-slot=deposit-name-sort]')
-  await btn.click()
-  await expect.poll(names).toEqual(asc)
-  await btn.click()
-  await expect.poll(names).toEqual([...asc].reverse())
+  const rows = await read()
+  const exp = (dir: number) => ['exclusive', 'deposit'].flatMap((k) => rows.filter((r) => r.kind === k).map((r) => r.name).sort((a, b) => ko.compare(a, b) * dir))
+  expect(rows.map((r) => r.name)).toEqual(exp(1))
+  await page.locator('[data-slot=deposit-name-sort]').click()
+  await expect.poll(async () => (await read()).map((r) => r.name)).toEqual(exp(-1))
 })

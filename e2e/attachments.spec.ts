@@ -22,6 +22,7 @@ test.afterAll(() => {
 test('보증금 행에 PDF 첨부 → 새 탭 보기(inline) → 다운로드 → 삭제', async ({ page, context }) => {
   await login(page)
   await page.goto('/deposits')
+  await page.locator('[data-deposit-ready]').waitFor({ timeout: 30_000 })
   await page.getByRole('button', { name: '보증금 추가' }).click()
   const dialog = page.getByRole('dialog')
   await dialog.locator('input').first().fill('E2E거래처첨부')
