@@ -26,6 +26,7 @@ const expected = (rows: Row[], dir: 1 | -1) => [
 test('처음부터 전속계약 가나다순 → 보증금 가나다순, 제목을 누르면 각각 역순', async ({ page }) => {
   await login(page)
   await page.goto('/deposits')
+  await page.locator('[data-deposit-ready]').waitFor({ timeout: 30_000 })
   await expect(page.locator('tbody tr[data-kind]').first()).toBeVisible()
   const rows = await readRows(page)
   expect(new Set(rows.map((r) => r.kind)).size).toBe(2)
@@ -45,6 +46,7 @@ test('처음부터 전속계약 가나다순 → 보증금 가나다순, 제목�
 test('상태를 바꿔도 같은 순서가 유지된다', async ({ page }) => {
   await login(page)
   await page.goto('/deposits')
+  await page.locator('[data-deposit-ready]').waitFor({ timeout: 30_000 })
   await expect(page.locator('tbody tr[data-kind]').first()).toBeVisible()
   await page.getByRole('button', { name: '상태 골라 보기' }).click()
   await page.locator('[data-slot=deposit-status-filter]').getByRole('menuitem', { name: '전체 보기' }).click()

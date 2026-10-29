@@ -57,6 +57,7 @@ test('보증금 — 상태 필터로 골라 보기', async ({ page }) => {
   // 2026-10-23: 칩 대신 상태 칸 머리를 눌러 고른다 (자세한 건 feedback-1023)
   await login(page)
   await page.goto('/deposits')
+  await page.locator('[data-deposit-ready]').waitFor({ timeout: 30_000 })
   const rows = page.locator('tbody tr[data-kind]')
   await page.getByRole('button', { name: '상태 골라 보기' }).click()
   const menu = page.locator('[data-slot=deposit-status-filter]')

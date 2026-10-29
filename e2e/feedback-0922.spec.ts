@@ -73,6 +73,7 @@ test('② 로그인 — 마지막 아이디를 기억해 채워 준다 (비밀�
 test('③ 날짜 형식 — 보증금·판관비·감사로그 날짜 칸이 모두 같은 입력 방식', async ({ page }) => {
   await login(page, ADMIN)
   await page.goto('/deposits')
+  await page.locator('[data-deposit-ready]').waitFor({ timeout: 30_000 })
   await page.locator('tbody tr').first().getByRole('button', { name: /수정/ }).click()
   const paid = page.getByRole('dialog').getByLabel('보증금 입금일')
   await expect(paid).toHaveAttribute('placeholder', /260917/)
