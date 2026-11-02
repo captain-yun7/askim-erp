@@ -609,7 +609,16 @@ export function DealForm({
                 {/* 결산예정일은 결산연월로 대체 (2026-10-06 요청) — 월별 수금결산의 매입 예정은 결산연월 기준 */}
                 <div className="grid gap-1.5">
                   <FL accounting>지급일</FL>
-                  <DateInput aria-label="purchasePaidDate" value={form.purchasePaidDate} onChange={(v) => set('purchasePaidDate', v)} />
+                  <DateInput
+                    aria-label="purchasePaidDate"
+                    value={form.purchasePaidDate}
+                    onChange={(v) => {
+                      set('purchasePaidDate', v)
+                      // 지급일(결산일)을 넣으면 결산여부 완료, 지우면 미결산 (2026-11-02 요청)
+                      if (v && form.purchasePaidStatus === 'pending') set('purchasePaidStatus', 'completed')
+                      if (!v && form.purchasePaidStatus === 'completed') set('purchasePaidStatus', 'pending')
+                    }}
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
