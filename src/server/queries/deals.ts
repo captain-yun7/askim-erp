@@ -8,7 +8,7 @@ import { getRecentChanges } from '@/server/deal-changes'
 import { getChangeHighlightDays } from '@/server/queries/app-settings'
 import { getAttachmentCounts } from '@/server/actions/attachments'
 import type { DealSort } from '@/lib/deal-sort'
-import type { IncentiveShare } from '@/lib/incentive'
+import { DEFAULT_INCENTIVE_RATE, type IncentiveShare } from '@/lib/incentive'
 import { getSessionUser } from '@/server/auth/guards'
 import { resolveDealScope } from '@/server/auth/deal-scope'
 import {
@@ -104,7 +104,8 @@ function dateCond(cols: PgColumn[], raw: string | undefined): SQL | undefined {
 
 /**
  * 결산연월일 검색 — 목록에 보이는 결산연월일(결산연도·월·일)로만 비교 (2026-10-28: 안 보이는 옛 결산예정일로 걸러 10월 검색에 11월이 나옴).
- * 일이 있으면 그 날짜, 없으면 그 달이 검색 범위와 겹치면 나온다.
+ * 일이 있으면 그 날짜로, 일 없이 월만 있으면 그 달 전체가 검색 범위 안에 들 때만 나온다
+ * (2026-11-02: 261102 처럼 하루를 찾으면 그 날짜만 — 일 없는 2026-11 거래는 빠진다).
  */
 function purchaseDueCond(raw: string | undefined): SQL | undefined {
   const f = parseDateFilter(raw)
@@ -117,7 +118,7 @@ function purchaseDueCond(raw: string | undefined): SQL | undefined {
   // or 가 들어가는 식은 전체를 괄호로 묶는다 — 안 묶으면 다른 필터와 and 로 이어질 때 앞 조건이 전부 무시된다 (2026-09-29)
   return sql`(${hasYm} and (
     (${deal.settlementDay} is not null and ${day} >= ${f.from}::date and ${day} < ${f.toExclusive}::date)
-    or (${deal.settlementDay} is null and ${ym} >= date_trunc('month', ${f.from}::date) and ${ym} < ${f.toExclusive}::date)
+    or (${deal.settlementDay} is null and ${ym} >= ${f.from}::date and (${ym} + interval '1 month')::date <= ${f.toExclusive}::date)
   ))`
 }
 
@@ -125,11 +126,11 @@ function purchaseDueCond(raw: string | undefined): SQL | undefined {
 function orderFor(sort: DealSort, dir: 'asc' | 'desc') {
   const d = dir === 'asc' ? asc : desc
   const tail = [desc(deal.createdAt), desc(deal.id)]
+  // 빈 값은 방향과 관계없이 맨 뒤
+  const by = (expr: SQL | PgColumn) => [sql`${expr} ${sql.raw(dir)} nulls last`, ...tail]
+  const name = (expr: SQL) => by(sql`${expr} collate "ko-KR-x-icu"`)
   switch (sort) {
     case 'accrual': return [d(deal.accrualYear), d(deal.accrualMonth), ...tail]
-    case 'salesPaid': return [sql`${deal.salesPaidDate} ${sql.raw(dir)} nulls last`, ...tail]
-    case 'salesDue': return [sql`${deal.salesDueDate} ${sql.raw(dir)} nulls last`, ...tail]
-    case 'purchasePaid': return [sql`${deal.purchasePaidDate} ${sql.raw(dir)} nulls last`, ...tail]
     // 거래코드는 '-' 뒤 번호를 숫자로 비교 (AK260701-2 다음이 -10, 2026-09-16 피드백). 번호 없는 본 코드는 가지번호보다 앞
     case 'code':
       return [
@@ -138,8 +139,33 @@ function orderFor(sort: DealSort, dir: 'asc' | 'desc') {
         d(deal.dealCode),
         ...tail,
       ]
-    case 'sales': return [sql`${deal.salesAmountNet} ${sql.raw(dir)} nulls last`, ...tail]
-    case 'profit': return [sql`${deal.profit} ${sql.raw(dir)} nulls last`, ...tail]
+    case 'category': return name(sql`(select name_ko from deal_category where id = ${deal.categoryId})`)
+    case 'owner': return name(sql`(select name from users where id = ${deal.ownerUserId})`)
+    case 'issuer': return name(sql`(select name from counterparty where id = ${deal.issuerCounterpartyId})`)
+    case 'supplier': return name(sql`(select name from counterparty where id = ${deal.supplierCounterpartyId})`)
+    case 'item': return name(sql`nullif(${deal.itemName}, '')`)
+    case 'salesMethod': return name(sql`(select name_ko from sales_method where id = ${deal.salesMethodId})`)
+    case 'sales': return by(deal.salesAmountNet)
+    case 'salesVat': return by(deal.salesVat)
+    case 'salesGross': return by(deal.salesAmountGross)
+    case 'purchase': return by(deal.purchaseAmountNet)
+    case 'purchaseVat': return by(deal.purchaseVat)
+    case 'purchaseGross': return by(deal.purchaseAmountGross)
+    case 'salesInvoice': return by(deal.salesInvoiceDate)
+    case 'purchaseInvoice': return by(deal.purchaseInvoiceDate)
+    case 'salesDue': return by(deal.salesDueDate)
+    case 'salesPaid': return by(deal.salesPaidDate)
+    // 목록에 보이는 결산연월일 — 일이 없으면 그 달 1일로 본다
+    case 'settlement':
+      return by(sql`case when ${deal.settlementYear} is not null and ${deal.settlementMonth} between 1 and 12 then make_date(${deal.settlementYear}, ${deal.settlementMonth}, 1) + (coalesce(${deal.settlementDay}, 1) - 1) end`)
+    case 'purchasePaid': return by(deal.purchasePaidDate)
+    case 'profit': return by(deal.profit)
+    case 'incentiveRate': return by(sql`coalesce(${deal.commissionPct}, ${DEFAULT_INCENTIVE_RATE})`)
+    // 성과급 칸과 같은 계산 — (직접 넣은 성과금 또는 원화 손익 × 요율) + 추가 대상자 몫 (src/lib/incentive.ts)
+    case 'incentive': {
+      const base = sql`(case when ${deal.currency} = 'KRW' then ${deal.profit} else round(${deal.profit} * nullif(${deal.fxRate}, 0)) end)`
+      return by(sql`(coalesce(${deal.commissionAmount}, ${base} * coalesce(${deal.commissionPct}, ${DEFAULT_INCENTIVE_RATE})) + coalesce((select sum(${base} * s.rate) from deal_incentive_share s where s.deal_id = ${deal.id}), 0))`)
+    }
     default: return [d(deal.createdAt), d(deal.id)]
   }
 }
