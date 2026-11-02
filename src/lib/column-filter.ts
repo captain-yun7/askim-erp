@@ -2,7 +2,7 @@
  * 거래 목록 컬럼별 검색식 파서 (2026-09-07 피드백: 금액·날짜·상태 컬럼도 검색)
  *
  * 금액:  `800000` `800,000` 정확히 / `>1000000` `>=` `<` `<=` 비교 / `100000~500000` 범위 / `-` 비어있음
- * 날짜:  `2026` `2026-09` `2026-09-05` 앞부분 일치 / `2026-09-01~2026-09-15` 범위 / `-` 비어있음 / `+` 입력된 것만 (2026-09-22)
+ * 날짜:  `2026` `2026-09` `2026-09-05` 앞부분 일치 / 짧게 `2611`(2026-11) `261102`(2026-11-02) / `2026-09-01~2026-09-15` 범위 / `-` 비어있음 / `+` 입력된 것만 (2026-09-22)
  *        구분자는 `-` `.` `/` 또는 없음(20260905) 모두 허용
  */
 
@@ -50,9 +50,27 @@ export function parseNumberFilter(raw: string | undefined): NumberFilter | null 
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
+/**
+ * 앞의 '20' 을 뺀 짧은 날짜를 풀어 쓴다 (2026-11-02 요청: 2611 → 2026-11, 261102 → 2026-11-02).
+ * 4자리 1900~2099 는 연도, 6자리 19xx·20xx 로 시작하고 뒤가 월이면 연월 — 그 밖은 앞 두 자리를 20YY 로 본다.
+ */
+function expandShort(digits: string): string {
+  if (digits.length === 4) {
+    const y = Number(digits)
+    if (y >= 1900 && y <= 2099) return digits
+    return `20${digits}`
+  }
+  if (digits.length === 6) {
+    const mo = Number(digits.slice(4, 6))
+    if (/^(19|20)/.test(digits) && mo >= 1 && mo <= 12) return digits
+    return `20${digits}`
+  }
+  return digits
+}
+
 /** 부분 날짜 → [from, toExclusive). 잘못된 값이면 null */
 function datePeriod(raw: string): { from: string; toExclusive: string } | null {
-  const digits = raw.replace(/[^\d]/g, '')
+  const digits = expandShort(raw.replace(/[^\d]/g, ''))
   if (digits.length !== 4 && digits.length !== 6 && digits.length !== 8) return null
   const y = Number(digits.slice(0, 4))
   const mo = digits.length >= 6 ? Number(digits.slice(4, 6)) : null
