@@ -2,6 +2,7 @@
 
 import { currentFilterParams, pushFilterParams } from '@/lib/filter-nav'
 import { useRouter } from 'next/navigation'
+import { useSyncedInput } from '@/lib/use-synced-input'
 import { useEffect, useRef, useState } from 'react'
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, Check, ChevronDown, Search } from 'lucide-react'
 import { DEAL_SORT_LABEL, type DealSort } from '@/lib/deal-sort'
@@ -54,6 +55,7 @@ export function DealsFilters({
   exportButton?: React.ReactNode
 }) {
   const router = useRouter()
+  const searchRef = useSyncedInput(initial.q ?? '')
 
   function update(patch: Record<string, string | undefined>, opts?: { keepAll?: boolean }) {
     const next = currentFilterParams('/deals')
@@ -71,7 +73,7 @@ export function DealsFilters({
       <div className="relative min-w-56 flex-1">
         <Search className="absolute left-3 top-1/2 size-[15px] -translate-y-1/2 text-muted-foreground" />
         <Input
-          key={initial.q ?? ''}
+          ref={searchRef}
           defaultValue={initial.q ?? ''}
           placeholder="거래코드, 거래처, 품목 검색..."
           className="h-9 pl-9"

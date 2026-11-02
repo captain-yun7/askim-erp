@@ -2,6 +2,7 @@
 
 import { currentFilterParams, pushFilterParams } from '@/lib/filter-nav'
 import { useRouter } from 'next/navigation'
+import { useSyncedInput } from '@/lib/use-synced-input'
 import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import {
@@ -38,6 +39,7 @@ export function ExpensesFilters({
   }
 }) {
   const router = useRouter()
+  const searchRef = useSyncedInput(initial.q ?? '')
 
   function update(patch: Record<string, string | undefined>) {
     const next = currentFilterParams('/expenses')
@@ -53,7 +55,7 @@ export function ExpensesFilters({
       <div className="relative min-w-56 flex-1">
         <Search className="absolute left-3 top-1/2 size-[15px] -translate-y-1/2 text-muted-foreground" />
         <Input
-          key={initial.q ?? ''}
+          ref={searchRef}
           defaultValue={initial.q ?? ''}
           placeholder="품목, 거래처, 금액 검색..."
           className="h-9 rounded-lg pl-9"
