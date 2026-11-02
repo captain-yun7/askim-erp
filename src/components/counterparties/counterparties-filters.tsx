@@ -2,6 +2,7 @@
 
 import { currentFilterParams, pushFilterParams } from '@/lib/filter-nav'
 import { useRouter } from 'next/navigation'
+import { useSyncedInput } from '@/lib/use-synced-input'
 import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { CLIENT_TYPES } from '@/lib/client-type'
@@ -28,6 +29,7 @@ export function CounterpartiesFilters({
   initial: { q?: string; role?: string; noBiz?: boolean; ctype?: string }
 }) {
   const router = useRouter()
+  const searchRef = useSyncedInput(initial.q ?? '')
 
   function update(patch: Record<string, string | undefined>) {
     const next = currentFilterParams('/counterparties')
@@ -43,7 +45,7 @@ export function CounterpartiesFilters({
       <div className="relative min-w-56 flex-1">
         <Search className="absolute left-3 top-1/2 size-[15px] -translate-y-1/2 text-muted-foreground" />
         <Input
-          key={initial.q ?? ''}
+          ref={searchRef}
           defaultValue={initial.q ?? ''}
           placeholder="상호명, 사업자번호 검색..."
           className="h-9 rounded-lg pl-9"

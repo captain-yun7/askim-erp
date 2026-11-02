@@ -2,6 +2,7 @@
 
 import { currentFilterParams, pushFilterParams } from '@/lib/filter-nav'
 import { useRouter } from 'next/navigation'
+import { useSyncedInput } from '@/lib/use-synced-input'
 import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { DateInput } from '@/components/ui/date-input'
@@ -19,6 +20,7 @@ export function AuditFilters({
   initial: { from?: string; to?: string; userId?: string; action?: string; q?: string }
 }) {
   const router = useRouter()
+  const searchRef = useSyncedInput(initial.q ?? '')
   function update(patch: Record<string, string | undefined>) {
     const next = currentFilterParams('/admin/audit')
     for (const [k, v] of Object.entries(patch)) {
@@ -36,7 +38,7 @@ export function AuditFilters({
       <div className="relative min-w-56 flex-1">
         <Search className="absolute left-3 top-1/2 size-[15px] -translate-y-1/2 text-muted-foreground" />
         <Input
-          key={initial.q ?? ''}
+          ref={searchRef}
           defaultValue={initial.q ?? ''}
           placeholder="내용·대상·사용자 검색… (Enter)"
           className="h-9 rounded-full pl-9"
