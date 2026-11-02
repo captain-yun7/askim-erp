@@ -19,6 +19,7 @@ import {
   IdCard,
   PieChart,
   MessageSquareWarning,
+  Signpost,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { avatarInitials } from '@/lib/format'
@@ -53,6 +54,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
       { href: '/deals', label: '거래', icon: Receipt },
       { href: '/counterparties', label: '거래처', icon: Users },
       { href: '/deposits', label: '보증금·전속계약', icon: Landmark },
+      { href: '/media', label: '매체관리', icon: Signpost },
       { href: '/expenses', label: '판관비', icon: Wallet },
     ],
   },
@@ -99,7 +101,7 @@ export function AppShell({
         ? NAV_SECTIONS.map((s) => ({
             ...s,
             items: s.items.filter((i) =>
-              ['/deals', '/counterparties', '/deposits'].includes(i.href),
+              ['/deals', '/counterparties', '/deposits', '/media'].includes(i.href),
             ),
           })).filter((s) => s.items.length > 0)
         : NAV_SECTIONS
