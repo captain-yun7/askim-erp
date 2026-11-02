@@ -175,3 +175,25 @@ test('보증금 순서(2026-10-29) — 전속계약 가나다순 다음 보증�
   await page.locator('[data-slot=deposit-name-sort]').click()
   await expect.poll(async () => (await read()).map((r) => r.name)).toEqual(exp(-1))
 })
+
+test('거래 11/02 요청 — 짧은 날짜 2610·칸 제목 정렬·색 구분 (읽기만)', async ({ page }) => {
+  await openDeals(page, '?year=all&fPurchaseDue=2610')
+  const settlement = () =>
+    page.locator('[data-slot=deals-scroll] table').evaluate((table) => {
+      const heads = [...table.querySelectorAll('thead tr:first-child th')]
+      const i = heads.findIndex((th) => th.textContent?.startsWith('결산연월일'))
+      return [...table.querySelectorAll('tbody tr[data-row-id]')].map((tr) => (tr.children[i]?.querySelector('div > div')?.textContent ?? '').trim())
+    })
+  const values = await settlement()
+  expect(values.length).toBeGreaterThan(0)
+  for (const v of values) expect(v).toMatch(/^2026-10/)
+  // 결산연월일 칸 제목을 두 번 → 오름차순
+  await page.locator('thead [data-sort-key=settlement]').click()
+  await page.locator('thead [data-sort-key=settlement]').click()
+  await expect(page).toHaveURL(/dir=asc/)
+  await expect(page.locator('thead [data-sort-key=settlement]')).toHaveAttribute('aria-sort', 'ascending')
+  const sorted = (await settlement()).filter((v) => /^\d{4}-\d{2}-\d{2}$/.test(v))
+  expect(sorted).toEqual([...sorted].sort())
+  expect(await page.locator('thead th[data-side=sales]').count()).toBe(2)
+  expect(await page.locator('thead th[data-side=purchase]').count()).toBe(2)
+})
