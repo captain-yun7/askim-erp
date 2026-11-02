@@ -3,6 +3,7 @@
 import { currentFilterParams, pushFilterParams } from '@/lib/filter-nav'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useSyncedInput } from '@/lib/use-synced-input'
 import { createContext, Fragment, useCallback, useContext, useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { bulkSetInvoiceDate, deleteDeals, toggleDealPaid, updateDealInline } from '@/server/actions/deals'
@@ -14,7 +15,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Check, Copy, Landmark, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, Copy, Landmark, Trash2, X } from 'lucide-react'
+import type { DealSort } from '@/lib/deal-sort'
 import { Button } from '@/components/ui/button'
 import { DateInput } from '@/components/ui/date-input'
 import { AttachmentButton } from '@/components/attachments/attachment-button'
@@ -300,6 +302,7 @@ function InlineDate({
     <button
       type="button"
       title="클릭해서 날짜 수정"
+      data-inline-field={field}
       className={cn(
         'rounded px-0.5 font-mono tabular-nums hover:bg-accent/60',
         muted && 'text-muted-foreground',
@@ -565,7 +568,7 @@ function PaidToggle({
   const apply = useContext(PatchCtx)
   const refreshCards = useRefreshCards()
   const [shown, setShown] = useOptimistic(done)
-  if (!enabled) return <StatusPill done={done} doneLabel={doneLabel} todoLabel={todoLabel} />
+  if (!enabled) return <StatusPill side={side} done={done} doneLabel={doneLabel} todoLabel={todoLabel} />
   return (
     <button
       type="button"
@@ -585,20 +588,23 @@ function PaidToggle({
         })
       }
     >
-      <StatusPill done={shown} doneLabel={doneLabel} todoLabel={todoLabel} />
+      <StatusPill side={side} done={shown} doneLabel={doneLabel} todoLabel={todoLabel} />
     </button>
   )
 }
 
-function StatusPill({ done, doneLabel, todoLabel }: { done: boolean; doneLabel: string; todoLabel: string; }) {
+/** 입금은 초록, 결산은 연한 파랑 — 둘이 같은 색이라 헷갈린다는 요청 (2026-11-02, 너무 진하지 않게) */
+function StatusPill({ side, done, doneLabel, todoLabel }: { side: 'sales' | 'purchase'; done: boolean; doneLabel: string; todoLabel: string; }) {
   return (
     <span
+      data-paid-side={side}
+      data-done={done || undefined}
       className={cn(
         'inline-flex items-center gap-1.5 text-[12px]',
-        done ? 'text-success-foreground' : 'text-accent-foreground',
+        !done ? 'text-accent-foreground' : side === 'sales' ? 'text-success-foreground' : 'text-sky-800 dark:text-sky-300',
       )}
     >
-      <span className={cn('size-[7px] rounded-full', done ? 'bg-success' : 'bg-brand')} />
+      <span className={cn('size-[7px] rounded-full', !done ? 'bg-brand' : side === 'sales' ? 'bg-success' : 'bg-sky-500')} />
       {done ? doneLabel : todoLabel}
     </span>
   )
@@ -679,7 +685,7 @@ export type ColumnFilters = {
 const ROW_STEP = 150
 
 const AMOUNT_HINT = '금액 검색: 800000 정확히 · >1000000 · <=500000 · 100000~500000 범위 · - 비어있음'
-const DATE_HINT = '날짜 검색: 2026 · 2026-09 · 2026-09-05 · 2026-09-01~2026-09-15 범위 · - 비어있음 · + 입력된 것만'
+const DATE_HINT = '날짜 검색: 2026 · 2609(2026-09) · 260905(2026-09-05) · 2026-09-01~2026-09-15 범위 · - 비어있음 · + 입력된 것만'
 
 function applyColumnFilter(router: ReturnType<typeof useRouter>, param: string, value: string) {
   const next = currentFilterParams('/deals')
@@ -695,6 +701,43 @@ function applyColumnFilter(router: ReturnType<typeof useRouter>, param: string, 
   else next.delete(param)
   next.delete('page')
   pushFilterParams(router, '/deals', next)
+}
+
+/**
+ * 칸 제목을 누르면 그 칸으로 정렬 (2026-11-02 요청: 오름·내림차순을 모든 항목에).
+ * 처음 누르면 내림차순, 한 번 더 누르면 오름차순 — 위쪽 정렬 버튼과 같은 주소(sort·dir)를 쓴다
+ */
+function SortLabel({ sort, children }: { sort: DealSort; children: React.ReactNode }) {
+  const router = useRouter()
+  const sp = useSearchParams()
+  const active = (sp.get('sort') ?? 'created') === sort
+  const asc = sp.get('dir') === 'asc'
+  return (
+    <button
+      type="button"
+      data-sort-key={sort}
+      aria-sort={active ? (asc ? 'ascending' : 'descending') : undefined}
+      title={active ? (asc ? '오름차순 — 누르면 내림차순' : '내림차순 — 누르면 오름차순') : '눌러서 이 칸으로 정렬'}
+      className={cn('inline-flex items-center gap-0.5 rounded px-0.5 text-left hover:bg-accent/60 hover:text-foreground', active && 'font-semibold text-foreground')}
+      onClick={() => {
+        // 화면이 아직 앞 클릭을 반영하기 전일 수 있어, 방금 보낸 주소(currentFilterParams) 기준으로 판단한다
+        const next = currentFilterParams('/deals')
+        if ((next.get('sort') ?? 'created') === sort) {
+          if (next.get('dir') === 'asc') next.delete('dir')
+          else next.set('dir', 'asc')
+        } else {
+          if (sort === 'created') next.delete('sort')
+          else next.set('sort', sort)
+          next.delete('dir')
+        }
+        next.delete('page')
+        pushFilterParams(router, '/deals', next)
+      }}
+    >
+      <span>{children}</span>
+      {active && (asc ? <ArrowUp className="size-3 shrink-0" /> : <ArrowDown className="size-3 shrink-0" />)}
+    </button>
+  )
 }
 
 const filterInputClass =
@@ -715,11 +758,12 @@ function ColumnFilterInput({
   align?: 'right'
 }) {
   const router = useRouter()
+  // 뒤로가기 등으로 주소의 필터가 바뀌면 칸의 글자도 맞춘다 — 치고 있는 글자는 지우지 않는다
+  const ref = useSyncedInput(value ?? '')
 
   return (
     <input
-      // 뒤로가기 등으로 주소의 필터가 바뀌면 칸의 글자도 그 값으로 다시 맞춘다
-      key={value ?? ''}
+      ref={ref}
       data-column-filter={param}
       data-applied={value ?? ''}
       aria-label={`${param} 검색`}
@@ -1187,38 +1231,39 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
     >
       <table className="w-full caption-bottom text-sm">
         {/* border-collapse 표에서 sticky 헤더의 행 테두리는 틈이 생겨 아래 글자가 비친다 → 테두리 대신 셀 안쪽 그림자로 선을 그린다 */}
-        <TableHeader className="sticky top-0 z-20 bg-card [&_th]:bg-card [&_th]:shadow-[inset_0_-1px_0_var(--border)] [&_tr]:border-b-0">
+        <TableHeader className="sticky top-0 z-20 bg-card [&_th]:bg-card [&_th]:shadow-[inset_0_-1px_0_var(--border)] [&_tr]:border-b-0 [&_th[data-side=sales]]:bg-amber-50 [&_th[data-side=purchase]]:bg-rose-50 dark:[&_th[data-side=sales]]:bg-amber-950/40 dark:[&_th[data-side=purchase]]:bg-rose-950/40">
           <TableRow className="hover:bg-transparent">
             <TableHead>
               <span className="flex items-center gap-2">
                 <input type="checkbox" data-select-all aria-label="전체 선택" title="화면의 거래 전체 선택" className="size-3.5 accent-[var(--primary)]" />
-                거래코드
+                <SortLabel sort="code">거래코드</SortLabel>
               </span>
             </TableHead>
             <TableHead className="w-16 text-center" title="첨부파일 · 복사">📎</TableHead>
-            <TableHead>귀속</TableHead>
-            <TableHead>상품구분</TableHead>
-            <TableHead>담당</TableHead>
-            <TableHead>발행처 / 광고주</TableHead>
-            <TableHead>매체사</TableHead>
-            <TableHead>품목명</TableHead>
-            <TableHead className="text-right">매출</TableHead>
-            {!foreign && <TableHead className="text-right">부가세</TableHead>}
-            <TableHead className="text-right" title="매출금 + 부가세">총매출{!foreign && <><br />(VAT 포함)</>}</TableHead>
-            <TableHead className="text-right">매입</TableHead>
-            {!foreign && <TableHead className="text-right">부가세</TableHead>}
-            <TableHead className="text-right" title="매입금 + 부가세">총매입{!foreign && <><br />(VAT 포함)</>}</TableHead>
+            <TableHead><SortLabel sort="accrual">귀속</SortLabel></TableHead>
+            <TableHead><SortLabel sort="category">상품구분</SortLabel></TableHead>
+            <TableHead><SortLabel sort="owner">담당</SortLabel></TableHead>
+            <TableHead><SortLabel sort="issuer">발행처 / 광고주</SortLabel></TableHead>
+            <TableHead><SortLabel sort="supplier">매체사</SortLabel></TableHead>
+            <TableHead><SortLabel sort="item">품목명</SortLabel></TableHead>
+            <TableHead className="text-right"><SortLabel sort="sales">매출</SortLabel></TableHead>
+            {!foreign && <TableHead className="text-right"><SortLabel sort="salesVat">부가세</SortLabel></TableHead>}
+            <TableHead className="text-right" title="매출금 + 부가세"><SortLabel sort="salesGross">총매출{!foreign && <><br />(VAT 포함)</>}</SortLabel></TableHead>
+            <TableHead className="text-right"><SortLabel sort="purchase">매입</SortLabel></TableHead>
+            {!foreign && <TableHead className="text-right"><SortLabel sort="purchaseVat">부가세</SortLabel></TableHead>}
+            <TableHead className="text-right" title="매입금 + 부가세"><SortLabel sort="purchaseGross">총매입{!foreign && <><br />(VAT 포함)</>}</SortLabel></TableHead>
             <TableHead className="text-center">입금 / 결산</TableHead>
-            <TableHead>매출수단</TableHead>
-            {!foreign && <TableHead>매출계산서<br />발행일</TableHead>}
-            {!foreign && <TableHead>매입계산서<br />발행일</TableHead>}
-            <TableHead>입금예정일<br />입금일</TableHead>
-            <TableHead>결산연월일<br />결산일</TableHead>
+            <TableHead><SortLabel sort="salesMethod">매출수단</SortLabel></TableHead>
+            {/* 매출 쪽(노랑)·매입 쪽(분홍) 날짜 칸 색 구분 (2026-11-02 요청) */}
+            {!foreign && <TableHead data-side="sales"><SortLabel sort="salesInvoice">매출계산서<br />발행일</SortLabel></TableHead>}
+            {!foreign && <TableHead data-side="purchase"><SortLabel sort="purchaseInvoice">매입계산서<br />발행일</SortLabel></TableHead>}
+            <TableHead data-side="sales"><SortLabel sort="salesDue">입금예정일</SortLabel><br /><SortLabel sort="salesPaid">입금일</SortLabel></TableHead>
+            <TableHead data-side="purchase"><SortLabel sort="settlement">결산연월일</SortLabel><br /><SortLabel sort="purchasePaid">결산일</SortLabel></TableHead>
             {/* 손익 → 인센티브 → 성과급 순으로 맨 오른쪽 (2026-10-06 고객 요청) */}
-            <TableHead className="text-right">손익</TableHead>
+            <TableHead className="text-right"><SortLabel sort="profit">손익</SortLabel></TableHead>
             {foreign && <TableHead className="text-right" title="매출 입금일 기준 환율 · 손익 × 환율">손익<br />(KRW)</TableHead>}
-            <TableHead className="text-right" title="기본 5% · 거래마다 따로 정할 수 있습니다">인센티브<br />(%)</TableHead>
-            <TableHead className="text-right" title={foreign ? '인센티브(%) × 손익(KRW)' : '인센티브(%) × 손익'}>성과급</TableHead>
+            <TableHead className="text-right" title="기본 5% · 거래마다 따로 정할 수 있습니다"><SortLabel sort="incentiveRate">인센티브<br />(%)</SortLabel></TableHead>
+            <TableHead className="text-right" title={foreign ? '인센티브(%) × 손익(KRW)' : '인센티브(%) × 손익'}><SortLabel sort="incentive">성과급</SortLabel></TableHead>
           </TableRow>
           <FilterHeaderRow filters={columnFilters} foreign={foreign} salesMethods={salesMethods} />
         </TableHeader>
