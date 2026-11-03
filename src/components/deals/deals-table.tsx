@@ -601,10 +601,11 @@ function StatusPill({ side, done, doneLabel, todoLabel }: { side: 'sales' | 'pur
       data-done={done || undefined}
       className={cn(
         'inline-flex items-center gap-1.5 text-[12px]',
-        !done ? 'text-accent-foreground' : side === 'sales' ? 'text-success-foreground' : 'text-sky-800 dark:text-sky-300',
+        !done ? 'text-muted-foreground' : side === 'sales' ? 'text-success-foreground' : 'text-red-700 dark:text-red-400',
       )}
     >
-      <span className={cn('size-[7px] rounded-full', !done ? 'bg-brand' : side === 'sales' ? 'bg-success' : 'bg-sky-500')} />
+      {/* 2026-11-03 요청: 결산은 빨강, 미입금·미결산은 회색 */}
+      <span className={cn('size-[7px] rounded-full', !done ? 'bg-gray-400' : side === 'sales' ? 'bg-success' : 'bg-red-500')} />
       {done ? doneLabel : todoLabel}
     </span>
   )
@@ -1402,7 +1403,8 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
                   {formatKRW(r.purchaseAmountGross ?? null)}
                 </TableCell>
                 <TableCell {...cell('paid')}>
-                  <div className="flex justify-center gap-3">
+                  {/* 입금·결산을 고정 폭 두 칸에 왼쪽 맞춤 — 한쪽이 '-' 여도 다른 쪽 위치가 줄마다 같게 (2026-11-03 요청) */}
+                  <div data-paid-slots className="grid grid-cols-[4rem_4rem] justify-center justify-items-start gap-2">
                     {/* 금액 없는 쪽은 입금/결산 표시 안 함 (2026-09-09 피드백). 마이너스 금액(상계·환불)도 표시 (2026-10-06) */}
                     {parseFloat(r.salesAmountNet ?? '0') !== 0 ? (
                       <PaidToggle
@@ -1414,7 +1416,7 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
                         enabled={r.canTogglePaid}
                       />
                     ) : (
-                      <span className="w-12 text-center text-[12px] text-muted-foreground/50">-</span>
+                      <span className="pl-0.5 text-[12px] text-muted-foreground/50">-</span>
                     )}
                     {parseFloat(r.purchaseAmountNet ?? '0') !== 0 ? (
                       <PaidToggle
@@ -1426,7 +1428,7 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
                         enabled={r.canTogglePaid}
                       />
                     ) : (
-                      <span className="w-12 text-center text-[12px] text-muted-foreground/50">-</span>
+                      <span className="pl-0.5 text-[12px] text-muted-foreground/50">-</span>
                     )}
                   </div>
                 </TableCell>

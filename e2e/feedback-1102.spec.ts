@@ -149,6 +149,45 @@ test('⑤ 매출 쪽·매입 쪽 날짜 칸 제목, 입금·결산 표시가 서
   expect(await dot('sales')).not.toBe(await dot('purchase'))
 })
 
+test('11/03 결산 점은 빨강, 미입금·미결산 점은 회색', async ({ page }) => {
+  await login(page)
+  sqlRun(`update deal set sales_paid_status='pending', purchase_paid_status='pending', sales_amount_net=1000 where deal_code='E2E1102-D15'`)
+  sqlRun(`update deal set sales_paid_status='completed', purchase_paid_status='completed', sales_amount_net=1000 where deal_code='E2E1102-DEC'`)
+  await page.goto('/deals?q=E2E1102')
+  await ready(page)
+  // 브라우저가 oklch 로 돌려줘도 비교할 수 있게 캔버스로 RGB 변환
+  const rgb = (code: string, side: string) =>
+    page.locator('tbody tr[data-row-id]').filter({ hasText: code }).locator(`[data-paid-side=${side}] > span`).evaluate((e) => {
+      const c = document.createElement('canvas').getContext('2d')!
+      c.fillStyle = getComputedStyle(e).backgroundColor
+      c.fillRect(0, 0, 1, 1)
+      return Array.from(c.getImageData(0, 0, 1, 1).data.slice(0, 3))
+    })
+  const red = await rgb('E2E1102-DEC', 'purchase')
+  expect(red[0] - Math.max(red[1], red[2])).toBeGreaterThan(80)
+  const green = await rgb('E2E1102-DEC', 'sales')
+  expect(green[1]).toBeGreaterThan(green[0])
+  for (const side of ['sales', 'purchase']) {
+    const [r, g, b] = await rgb('E2E1102-D15', side)
+    expect(Math.max(r, g, b) - Math.min(r, g, b), side).toBeLessThan(25)
+  }
+  await expect(page.locator('tbody tr[data-row-id]').filter({ hasText: 'E2E1102-D15' }).locator('[data-paid-side=purchase]')).toHaveText('미결산')
+})
+
+test('11/03 입금이 없는 줄도 결산 표시 위치가 같다', async ({ page }) => {
+  await login(page)
+  sqlRun(`update deal set sales_amount_net=null where deal_code='E2E1102-MONTH'`)
+  sqlRun(`update deal set sales_amount_net=1000, sales_paid_status='pending' where deal_code='E2E1102-D02'`)
+  sqlRun(`update deal set sales_amount_net=1000, sales_paid_status='completed' where deal_code='E2E1102-DEC'`)
+  await page.goto('/deals?q=E2E1102')
+  await ready(page)
+  const x = (code: string) =>
+    page.locator('tbody tr[data-row-id]').filter({ hasText: code }).locator('[data-paid-side=purchase] > span').evaluate((e) => e.getBoundingClientRect().left)
+  const noSales = await x('E2E1102-MONTH')
+  expect(Math.abs((await x('E2E1102-D02')) - noSales)).toBeLessThan(1)
+  expect(Math.abs((await x('E2E1102-DEC')) - noSales)).toBeLessThan(1)
+})
+
 test('③-2 정렬 기준 전부 — 양쪽 방향 모두 목록이 오류 없이 뜬다', async ({ page }) => {
   test.setTimeout(240_000)
   await login(page)
