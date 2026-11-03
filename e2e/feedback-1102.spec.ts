@@ -174,6 +174,20 @@ test('11/03 결산 점은 빨강, 미입금·미결산 점은 회색', async ({ 
   await expect(page.locator('tbody tr[data-row-id]').filter({ hasText: 'E2E1102-D15' }).locator('[data-paid-side=purchase]')).toHaveText('미결산')
 })
 
+test('11/03 입금이 없는 줄도 결산 표시 위치가 같다', async ({ page }) => {
+  await login(page)
+  sqlRun(`update deal set sales_amount_net=null where deal_code='E2E1102-MONTH'`)
+  sqlRun(`update deal set sales_amount_net=1000, sales_paid_status='pending' where deal_code='E2E1102-D02'`)
+  sqlRun(`update deal set sales_amount_net=1000, sales_paid_status='completed' where deal_code='E2E1102-DEC'`)
+  await page.goto('/deals?q=E2E1102')
+  await ready(page)
+  const x = (code: string) =>
+    page.locator('tbody tr[data-row-id]').filter({ hasText: code }).locator('[data-paid-side=purchase] > span').evaluate((e) => e.getBoundingClientRect().left)
+  const noSales = await x('E2E1102-MONTH')
+  expect(Math.abs((await x('E2E1102-D02')) - noSales)).toBeLessThan(1)
+  expect(Math.abs((await x('E2E1102-DEC')) - noSales)).toBeLessThan(1)
+})
+
 test('③-2 정렬 기준 전부 — 양쪽 방향 모두 목록이 오류 없이 뜬다', async ({ page }) => {
   test.setTimeout(240_000)
   await login(page)
