@@ -23,13 +23,6 @@ const ROLE_LABEL: Record<string, string> = {
   expense_vendor: '지출처',
 }
 
-const PAYMENT_LABEL: Record<string, string> = {
-  corporate_card: '법인카드',
-  personal_card: '개인카드',
-  cash: '현금',
-  bank_transfer: '이체',
-}
-
 /** 거래 목록 엑셀 (2026-10-21 요청: 화면 내용 그대로) — 화면과 같은 필터·정렬·컬럼 순서. 성과급은 볼 수 있는 거래만 */
 export async function exportDealsXlsx(filters: DealListFilters): Promise<XlsxResult> {
   const user = await getSessionUser()
@@ -149,7 +142,6 @@ export async function exportExpensesXlsx(filters: ExpenseListFilters): Promise<X
         itemName: expense.itemName,
         amount: expense.amount,
         counterpartyText: expense.counterpartyText,
-        paymentMethod: expense.paymentMethod,
         category: expenseCategory.nameKo,
       })
       .from(expense)
@@ -159,18 +151,18 @@ export async function exportExpensesXlsx(filters: ExpenseListFilters): Promise<X
       // 판관비는 4천여 건이라 5천 제한에 곧 닿는다 (2026-10-21) — 엑셀은 넉넉히
       .limit(50000)
 
-    const headers = ['지출일', '품목', '거래처', '항목', '수단', '금액']
+    // 수단 칸은 목록과 함께 뺌 (2026-11-05 요청)
+    const headers = ['지출일', '품목', '거래처', '항목', '금액']
     const body = rows.map((r): XlsxCell[] => [
       r.date,
       r.itemName ?? '',
       r.counterpartyText ?? '',
       r.category ?? '',
-      PAYMENT_LABEL[r.paymentMethod] ?? r.paymentMethod,
       r.amount == null ? null : Math.round(parseFloat(r.amount) * 100) / 100,
     ])
     const filename = `판관비_${filters.year ?? '전체'}${filters.month ? `-${String(filters.month).padStart(2, '0')}` : ''}.xlsx`
     await audit({ action: 'export.xlsx', targetType: 'export', targetLabel: filename, summary: `엑셀 다운로드 ${filename} (${rows.length}건)`, detail: filters })
-    return { ok: true, filename, base64: toXlsx([{ name: '판관비', rows: [headers, ...body], widths: [12, 36, 24, 14, 10, 14] }]) }
+    return { ok: true, filename, base64: toXlsx([{ name: '판관비', rows: [headers, ...body], widths: [12, 36, 24, 14, 14] }]) }
   } catch (e) {
     console.error('exportExpensesXlsx', e)
     return { error: '내보내기 실패' }

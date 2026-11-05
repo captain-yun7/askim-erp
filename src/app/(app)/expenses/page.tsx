@@ -26,18 +26,11 @@ import { formatKRW } from '@/lib/format'
 import { requireBackoffice } from '@/server/auth/require-backoffice'
 import { canCreateExpense, canDeleteExpense, canEditExpense } from '@/server/auth/guards'
 
-const PAYMENT_LABEL: Record<string, string> = {
-  corporate_card: '법인카드',
-  personal_card: '개인카드',
-  cash: '현금',
-}
-
 type SP = {
   q?: string
   year?: string
   month?: string
   categoryId?: string
-  method?: string
 }
 
 export default async function ExpensesPage({
@@ -53,7 +46,6 @@ export default async function ExpensesPage({
     year: sp.year ? parseInt(sp.year, 10) : undefined,
     month: sp.month ? parseInt(sp.month, 10) : undefined,
     categoryId: sp.categoryId ? parseInt(sp.categoryId, 10) : undefined,
-    method: typeof sp.method === 'string' ? sp.method : undefined,
   }
 
   const where = await expenseListWhere(filters)
@@ -142,7 +134,6 @@ export default async function ExpensesPage({
               year: filters.year,
               month: filters.month,
               categoryId: filters.categoryId,
-              method: filters.method,
             }}
           />
         </div>
@@ -173,7 +164,6 @@ export default async function ExpensesPage({
                 <TableHead>품목</TableHead>
                 <TableHead>거래처</TableHead>
                 <TableHead>항목</TableHead>
-                <TableHead>수단</TableHead>
                 <TableHead className="text-right">금액</TableHead>
                 <TableHead className="w-16" />
               </TableRow>
@@ -204,10 +194,7 @@ export default async function ExpensesPage({
                       <span className="text-xs text-muted-foreground">-</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {PAYMENT_LABEL[r.paymentMethod] ?? '이체'}
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-xs tabular-nums">
+                  <TableCell data-col="amount" className="text-right font-mono text-xs tabular-nums">
                     {formatKRW(r.amount)}
                   </TableCell>
                   <TableCell className="py-1">
