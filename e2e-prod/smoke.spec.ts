@@ -99,9 +99,11 @@ test('띄어쓰기 무시 검색(2026-10-21) — 붙여 쓴 검색어로 띄어 
 
 test('판관비 금액 검색(2026-10-27) — 첫 행 금액으로 찾으면 같은 금액만 나온다 (읽기만)', async ({ page }) => {
   await page.goto('/expenses')
-  const amount = (await page.locator('tbody tr').first().locator('td').nth(6).innerText()).trim()
+  // 금액 칸을 이름표로 찾는다 — 조회 계정은 선택 칸이 없어 칸 번호로 찾으면 빈 칸을 읽었다 (2026-11-05)
+  const amount = (await page.locator('tbody tr').first().locator('[data-col=amount]').innerText()).trim()
+  expect(amount).toMatch(/\d/)
   await page.goto(`/expenses?q=${encodeURIComponent(amount)}`)
-  const amounts = (await page.locator('tbody tr td:nth-child(7)').allInnerTexts()).map((t) => t.trim())
+  const amounts = (await page.locator('tbody tr [data-col=amount]').allInnerTexts()).map((t) => t.trim())
   expect(amounts.length).toBeGreaterThan(0)
   for (const a of amounts) expect(a).toBe(amount)
 })
