@@ -178,6 +178,16 @@ test('보증금 순서(2026-10-29) — 전속계약 가나다순 다음 보증�
   await expect.poll(async () => (await read()).map((r) => r.name)).toEqual(exp(-1))
 })
 
+test('매체관리(2026-11-02) — 메뉴·목록 114건·삼연빌딩 가격 줄 (읽기만)', async ({ page }) => {
+  await page.goto('/media')
+  await expect(page.getByRole('heading', { name: '매체관리' })).toBeVisible()
+  await expect(page.locator('[data-slot=media-count]')).toContainText('114')
+  await page.getByRole('link', { name: '삼연빌딩' }).click()
+  await page.waitForURL(/\/media\/\d+/)
+  await expect(page.locator('[data-price-type=net] [data-slot=price-line]')).toHaveCount(4)
+  await expect(page.getByRole('button', { name: '저장' })).toHaveCount(0)
+})
+
 test('거래 11/02 요청 — 짧은 날짜 2610·칸 제목 정렬·색 구분 (읽기만)', async ({ page }) => {
   await openDeals(page, '?year=all&fPurchaseDue=2610')
   const settlement = () =>
