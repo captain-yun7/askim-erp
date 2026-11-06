@@ -162,6 +162,8 @@ test('조회 전용 — 볼 수는 있고 저장·추가·목록 관리는 없�
   await page.goto(`/media/${id}`)
   await expect(page.getByText('조회 전용')).toBeVisible()
   await expect(page.getByRole('button', { name: '저장' })).toHaveCount(0)
+  await page.goto('/media')
+  await expect(page.locator('tbody [data-col=actions]')).toHaveCount(0)
   await page.goto('/media/options')
   await page.waitForURL((u) => u.pathname === '/media')
 })
@@ -174,4 +176,30 @@ test('삭제 — 목록에서 사라진다', async ({ page }) => {
   await page.getByRole('button', { name: '매체 삭제' }).click()
   await page.waitForURL((u) => u.pathname === '/media')
   await expect(page.locator(`tbody tr[data-media-code="${code}"]`)).toHaveCount(0)
+})
+
+test('목록 줄 끝 수정·삭제 버튼 — 보증금 표처럼 (11/06 요청)', async ({ page }) => {
+  sqlRun(`insert into media (entity, code, name) values ('kr', 'E2EROW1', 'E2E매체-줄버튼')`)
+  await login(page)
+  await page.goto('/media?q=E2E매체-줄버튼')
+  const row = page.locator('tbody tr[data-media-code="E2EROW1"]')
+  await expect(row.locator('[data-col=actions] button')).toHaveCount(2)
+
+  // 연필 → 수정 화면
+  await row.getByRole('button', { name: 'E2E매체-줄버튼 수정' }).click()
+  await page.waitForURL(/\/media\/\d+$/)
+  await expect(page.getByRole('heading', { name: '매체 수정' })).toBeVisible()
+
+  // 휴지통 → 취소하면 그대로, 확인하면 사라짐
+  await page.goto('/media?q=E2E매체-줄버튼')
+  page.once('dialog', (d) => d.dismiss())
+  await row.getByRole('button', { name: 'E2E매체-줄버튼 삭제' }).click()
+  await expect(row).toHaveCount(1)
+  page.once('dialog', (d) => d.accept())
+  await row.getByRole('button', { name: 'E2E매체-줄버튼 삭제' }).click()
+  await expect(row).toHaveCount(0)
+  await page.reload()
+  await expect(page.locator('tbody tr[data-media-code="E2EROW1"]')).toHaveCount(0)
+  const [{ deleted }] = JSON.parse(sqlRun(`select deleted_at is not null as deleted from media where code='E2EROW1'`))
+  expect(deleted).toBe(true)
 })
