@@ -121,7 +121,7 @@ test('② 인센티브 — 기본 5%, 성과급 = 요율 × 손익, 관리자가
   await expect(amount).toHaveText('100,000')
 })
 
-test('② 인센티브 — 영업은 본인 거래만 보고, 본인 거래의 요율은 직접 고친다 (10/6)', async ({ page }) => {
+test('② 인센티브 — 영업은 본인 거래 요율을 직접 고치고, 팀장은 팀원 것을 보기만 한다 (10/6, 11/05)', async ({ page }) => {
   await login(page, LEAD)
   await page.goto('/deals?fCode=E2E0916')
   const mine = dealRow(page, 'E2E0916-LEAD')
@@ -136,11 +136,12 @@ test('② 인센티브 — 영업은 본인 거래만 보고, 본인 거래의 �
   // 손익 → 인센티브 → 성과급 순으로 맨 오른쪽
   const heads = await page.locator('[data-slot=deals-scroll] thead tr').first().locator('th').allInnerTexts()
   expect(heads.slice(-3).map((h) => h.replace(/\s+/g, ''))).toEqual(['손익', '인센티브(%)', '성과급'])
-  // 팀장이라 팀원 거래는 보이지만 남의 성과급은 보이지 않는다
+  // 팀장은 팀원 거래의 인센티브도 본다 — 고치지는 못한다 (2026-11-05 요청)
   const others = dealRow(page, 'E2E0916-MEMBER')
   await expect(others).toHaveCount(1)
-  await expect(others.locator('[data-col=incentiveRate]')).toHaveText('-')
-  await expect(others.locator('[data-col=incentiveAmount]')).toHaveText('-')
+  await expect(others.locator('[data-col=incentiveRate]')).toHaveText('5%')
+  await expect(others.locator('[data-col=incentiveRate] button')).toHaveCount(0)
+  await expect(others.locator('[data-col=incentiveAmount]')).not.toHaveText('-')
 })
 
 test('③ 거래처 구분 — 맨 위에 필수 표시, 고르지 않으면 저장되지 않는다', async ({ page }) => {
