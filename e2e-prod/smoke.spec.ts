@@ -99,9 +99,11 @@ test('띄어쓰기 무시 검색(2026-10-21) — 붙여 쓴 검색어로 띄어 
 
 test('판관비 금액 검색(2026-10-27) — 첫 행 금액으로 찾으면 같은 금액만 나온다 (읽기만)', async ({ page }) => {
   await page.goto('/expenses')
-  const amount = (await page.locator('tbody tr').first().locator('td').nth(6).innerText()).trim()
+  // 금액 칸을 이름표로 찾는다 — 조회 계정은 선택 칸이 없어 칸 번호로 찾으면 빈 칸을 읽었다 (2026-11-05)
+  const amount = (await page.locator('tbody tr').first().locator('[data-col=amount]').innerText()).trim()
+  expect(amount).toMatch(/\d/)
   await page.goto(`/expenses?q=${encodeURIComponent(amount)}`)
-  const amounts = (await page.locator('tbody tr td:nth-child(7)').allInnerTexts()).map((t) => t.trim())
+  const amounts = (await page.locator('tbody tr [data-col=amount]').allInnerTexts()).map((t) => t.trim())
   expect(amounts.length).toBeGreaterThan(0)
   for (const a of amounts) expect(a).toBe(amount)
 })
@@ -184,4 +186,26 @@ test('매체관리(2026-11-02) — 메뉴·목록 114건·삼연빌딩 가격 �
   await page.waitForURL(/\/media\/\d+/)
   await expect(page.locator('[data-price-type=net] [data-slot=price-line]')).toHaveCount(4)
   await expect(page.getByRole('button', { name: '저장' })).toHaveCount(0)
+})
+
+test('거래 11/02 요청 — 짧은 날짜 2610·칸 제목 정렬·색 구분 (읽기만)', async ({ page }) => {
+  await openDeals(page, '?year=all&fPurchaseDue=2610')
+  const settlement = () =>
+    page.locator('[data-slot=deals-scroll] table').evaluate((table) => {
+      const heads = [...table.querySelectorAll('thead tr:first-child th')]
+      const i = heads.findIndex((th) => th.textContent?.startsWith('결산연월일'))
+      return [...table.querySelectorAll('tbody tr[data-row-id]')].map((tr) => (tr.children[i]?.querySelector('div > div')?.textContent ?? '').trim())
+    })
+  const values = await settlement()
+  expect(values.length).toBeGreaterThan(0)
+  for (const v of values) expect(v).toMatch(/^2026-10/)
+  // 결산연월일 칸 제목을 두 번 → 오름차순
+  await page.locator('thead [data-sort-key=settlement]').click()
+  await page.locator('thead [data-sort-key=settlement]').click()
+  await expect(page).toHaveURL(/dir=asc/)
+  await expect(page.locator('thead [data-sort-key=settlement]')).toHaveAttribute('aria-sort', 'ascending')
+  const sorted = (await settlement()).filter((v) => /^\d{4}-\d{2}-\d{2}$/.test(v))
+  expect(sorted).toEqual([...sorted].sort())
+  expect(await page.locator('thead th[data-side=sales]').count()).toBe(2)
+  expect(await page.locator('thead th[data-side=purchase]').count()).toBe(2)
 })

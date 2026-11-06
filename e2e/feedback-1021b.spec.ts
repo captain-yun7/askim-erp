@@ -90,22 +90,22 @@ test('판관비 — 띄어쓰기 무시 검색, 엑셀은 화면과 같은 행',
   const total = Number(await page.locator('[data-slot=expenses-total]').innerText().then((t) => t.replace(/\D/g, '')))
   const { name, rows } = await download(page, () => page.getByRole('button', { name: '엑셀 내보내기' }).click())
   expect(name).toMatch(/^판관비_.*\.xlsx$/)
-  expect(rows[0]).toEqual(['지출일', '품목', '거래처', '항목', '수단', '금액'])
+  expect(rows[0]).toEqual(['지출일', '품목', '거래처', '항목', '금액'])
   expect(rows.length - 1).toBe(total)
   expect(rows.slice(1).map((r) => r[1])).toEqual(items)
-  expect(typeof rows[1][5]).toBe('number')
+  expect(typeof rows[1][4]).toBe('number')
 })
 
 test('판관비 — 금액으로도 찾는다 (쉼표·원 붙여도)', async ({ page }) => {
   // 2026-10-27 요청: 품목·거래처 말고 금액으로도 검색
   await login(page)
   await page.goto('/expenses')
-  const amount = (await page.locator('tbody tr').first().locator('td').nth(6).innerText()).trim()
+  const amount = (await page.locator('tbody tr').first().locator('[data-col=amount]').innerText()).trim()
   test.skip(!/\d/.test(amount), '판관비 데이터 없음')
   const plain = amount.replace(/\D/g, '')
   for (const q of [amount, `${plain}원`]) {
     await page.goto(`/expenses?q=${encodeURIComponent(q)}`)
-    const amounts = (await page.locator('tbody tr td:nth-child(7)').allInnerTexts()).map((t) => t.trim().replace(/[^\d]/g, ''))
+    const amounts = (await page.locator('tbody tr [data-col=amount]').allInnerTexts()).map((t) => t.trim().replace(/[^\d]/g, ''))
     expect(amounts.length).toBeGreaterThan(0)
     for (const a of amounts) expect(a).toBe(plain)
   }

@@ -2,6 +2,7 @@
 
 import { currentFilterParams, pushFilterParams } from '@/lib/filter-nav'
 import { useRouter } from 'next/navigation'
+import { useSyncedInput } from '@/lib/use-synced-input'
 import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import {
@@ -17,13 +18,6 @@ type Cat = { id: number; nameKo: string }
 const chip =
   'h-9 gap-1.5 rounded-full border bg-background px-3.5 text-[13px] font-medium data-[active=true]:border-primary data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:[&_span]:text-primary-foreground/70'
 
-const PAYMENT_METHODS = [
-  { value: 'corporate_card', label: '법인카드' },
-  { value: 'personal_card', label: '개인카드' },
-  { value: 'cash', label: '현금' },
-  { value: 'bank_transfer', label: '이체' },
-]
-
 export function ExpensesFilters({
   categories,
   initial,
@@ -34,10 +28,10 @@ export function ExpensesFilters({
     year?: number
     month?: number
     categoryId?: number
-    method?: string
   }
 }) {
   const router = useRouter()
+  const searchRef = useSyncedInput(initial.q ?? '')
 
   function update(patch: Record<string, string | undefined>) {
     const next = currentFilterParams('/expenses')
@@ -53,7 +47,7 @@ export function ExpensesFilters({
       <div className="relative min-w-56 flex-1">
         <Search className="absolute left-3 top-1/2 size-[15px] -translate-y-1/2 text-muted-foreground" />
         <Input
-          key={initial.q ?? ''}
+          ref={searchRef}
           defaultValue={initial.q ?? ''}
           placeholder="품목, 거래처, 금액 검색..."
           className="h-9 rounded-lg pl-9"
@@ -121,23 +115,6 @@ export function ExpensesFilters({
         </SelectContent>
       </Select>
 
-      <Select
-        defaultValue={initial.method ?? 'all'}
-        onValueChange={(v) => update({ method: v ?? undefined })}
-      >
-        <SelectTrigger className={chip} data-active={Boolean(initial.method)}>
-          <SelectValue />
-          <span className="text-muted-foreground">결제수단</span>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">전체</SelectItem>
-          {PAYMENT_METHODS.map((m) => (
-            <SelectItem key={m.value} value={m.value}>
-              {m.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
     </div>
   )
 }

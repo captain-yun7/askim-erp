@@ -443,11 +443,20 @@ export async function updateDealInline(
   } else {
     // 외화 거래의 입금일을 고치면 그 날짜 환율로 다시 받는다 (2026-10-12)
     const fx = field === 'salesPaidDate' ? await autoFxRate({ currency: existing.currency, salesPaidDate: value, fxRate: existing.fxRate }, existing) : existing.fxRate
+    // 결산일을 넣으면 결산, 지우면 미결산 (2026-11-02 요청) — 입금/결산 칸 토글과 같은 규칙
+    const settle =
+      field === 'purchasePaidDate'
+        ? value && existing.purchasePaidStatus === 'pending'
+          ? { purchasePaidStatus: 'completed' as const }
+          : !value && existing.purchasePaidStatus === 'completed'
+            ? { purchasePaidStatus: 'pending' as const }
+            : {}
+        : {}
     await db
       .update(deal)
-      .set({ [field]: value, ...(fx !== existing.fxRate ? { fxRate: fx } : {}), updatedBy: user.id })
+      .set({ [field]: value, ...settle, ...(fx !== existing.fxRate ? { fxRate: fx } : {}), updatedBy: user.id })
       .where(eq(deal.id, id))
-    await recordDealChanges(id, existing, { [field]: value }, user.id)
+    await recordDealChanges(id, existing, { [field]: value, ...settle }, user.id)
     await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} ${field} ${existing[field] ?? '-'} → ${value ?? '-'}`, detail: { [field]: [existing[field] ?? null, value] } })
   }
   return { ok: true, row: await getInlineRow(id) }
