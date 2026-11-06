@@ -1,9 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
-import { useState } from 'react'
-import { Search } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useState, useTransition } from 'react'
+import { Pencil, Search, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
+import { deleteMedia } from '@/server/actions/media'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { contractExpired, formatMan, regionText } from '@/lib/media'
@@ -11,6 +14,7 @@ import { cn } from '@/lib/utils'
 import type { MediaRow } from '@/server/queries/media'
 
 const select = 'h-9 rounded-full border border-input bg-background px-3 text-[13px]'
+const STICKY_RIGHT = 'sticky right-0 w-[72px] bg-background px-2 shadow-[-6px_0_6px_-6px_rgb(0_0_0/0.12)]'
 const ko = new Intl.Collator('ko', { numeric: true })
 
 /** 목록 필터 — 주소(?q=..)에 남겨 상세에 다녀와도 그대로 (2026-09-29 필터 기억과 같은 방식) */
@@ -44,7 +48,21 @@ function mainPrice(m: MediaRow) {
   return { first: lines[0], more: lines.length - 1, kind: net.length ? '입금가' : '판매가' }
 }
 
-export function MediaBoard({ rows }: { rows: MediaRow[] }) {
+export function MediaBoard({ rows, editable = false }: { rows: MediaRow[]; editable?: boolean }) {
+  const router = useRouter()
+  const [deleting, startDelete] = useTransition()
+  // 줄 끝 수정·삭제 버튼 (2026-11-06 요청: 보증금 표처럼)
+  const remove = (m: MediaRow) => {
+    if (!confirm(`'${m.name}' 매체를 삭제할까요?`)) return
+    startDelete(async () => {
+      const res = await deleteMedia(m.id)
+      if ('error' in res) toast.error(res.error)
+      else {
+        toast.success('매체를 삭제했습니다')
+        router.refresh()
+      }
+    })
+  }
   const sp = useSearchParams()
   const get = (k: Key) => sp.get(k) ?? ''
   const set = (k: Key, v: string) => {
@@ -146,12 +164,14 @@ export function MediaBoard({ rows }: { rows: MediaRow[] }) {
               <TableHead>사내 담당</TableHead>
               <TableHead>시공사</TableHead>
               <TableHead>상태</TableHead>
+              {/* 표가 화면보다 넓어도 버튼이 늘 보이게 오른쪽에 붙인다 */}
+              {editable && <TableHead className={STICKY_RIGHT}><span className="sr-only">수정·삭제</span></TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {shown.length === 0 && (
               <TableRow>
-                <TableCell colSpan={10} className="py-12 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={editable ? 11 : 10} className="py-12 text-center text-sm text-muted-foreground">
                   {rows.length ? '조건에 맞는 매체가 없습니다' : '등록된 매체가 없습니다'}
                 </TableCell>
               </TableRow>
@@ -212,6 +232,18 @@ export function MediaBoard({ rows }: { rows: MediaRow[] }) {
                       {m.status}
                     </span>
                   </TableCell>
+                  {editable && (
+                    <TableCell data-col="actions" className={STICKY_RIGHT}>
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" className="size-7" aria-label={`${m.name} 수정`} title="수정" onClick={() => router.push(`/media/${m.id}`)}>
+                          <Pencil className="size-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="size-7 text-muted-foreground" aria-label={`${m.name} 삭제`} title="삭제" disabled={deleting} onClick={() => remove(m)}>
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               )
             })}
