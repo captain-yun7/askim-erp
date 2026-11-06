@@ -20,6 +20,7 @@ import { reviewChoices, REVIEW_LABEL } from '@/lib/review-mark'
 import { canEditDealScoped } from '@/server/auth/deal-scope'
 import { recordDealChanges } from '@/server/deal-changes'
 import { getInlineRow, type InlineRow } from '@/server/queries/deals'
+import { accrualForDueDate, dueDateForAccrual } from '@/lib/accrual-sync'
 import { audit, diffFields } from '@/server/audit'
 import { formatSettlement, isValidSettlementDay } from '@/lib/settlement'
 import { INCENTIVE_ACCOUNT_NAME } from '@/lib/incentive'
@@ -407,11 +408,13 @@ export async function updateDealInline(
     return { ok: true, row: await getInlineRow(id) }
   }
   if (field === 'accrual') {
-    // 귀속연월 인라인 수정 (2026-09-14 피드백)
-    const patch = { accrualYear: value.year, accrualMonth: value.month }
+    // 귀속연월 인라인 수정 (2026-09-14 피드백) — 입금예정일도 같은 달로 (2026-11-05 요청)
+    const due = dueDateForAccrual(existing.salesDueDate, value.year, value.month)
+    const patch = { accrualYear: value.year, accrualMonth: value.month, ...(due !== existing.salesDueDate ? { salesDueDate: due } : {}) }
     await db.update(deal).set({ ...patch, updatedBy: user.id }).where(eq(deal.id, id))
     await recordDealChanges(id, existing, patch, user.id)
-    await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} 귀속월 ${existing.accrualYear}/${existing.accrualMonth} → ${value.year}/${value.month}`, detail: diffFields(existing as Record<string, unknown>, patch) })
+    const dueNote = due !== existing.salesDueDate ? ` (입금예정일 ${existing.salesDueDate} → ${due})` : ''
+    await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} 귀속월 ${existing.accrualYear}/${existing.accrualMonth} → ${value.year}/${value.month}${dueNote}`, detail: diffFields(existing as Record<string, unknown>, patch) })
     return { ok: true, row: await getInlineRow(id) }
   }
   if (field === 'salesAmountNet' || field === 'purchaseAmountNet') {
@@ -452,12 +455,16 @@ export async function updateDealInline(
             ? { purchasePaidStatus: 'pending' as const }
             : {}
         : {}
+    // 입금예정일을 바꾸면 귀속연월도 그 달로 (2026-11-05 요청). 지울 때는 귀속을 그대로 둔다
+    const acc = field === 'salesDueDate' ? accrualForDueDate(value) : null
+    const accrual = acc && (acc.year !== existing.accrualYear || acc.month !== existing.accrualMonth) ? { accrualYear: acc.year, accrualMonth: acc.month } : {}
     await db
       .update(deal)
-      .set({ [field]: value, ...settle, ...(fx !== existing.fxRate ? { fxRate: fx } : {}), updatedBy: user.id })
+      .set({ [field]: value, ...settle, ...accrual, ...(fx !== existing.fxRate ? { fxRate: fx } : {}), updatedBy: user.id })
       .where(eq(deal.id, id))
-    await recordDealChanges(id, existing, { [field]: value, ...settle }, user.id)
-    await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} ${field} ${existing[field] ?? '-'} → ${value ?? '-'}`, detail: { [field]: [existing[field] ?? null, value] } })
+    await recordDealChanges(id, existing, { [field]: value, ...settle, ...accrual }, user.id)
+    const accNote = 'accrualYear' in accrual ? ` (귀속월 ${existing.accrualYear}/${existing.accrualMonth} → ${acc!.year}/${acc!.month})` : ''
+    await audit({ action: 'deal.inline', targetType: 'deal', targetId: id, targetLabel: existing.dealCode, summary: `${existing.dealCode} ${field} ${existing[field] ?? '-'} → ${value ?? '-'}${accNote}`, detail: { [field]: [existing[field] ?? null, value], ...('accrualYear' in accrual ? { accrualYear: [existing.accrualYear, acc!.year], accrualMonth: [existing.accrualMonth, acc!.month] } : {}) } })
   }
   return { ok: true, row: await getInlineRow(id) }
 }
