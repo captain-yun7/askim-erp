@@ -56,7 +56,7 @@ export async function exportDealsXlsx(filters: DealListFilters): Promise<XlsxRes
       const hasPurchase = parseFloat(r.purchaseAmountNet ?? '0') !== 0
       const krw = profitKrw(r.profit, r.currency, r.fxRate)
       const base = foreign ? krw : r.profit != null ? parseFloat(r.profit) : null
-      const canView = canViewCommission(user, { status: r.status as 'draft' | 'confirmed' | 'closed', ownerUserId: r.ownerUserId })
+      const canView = canViewCommission(user, { status: r.status as 'draft' | 'confirmed' | 'closed', ownerUserId: r.ownerUserId }, r.ownerTeam)
       return [
         r.dealCode,
         `${String(r.accrualYear).slice(2)}/${r.accrualMonth}`,
