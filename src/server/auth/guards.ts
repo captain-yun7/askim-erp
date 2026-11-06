@@ -100,10 +100,15 @@ export function canDeleteDeal(user: SessionUser, deal: DealRef): boolean {
   return false
 }
 
-/** 성과급 컬럼 조회: 회계/admin 전체, 영업은 본인 것만 */
-export function canViewCommission(user: SessionUser, deal: DealRef): boolean {
+/**
+ * 성과급 컬럼 조회: 회계/admin 전체, 영업은 본인 것만.
+ * 팀장은 자기 팀원 거래도 본다 (2026-11-05 요청) — ownerTeam(담당자 팀)을 넘긴 곳만. 수정 권한은 따로(canEditDeal).
+ */
+export function canViewCommission(user: SessionUser, deal: DealRef, ownerTeam?: string | null): boolean {
   if (isStaff(user.role)) return true
-  return user.role === 'sales' && deal.ownerUserId === user.id
+  if (user.role !== 'sales') return false
+  if (deal.ownerUserId === user.id) return true
+  return user.isTeamLead === true && user.team != null && ownerTeam != null && ownerTeam === user.team
 }
 
 // ── Counterparty ────────────────────────────────────────

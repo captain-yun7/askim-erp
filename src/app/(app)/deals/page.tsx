@@ -112,11 +112,11 @@ export default async function DealsPage({
 
   const margin = aggregate.sales > 0 ? (aggregate.profit / aggregate.sales) * 100 : 0
 
-  // 인센티브 합계 (2026-10-13 요청) — 지금 목록의 성과급을 더한 값. 영업은 볼 수 있는 본인 거래만, 해외법인은 손익(KRW) 기준
+  // 인센티브 합계 (2026-10-13 요청) — 지금 목록의 성과급을 더한 값. 영업은 본인 거래만(팀장은 팀원 거래 포함, 11/05), 해외법인은 손익(KRW) 기준
   let incentiveSum = 0
   let incentiveCount = 0
   for (const r of rows) {
-    if (!me || !canViewCommission(me, { status: r.status as 'draft' | 'confirmed' | 'closed', ownerUserId: r.ownerUserId })) continue
+    if (!me || !canViewCommission(me, { status: r.status as 'draft' | 'confirmed' | 'closed', ownerUserId: r.ownerUserId }, r.ownerTeam)) continue
     const amount = incentiveTotal(profitKrw(r.profit, r.currency, r.fxRate), r.commissionPct, r.incentiveShares, r.commissionAmount)
     if (amount == null) continue
     incentiveSum += amount
@@ -268,7 +268,7 @@ export default async function DealsPage({
           }}
           rows={rows.map((r) => {
             const ref = { status: r.status as 'draft' | 'confirmed' | 'closed', ownerUserId: r.ownerUserId }
-            const canViewIncentive = me != null && canViewCommission(me, ref)
+            const canViewIncentive = me != null && canViewCommission(me, ref, r.ownerTeam)
             const canEditShared = me != null && canEditDealShared(me, ref, r.ownerTeam, shareTeams)
             return {
             ...r,

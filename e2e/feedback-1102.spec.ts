@@ -165,6 +165,15 @@ test('11/03 결산 점은 빨강, 미입금·미결산 점은 회색', async ({ 
     })
   const red = await rgb('E2E1102-DEC', 'purchase')
   expect(red[0] - Math.max(red[1], red[2])).toBeGreaterThan(80)
+  // 11/05 요청: 너무 진하지 않게 — 진한 빨강(red-500 ≈ 44,54)보다 밝은 빨강
+  expect(Math.min(red[1], red[2])).toBeGreaterThan(80)
+  const redText = await page.locator('tbody tr[data-row-id]').filter({ hasText: 'E2E1102-DEC' }).locator('[data-paid-side=purchase]').evaluate((e) => {
+    const c = document.createElement('canvas').getContext('2d')!
+    c.fillStyle = getComputedStyle(e).color
+    c.fillRect(0, 0, 1, 1)
+    return Array.from(c.getImageData(0, 0, 1, 1).data.slice(0, 3))
+  })
+  expect(redText[0], '결산 글씨도 밝은 빨강').toBeGreaterThan(220)
   const green = await rgb('E2E1102-DEC', 'sales')
   expect(green[1]).toBeGreaterThan(green[0])
   for (const side of ['sales', 'purchase']) {

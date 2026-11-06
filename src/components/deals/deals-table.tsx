@@ -601,11 +601,11 @@ function StatusPill({ side, done, doneLabel, todoLabel }: { side: 'sales' | 'pur
       data-done={done || undefined}
       className={cn(
         'inline-flex items-center gap-1.5 text-[12px]',
-        !done ? 'text-muted-foreground' : side === 'sales' ? 'text-success-foreground' : 'text-red-700 dark:text-red-400',
+        !done ? 'text-muted-foreground' : side === 'sales' ? 'text-success-foreground' : 'text-red-500 dark:text-red-300',
       )}
     >
-      {/* 2026-11-03 요청: 결산은 빨강, 미입금·미결산은 회색 */}
-      <span className={cn('size-[7px] rounded-full', !done ? 'bg-gray-400' : side === 'sales' ? 'bg-success' : 'bg-red-500')} />
+      {/* 2026-11-03 요청: 결산은 빨강, 미입금·미결산은 회색 / 11-05: 결산 빨강을 덜 진하게 */}
+      <span className={cn('size-[7px] rounded-full', !done ? 'bg-gray-400' : side === 'sales' ? 'bg-success' : 'bg-red-400')} />
       {done ? doneLabel : todoLabel}
     </span>
   )

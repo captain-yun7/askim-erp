@@ -1,5 +1,6 @@
 'use client'
 
+import { accrualForDueDate, dueDateForAccrual } from '@/lib/accrual-sync'
 import { listHref } from '@/lib/list-return'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
@@ -139,6 +140,15 @@ export function DealForm({
 
   function set<K extends keyof DealInput>(key: K, value: DealInput[K]) {
     setForm((p) => ({ ...p, [key]: value }))
+  }
+
+  // 귀속월 ↔ 입금예정일 함께 바꾸기 (2026-11-05 요청) — lib/accrual-sync
+  function setAccrual(accrualYear: number, accrualMonth: number) {
+    setForm((p) => ({ ...p, accrualYear, accrualMonth, salesDueDate: dueDateForAccrual(p.salesDueDate, accrualYear, accrualMonth) }))
+  }
+  function setSalesDue(salesDueDate: string | null) {
+    const acc = accrualForDueDate(salesDueDate)
+    setForm((p) => ({ ...p, salesDueDate, ...(acc ? { accrualYear: acc.year, accrualMonth: acc.month } : {}) }))
   }
 
   // 자동 계산: VAT, 총액, 손익, 성과급
@@ -296,7 +306,7 @@ export function DealForm({
               <Input
                 type="number"
                 value={form.accrualYear}
-                onChange={(e) => set('accrualYear', Number(e.target.value))}
+                onChange={(e) => setAccrual(Number(e.target.value), form.accrualMonth)}
               />
             </div>
             <div className="grid gap-1.5">
@@ -306,7 +316,7 @@ export function DealForm({
                 min={1}
                 max={12}
                 value={form.accrualMonth}
-                onChange={(e) => set('accrualMonth', Number(e.target.value))}
+                onChange={(e) => setAccrual(form.accrualYear, Number(e.target.value))}
               />
             </div>
           </div>
@@ -471,7 +481,7 @@ export function DealForm({
               <div className="grid grid-cols-2 gap-2">
                 <div className="grid gap-1.5">
                   <FL>입금예정일</FL>
-                  <DateInput aria-label="salesDueDate" value={form.salesDueDate} onChange={(v) => set('salesDueDate', v)} />
+                  <DateInput aria-label="salesDueDate" value={form.salesDueDate} onChange={setSalesDue} />
                 </div>
                 <div className="grid gap-1.5">
                   <FL>입금일</FL>
