@@ -35,7 +35,7 @@ export default async function MediaPage() {
       <section className="mt-5 overflow-clip rounded-2xl border bg-card">
         <Suspense>
           <RememberList path="/media" />
-          <MediaBoard rows={rows} />
+          <MediaBoard rows={rows} editable={editable} />
         </Suspense>
       </section>
     </div>
