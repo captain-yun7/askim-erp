@@ -21,6 +21,8 @@ export const users = pgTable(
     team: text('team'),
     // 팀장: 자기 팀 전체 거래 조회 가능 (2026-08-25 회의)
     isTeamLead: boolean('is_team_lead').notNull().default(false),
+    // 매체관리 권한 (구글시트처럼 뷰어/편집자, 2026-11-09 요청). 관리자는 항상 편집자
+    mediaAccess: text('media_access', { enum: ['view', 'edit'] }).notNull().default('view'),
     isActive: boolean('is_active').notNull().default(true),
     // 사용자별 화면 배율 선호 (sm/md/lg/xl) — src/lib/ui-scale.ts
     uiScale: text('ui_scale').notNull().default('md'),
