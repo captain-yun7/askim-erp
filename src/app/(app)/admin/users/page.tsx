@@ -25,6 +25,7 @@ export default async function AdminUsersPage() {
       role: users.role,
       team: users.team,
       isTeamLead: users.isTeamLead,
+      mediaAccess: users.mediaAccess,
       dealCodePrefix: users.dealCodePrefix,
       isActive: users.isActive,
     })
@@ -56,6 +57,7 @@ export default async function AdminUsersPage() {
                 <TableHead>역할</TableHead>
                 <TableHead>팀</TableHead>
                 <TableHead className="text-center">팀장</TableHead>
+                <TableHead>매체관리</TableHead>
                 <TableHead>거래코드 prefix</TableHead>
                 <TableHead>상태</TableHead>
                 <TableHead className="text-right" />

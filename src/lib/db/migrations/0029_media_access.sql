@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "media_access" text DEFAULT 'view' NOT NULL;

@@ -3,6 +3,7 @@ import { ChevronLeft } from 'lucide-react'
 import { ListBackLink } from '@/components/list-return'
 import { MediaForm } from '@/components/media/media-form'
 import { getSessionUser } from '@/server/auth/guards'
+import { canEditMedia } from '@/server/media-access'
 import { getMedia, listMediaOptions, listMediaStaffUsers } from '@/server/queries/media'
 
 export default async function MediaDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -10,7 +11,7 @@ export default async function MediaDetailPage({ params }: { params: Promise<{ id
   if (!/^\d+$/.test(id)) notFound()
   const [m, user, options, users] = await Promise.all([getMedia(Number(id)), getSessionUser(), listMediaOptions(), listMediaStaffUsers()])
   if (!m) notFound()
-  const readOnly = !user || user.role === 'viewer'
+  const readOnly = !(await canEditMedia(user))
   return (
     <div>
       <div className="border-b px-8 pb-4 pt-6">

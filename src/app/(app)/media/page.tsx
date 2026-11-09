@@ -6,12 +6,13 @@ import { MediaBoard } from '@/components/media/media-board'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { canManageLookups, getSessionUser } from '@/server/auth/guards'
+import { canEditMedia } from '@/server/media-access'
 import { listMedia } from '@/server/queries/media'
 
 /** 매체관리 (2026-11-02 요청) — 광고매체 엑셀 + 임대인 시트 정리 기준 */
 export default async function MediaPage() {
   const [rows, user] = await Promise.all([listMedia(), getSessionUser()])
-  const editable = user != null && user.role !== 'viewer'
+  const editable = await canEditMedia(user)
   return (
     <div className="flex flex-col px-8 pb-8 pt-6">
       <div className="flex items-start justify-between">
