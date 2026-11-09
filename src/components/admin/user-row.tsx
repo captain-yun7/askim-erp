@@ -24,6 +24,7 @@ import {
   resetUserPassword,
   toggleUserActive,
   toggleUserTeamLead,
+  updateUserMediaAccess,
   updateUserRole,
   updateUserTeam,
 } from '@/server/actions/users'
@@ -36,6 +37,7 @@ export type AdminUser = {
   role: 'admin' | 'accountant' | 'sales' | 'viewer'
   team: string | null
   isTeamLead: boolean
+  mediaAccess: 'view' | 'edit'
   dealCodePrefix: string | null
   isActive: boolean
 }
@@ -153,6 +155,29 @@ export function UserRow({ user }: { user: AdminUser }) {
             })
           }
         />
+      </TableCell>
+      <TableCell>
+        {/* 관리자는 항상 편집자, 조회 계정은 항상 뷰어 */}
+        <Select
+          value={user.role === 'admin' ? 'edit' : user.role === 'viewer' ? 'view' : user.mediaAccess}
+          disabled={pending || user.role === 'admin' || user.role === 'viewer'}
+          onValueChange={(v) => {
+            if (!v || v === user.mediaAccess) return
+            startTransition(async () => {
+              const res = await updateUserMediaAccess(user.id, v)
+              if (res.error) toast.error(res.error)
+              else toast.success(v === 'edit' ? '매체관리 편집자로 바꿨습니다' : '매체관리 뷰어로 바꿨습니다')
+            })
+          }}
+        >
+          <SelectTrigger aria-label={`${user.name} 매체관리 권한`} className="h-8 w-24">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="view">뷰어</SelectItem>
+            <SelectItem value="edit">편집자</SelectItem>
+          </SelectContent>
+        </Select>
       </TableCell>
       <TableCell className="font-mono text-xs text-muted-foreground">
         {user.dealCodePrefix ?? '-'}

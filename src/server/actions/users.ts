@@ -110,6 +110,20 @@ export async function toggleUserTeamLead(id: string, isTeamLead: unknown) {
   return { ok: true }
 }
 
+/** 매체관리 뷰어/편집자 (2026-11-09 요청) — 관리자는 항상 편집자라 바꿀 필요 없음 */
+export async function updateUserMediaAccess(id: string, access: unknown) {
+  const guard = await requireAdmin()
+  if ('error' in guard) return { error: guard.error }
+  const parsed = z.enum(['view', 'edit']).safeParse(access)
+  if (!parsed.success) return { error: '잘못된 권한입니다' }
+  await db.update(users).set({ mediaAccess: parsed.data }).where(eq(users.id, id))
+  const label = await userLabel(id)
+  await audit({ action: 'user.media_access', targetType: 'user', targetId: id, targetLabel: label, summary: `매체관리 권한 → ${parsed.data === 'edit' ? '편집자' : '뷰어'} (${label})`, detail: { mediaAccess: parsed.data } })
+  revalidatePath('/admin/users')
+  revalidatePath('/media')
+  return { ok: true }
+}
+
 export async function toggleUserActive(id: string, active: unknown) {
   const guard = await requireAdmin()
   if ('error' in guard) return { error: guard.error }
