@@ -207,5 +207,5 @@ test('거래 11/02 요청 — 짧은 날짜 2610·칸 제목 정렬·색 구분 
   const sorted = (await settlement()).filter((v) => /^\d{4}-\d{2}-\d{2}$/.test(v))
   expect(sorted).toEqual([...sorted].sort())
   expect(await page.locator('thead th[data-side=sales]').count()).toBe(2)
-  expect(await page.locator('thead th[data-side=purchase]').count()).toBe(2)
+  expect(await page.locator('thead th[data-side=purchase]').count()).toBe(6) // 11/09 매체사·매입·부가세·총매입 추가
 })
