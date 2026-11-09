@@ -1245,17 +1245,17 @@ export function DealsTable({ rows: serverRows, columnFilters = {}, canCopy = fal
             <TableHead><SortLabel sort="category">상품구분</SortLabel></TableHead>
             <TableHead><SortLabel sort="owner">담당</SortLabel></TableHead>
             <TableHead><SortLabel sort="issuer">발행처 / 광고주</SortLabel></TableHead>
-            <TableHead><SortLabel sort="supplier">매체사</SortLabel></TableHead>
+            <TableHead data-side="purchase"><SortLabel sort="supplier">매체사</SortLabel></TableHead>
             <TableHead><SortLabel sort="item">품목명</SortLabel></TableHead>
             <TableHead className="text-right"><SortLabel sort="sales">매출</SortLabel></TableHead>
             {!foreign && <TableHead className="text-right"><SortLabel sort="salesVat">부가세</SortLabel></TableHead>}
             <TableHead className="text-right" title="매출금 + 부가세"><SortLabel sort="salesGross">총매출{!foreign && <><br />(VAT 포함)</>}</SortLabel></TableHead>
-            <TableHead className="text-right"><SortLabel sort="purchase">매입</SortLabel></TableHead>
-            {!foreign && <TableHead className="text-right"><SortLabel sort="purchaseVat">부가세</SortLabel></TableHead>}
-            <TableHead className="text-right" title="매입금 + 부가세"><SortLabel sort="purchaseGross">총매입{!foreign && <><br />(VAT 포함)</>}</SortLabel></TableHead>
+            <TableHead data-side="purchase" className="text-right"><SortLabel sort="purchase">매입</SortLabel></TableHead>
+            {!foreign && <TableHead data-side="purchase" className="text-right"><SortLabel sort="purchaseVat">부가세</SortLabel></TableHead>}
+            <TableHead data-side="purchase" className="text-right" title="매입금 + 부가세"><SortLabel sort="purchaseGross">총매입{!foreign && <><br />(VAT 포함)</>}</SortLabel></TableHead>
             <TableHead className="text-center">입금 / 결산</TableHead>
             <TableHead><SortLabel sort="salesMethod">매출수단</SortLabel></TableHead>
-            {/* 매출 쪽(노랑)·매입 쪽(분홍) 날짜 칸 색 구분 (2026-11-02 요청) */}
+            {/* 매출 쪽(노랑)·매입 쪽(분홍) 날짜 칸 색 구분 (2026-11-02 요청), 매체사·매입·부가세·총매입도 분홍 (11-09) */}
             {!foreign && <TableHead data-side="sales"><SortLabel sort="salesInvoice">매출계산서<br />발행일</SortLabel></TableHead>}
             {!foreign && <TableHead data-side="purchase"><SortLabel sort="purchaseInvoice">매입계산서<br />발행일</SortLabel></TableHead>}
             <TableHead data-side="sales"><SortLabel sort="salesDue">입금예정일</SortLabel><br /><SortLabel sort="salesPaid">입금일</SortLabel></TableHead>
