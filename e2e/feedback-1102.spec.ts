@@ -137,7 +137,14 @@ test('⑤ 매출 쪽·매입 쪽 날짜 칸 제목, 입금·결산 표시가 서
   const purchase = await bg('thead th[data-side=purchase]')
   expect(new Set([plain, sales, purchase]).size).toBe(3)
   expect(await page.locator('thead th[data-side=sales]').count()).toBe(2)
-  expect(await page.locator('thead th[data-side=purchase]').count()).toBe(2)
+  expect(await page.locator('thead th[data-side=purchase]').count()).toBe(6)
+  // 11/09 — 매체사·매입·부가세·총매입 제목도 매입계산서 발행일과 같은 분홍
+  for (const key of ['supplier', 'purchase', 'purchaseVat', 'purchaseGross']) {
+    expect(await bg(`thead th:has([data-sort-key=${key}])`)).toBe(purchase)
+  }
+  for (const key of ['sales', 'salesVat', 'salesGross', 'issuer']) {
+    expect(await bg(`thead th:has([data-sort-key=${key}])`)).toBe(plain)
+  }
   // 입금(완료)·결산(완료) 점 색이 다르다
   sqlRun(`update deal set sales_paid_status='completed', purchase_paid_status='completed', sales_amount_net=1000 where deal_code='E2E1102-DEC'`)
   await page.reload()
