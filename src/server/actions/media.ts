@@ -9,13 +9,14 @@ import { normalizePhone } from '@/lib/media-parse'
 import { canManageLookups, getSessionUser, type SessionUser } from '@/server/auth/guards'
 import { audit } from '@/server/audit'
 import { getCurrentEntity } from '@/server/entity'
+import { canEditMedia } from '@/server/media-access'
 
 type Result<T = object> = ({ ok: true } & T) | { error: string }
 
 async function requireEditor(): Promise<{ error: string } | { user: SessionUser }> {
   const user = await getSessionUser()
   if (!user) return { error: '로그인 필요' }
-  if (user.role === 'viewer') return { error: '수정 권한이 없습니다' }
+  if (!(await canEditMedia(user))) return { error: '매체 편집 권한이 없습니다 (관리자에게 편집자 권한을 요청하세요)' }
   return { user }
 }
 

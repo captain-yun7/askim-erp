@@ -3,11 +3,12 @@ import { ChevronLeft } from 'lucide-react'
 import { ListBackLink } from '@/components/list-return'
 import { MediaForm } from '@/components/media/media-form'
 import { getSessionUser } from '@/server/auth/guards'
+import { canEditMedia } from '@/server/media-access'
 import { listMediaOptions, listMediaStaffUsers } from '@/server/queries/media'
 
 export default async function NewMediaPage() {
   const user = await getSessionUser()
-  if (!user || user.role === 'viewer') redirect('/media')
+  if (!(await canEditMedia(user))) redirect('/media')
   const [options, users] = await Promise.all([listMediaOptions(), listMediaStaffUsers()])
   return (
     <div>
