@@ -182,6 +182,9 @@ test('매체관리(2026-11-02) — 메뉴·목록 114건·삼연빌딩 가격 �
   await page.goto('/media')
   await expect(page.getByRole('heading', { name: '매체관리' })).toBeVisible()
   await expect(page.locator('[data-slot=media-count]')).toContainText('114')
+  // 11/09 — 가격 칸 3개
+  const heads = await page.locator('thead th').allInnerTexts()
+  expect(heads).toEqual(expect.arrayContaining(['매입가', '입금가(Net)', '판매가(Gross)']))
   await page.getByRole('link', { name: '삼연빌딩' }).click()
   await page.waitForURL(/\/media\/\d+/)
   await expect(page.locator('[data-price-type=net] [data-slot=price-line]')).toHaveCount(4)
