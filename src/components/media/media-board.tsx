@@ -41,11 +41,39 @@ function haystack(m: MediaRow) {
     .toLowerCase()
 }
 
-/** 목록에 보이는 대표 가격 — 입금가 첫 줄, 없으면 판매가 */
-function mainPrice(m: MediaRow) {
-  const net = m.prices.filter((p) => p.type === 'net')
-  const lines = net.length ? net : m.prices.filter((p) => p.type === 'sale')
-  return { first: lines[0], more: lines.length - 1, kind: net.length ? '입금가' : '판매가' }
+/** 가격 칸 3개 — 매입가 · 입금가(Net) · 판매가(Gross) (2026-11-09 요청, 매입가가 가장 중요해서 굵게) */
+const PRICE_COLS = [
+  { type: 'landlord', label: '매입가', bold: true },
+  { type: 'net', label: '입금가(Net)', bold: false },
+  { type: 'sale', label: '판매가(Gross)', bold: false },
+] as const
+
+function PriceCell({ m, type, bold }: { m: MediaRow; type: (typeof PRICE_COLS)[number]['type']; bold: boolean }) {
+  const lines = m.prices.filter((p) => p.type === type)
+  const first = lines[0]
+  return (
+    <TableCell
+      data-col={`price-${type}`}
+      className="max-w-36 text-right text-[12.5px]"
+      title={lines.map((p) => `${p.label ?? ''} ${p.amount == null ? (p.note ?? '-') : formatMan(p.amount)}`.trim()).join('\n') || undefined}
+    >
+      {first ? (
+        <>
+          {/* 면·기간은 금액 위 작은 줄로 — 칸 3개가 좁은 화면에도 들어가게 */}
+          {first.label && <div className="text-[11px] leading-tight text-muted-foreground">{first.label}</div>}
+          {first.amount == null ? (
+            <span className="text-[11.5px] text-muted-foreground">{first.note ?? '-'}</span>
+          ) : (
+            <span className={cn('whitespace-nowrap font-mono tabular-nums', bold && 'font-bold text-foreground')}>{formatMan(first.amount)}</span>
+          )}
+          {first.approx && <span className="text-muted-foreground"> 전후</span>}
+          {lines.length > 1 && <span className="ml-1 whitespace-nowrap text-[11px] text-muted-foreground">외 {lines.length - 1}</span>}
+        </>
+      ) : (
+        <span className="text-muted-foreground">-</span>
+      )}
+    </TableCell>
+  )
 }
 
 export function MediaBoard({ rows, editable = false }: { rows: MediaRow[]; editable?: boolean }) {
@@ -159,7 +187,9 @@ export function MediaBoard({ rows, editable = false }: { rows: MediaRow[]; edita
               <TableHead>지역</TableHead>
               <TableHead>매체명</TableHead>
               <TableHead>계약</TableHead>
-              <TableHead className="text-right">가격</TableHead>
+              {PRICE_COLS.map((c) => (
+                <TableHead key={c.type} className={cn('text-right', c.bold && 'font-bold text-foreground')}>{c.label}</TableHead>
+              ))}
               <TableHead>매체 담당자</TableHead>
               <TableHead>사내 담당</TableHead>
               <TableHead>시공사</TableHead>
@@ -171,13 +201,12 @@ export function MediaBoard({ rows, editable = false }: { rows: MediaRow[]; edita
           <TableBody>
             {shown.length === 0 && (
               <TableRow>
-                <TableCell colSpan={editable ? 11 : 10} className="py-12 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={editable ? 13 : 12} className="py-12 text-center text-sm text-muted-foreground">
                   {rows.length ? '조건에 맞는 매체가 없습니다' : '등록된 매체가 없습니다'}
                 </TableCell>
               </TableRow>
             )}
             {shown.map((m) => {
-              const price = mainPrice(m)
               const expired = contractExpired(m.contractEnd)
               const contact = m.contacts[0]
               return (
@@ -199,19 +228,7 @@ export function MediaBoard({ rows, editable = false }: { rows: MediaRow[]; edita
                     )}
                     {expired && <span className="ml-1 rounded-full bg-destructive/10 px-1.5 py-0.5 text-[11px] font-medium text-destructive">만료</span>}
                   </TableCell>
-                  <TableCell className="whitespace-nowrap text-right text-[12.5px]" title={m.prices.map((p) => `${p.label ?? ''} ${formatMan(p.amount)}`).join('\n')}>
-                    {price.first ? (
-                      <>
-                        <span className="mr-1 text-[11px] text-muted-foreground">{price.kind}</span>
-                        {price.first.label && <span className="mr-1 text-muted-foreground">{price.first.label}</span>}
-                        <span className="font-mono tabular-nums">{price.first.amount == null ? (price.first.note ?? '-') : formatMan(price.first.amount)}</span>
-                        {price.first.approx && <span className="text-muted-foreground"> 전후</span>}
-                        {price.more > 0 && <span className="ml-1 text-[11px] text-muted-foreground">외 {price.more}</span>}
-                      </>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
+                  {PRICE_COLS.map((c) => <PriceCell key={c.type} m={m} type={c.type} bold={c.bold} />)}
                   <TableCell className="max-w-48 whitespace-normal break-keep text-[12.5px]">
                     {contact ? (
                       <>
