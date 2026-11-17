@@ -127,7 +127,8 @@ function useInlineSave(dealId: string) {
         return
       }
       apply(dealId, res.row)
-      if (field === 'salesAmountNet' || field === 'purchaseAmountNet') refreshCards()
+      // 결산일을 지우거나 넣으면 위 합계의 매입·손익이 바뀐다 (결산인데 결산일 '-' = 고정비 건, 2026-11-17)
+      if (field === 'salesAmountNet' || field === 'purchaseAmountNet' || field === 'purchasePaidDate') refreshCards()
     })
   }
   return { pending, save }
