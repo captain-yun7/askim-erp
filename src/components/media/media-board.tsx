@@ -130,7 +130,7 @@ export function MediaBoard({ rows, editable = false }: { rows: MediaRow[]; edita
           <Search className="absolute left-3 top-1/2 size-[15px] -translate-y-1/2 text-muted-foreground" />
           <Input
             value={query}
-            placeholder="매체명, 매체번호, 담당자, 연락처, 시공사 검색..."
+            placeholder={editable ? '매체명, 매체번호, 담당자, 연락처, 시공사 검색...' : '매체명, 매체번호, 사내 담당, 시공사 검색...'}
             className="h-9 pl-9"
             onChange={(e) => {
               setQuery(e.target.value)
@@ -190,7 +190,8 @@ export function MediaBoard({ rows, editable = false }: { rows: MediaRow[]; edita
               {PRICE_COLS.map((c) => (
                 <TableHead key={c.type} className={cn('text-right', c.bold && 'font-bold text-foreground')}>{c.label}</TableHead>
               ))}
-              <TableHead>매체 담당자</TableHead>
+              {/* 매체 담당자는 편집자에게만 (2026-11-17 요청) */}
+              {editable && <TableHead>매체 담당자</TableHead>}
               <TableHead>사내 담당</TableHead>
               <TableHead>시공사</TableHead>
               <TableHead>상태</TableHead>
@@ -201,7 +202,7 @@ export function MediaBoard({ rows, editable = false }: { rows: MediaRow[]; edita
           <TableBody>
             {shown.length === 0 && (
               <TableRow>
-                <TableCell colSpan={editable ? 13 : 12} className="py-12 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={editable ? 13 : 11} className="py-12 text-center text-sm text-muted-foreground">
                   {rows.length ? '조건에 맞는 매체가 없습니다' : '등록된 매체가 없습니다'}
                 </TableCell>
               </TableRow>
@@ -229,17 +230,19 @@ export function MediaBoard({ rows, editable = false }: { rows: MediaRow[]; edita
                     {expired && <span className="ml-1 rounded-full bg-destructive/10 px-1.5 py-0.5 text-[11px] font-medium text-destructive">만료</span>}
                   </TableCell>
                   {PRICE_COLS.map((c) => <PriceCell key={c.type} m={m} type={c.type} bold={c.bold} />)}
-                  <TableCell className="max-w-48 whitespace-normal break-keep text-[12.5px]">
-                    {contact ? (
-                      <>
-                        {[contact.company, contact.name, contact.title].filter(Boolean).join(' ')}
-                        {contact.phone && <div className="whitespace-nowrap font-mono text-[11.5px] tabular-nums text-muted-foreground">{contact.phone}</div>}
-                        {m.contacts.length > 1 && <span className="text-[11px] text-muted-foreground">외 {m.contacts.length - 1}명</span>}
-                      </>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
+                  {editable && (
+                    <TableCell className="max-w-48 whitespace-normal break-keep text-[12.5px]" data-col="contact">
+                      {contact ? (
+                        <>
+                          {[contact.company, contact.name, contact.title].filter(Boolean).join(' ')}
+                          {contact.phone && <div className="whitespace-nowrap font-mono text-[11.5px] tabular-nums text-muted-foreground">{contact.phone}</div>}
+                          {m.contacts.length > 1 && <span className="text-[11px] text-muted-foreground">외 {m.contacts.length - 1}명</span>}
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                  )}
                   <TableCell className="max-w-32 whitespace-normal break-keep text-[12.5px]">
                     {[...m.staff.map((s) => s.name), m.staffNote].filter(Boolean).join(', ') || '-'}
                   </TableCell>

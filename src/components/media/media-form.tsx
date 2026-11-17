@@ -223,6 +223,8 @@ export function MediaForm({
           </CardContent>
         </Card>
 
+        {/* 매체 담당자는 편집자에게만 (2026-11-17 요청) — 뷰어는 서버에서도 내려받지 않는다 */}
+        {!readOnly && (
         <Card>
           <CardContent className="space-y-3 pt-6">
             <div className="flex items-center justify-between">
@@ -253,6 +255,7 @@ export function MediaForm({
             })}
           </CardContent>
         </Card>
+        )}
 
         <Card>
           <CardContent className="grid gap-4 pt-6 md:grid-cols-2">
