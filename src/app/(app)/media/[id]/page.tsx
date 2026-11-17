@@ -9,9 +9,11 @@ import { getMedia, listMediaOptions, listMediaStaffUsers } from '@/server/querie
 export default async function MediaDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   if (!/^\d+$/.test(id)) notFound()
-  const [m, user, options, users] = await Promise.all([getMedia(Number(id)), getSessionUser(), listMediaOptions(), listMediaStaffUsers()])
-  if (!m) notFound()
+  const user = await getSessionUser()
   const readOnly = !(await canEditMedia(user))
+  // 매체 담당자는 편집자에게만 (2026-11-17)
+  const [m, options, users] = await Promise.all([getMedia(Number(id), { withContacts: !readOnly }), listMediaOptions(), listMediaStaffUsers()])
+  if (!m) notFound()
   return (
     <div>
       <div className="border-b px-8 pb-4 pt-6">

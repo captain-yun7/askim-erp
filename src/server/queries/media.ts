@@ -10,12 +10,18 @@ export type MediaRow = Media & {
   staff: { id: string; name: string }[]
 }
 
-async function withChildren(rows: Media[]): Promise<MediaRow[]> {
+/**
+ * 매체 담당자는 사내 중요 정보라 편집자에게만 (2026-11-17 요청) — 뷰어에게는 화면에 숨기는 것만이 아니라 아예 내려보내지 않는다.
+ * withContacts 를 넘기지 않으면 빈 목록.
+ */
+type ChildOpts = { withContacts?: boolean }
+
+async function withChildren(rows: Media[], { withContacts = false }: ChildOpts = {}): Promise<MediaRow[]> {
   if (!rows.length) return []
   const ids = rows.map((r) => r.id)
   const [prices, contacts, vendors, staff] = await Promise.all([
     db.select().from(mediaPrice).where(inArray(mediaPrice.mediaId, ids)).orderBy(asc(mediaPrice.sortOrder), asc(mediaPrice.id)),
-    db.select().from(mediaContact).where(inArray(mediaContact.mediaId, ids)).orderBy(asc(mediaContact.sortOrder), asc(mediaContact.id)),
+    withContacts ? db.select().from(mediaContact).where(inArray(mediaContact.mediaId, ids)).orderBy(asc(mediaContact.sortOrder), asc(mediaContact.id)) : Promise.resolve([] as MediaContact[]),
     db.select().from(mediaVendor).where(inArray(mediaVendor.mediaId, ids)).orderBy(asc(mediaVendor.sortOrder), asc(mediaVendor.id)),
     db
       .select({ mediaId: mediaStaff.mediaId, id: users.id, name: users.name })
@@ -39,22 +45,22 @@ async function withChildren(rows: Media[]): Promise<MediaRow[]> {
   }))
 }
 
-export async function listMedia(): Promise<MediaRow[]> {
+export async function listMedia(opts: ChildOpts = {}): Promise<MediaRow[]> {
   const rows = await db
     .select()
     .from(media)
     .where(and(eq(media.entity, await getCurrentEntity()), isNull(media.deletedAt)))
     .orderBy(asc(media.code))
-  return withChildren(rows)
+  return withChildren(rows, opts)
 }
 
-export async function getMedia(id: number): Promise<MediaRow | null> {
+export async function getMedia(id: number, opts: ChildOpts = {}): Promise<MediaRow | null> {
   const [row] = await db
     .select()
     .from(media)
     .where(and(eq(media.id, id), eq(media.entity, await getCurrentEntity()), isNull(media.deletedAt)))
     .limit(1)
-  return row ? (await withChildren([row]))[0] : null
+  return row ? (await withChildren([row], opts))[0] : null
 }
 
 export async function listMediaOptions() {
