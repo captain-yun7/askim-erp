@@ -78,3 +78,43 @@ test('거래 목록 — 결산인데 결산일이 비어 있으면 위 합계의
   await expect(card('매입 합계')).toContainText('800,000')
   await expect(card('손익')).toContainText('900,000')
 })
+
+test('11/17 — 결산 건의 결산일에 \'-\' 를 넣으면 날짜만 지워지고 결산은 그대로, 위 합계에서 매입이 빠진다', async ({ page }) => {
+  sqlRun(`update deal set purchase_paid_status='completed', purchase_paid_date='2026-10-15' where deal_code like 'E2E1109-%' and deal_code <> 'E2E1109-OPEN'`)
+  await login(page)
+  await page.goto('/deals?year=all&q=E2E1109')
+  await expect(page.locator('tbody tr[data-row-id]')).toHaveCount(3)
+  const card = (label: string) => page.locator(`[data-card="${label}"]`)
+  await expect(card('매입 합계')).toContainText('800,000')
+
+  const row = page.locator('tbody tr[data-row-id]').filter({ hasText: 'E2E1109-FIXED' })
+  await row.locator('[data-inline-field=purchasePaidDate]').click()
+  const input = row.getByLabel('purchasePaidDate 입력')
+  await input.fill('-')
+  await input.press('Enter')
+  await expect(page.getByText('날짜를 알 수 없습니다')).toHaveCount(0)
+  await expect(row.locator('[data-inline-field=purchasePaidDate]')).toHaveText('-')
+  await expect(row.locator('[data-paid-side=purchase]')).toHaveText('결산')
+  expect(JSON.parse(sqlRun(`select purchase_paid_status::text s, purchase_paid_date d from deal where deal_code='E2E1109-FIXED'`))[0]).toEqual({ s: 'completed', d: null })
+
+  // 새로고침하면 위 합계에서 FIXED 매입(30만)이 빠진다
+  await page.reload()
+  await expect(card('매입 합계')).toContainText('500,000')
+  await expect(card('손익')).toContainText('1,200,000')
+})
+
+test('11/17 — 수정 화면에서 결산일을 지워도 결산여부는 결산 그대로', async ({ page }) => {
+  sqlRun(`update deal set purchase_paid_status='completed', purchase_paid_date='2026-10-15' where deal_code='E2E1109-PAID'`)
+  const [{ id }] = JSON.parse(sqlRun(`select id from deal where deal_code='E2E1109-PAID'`))
+  await login(page)
+  await page.goto(`/deals/${id}`)
+  const date = page.getByLabel('purchasePaidDate')
+  await expect(date).toHaveValue('2026-10-15')
+  await date.fill('-')
+  await date.press('Enter')
+  await expect(date).toHaveValue('')
+  await expect(page.getByText('날짜를 알 수 없습니다')).toHaveCount(0)
+  await page.getByRole('button', { name: '확정저장' }).click()
+  await expect(page.getByText('저장되었습니다')).toBeVisible()
+  await expect.poll(() => JSON.parse(sqlRun(`select purchase_paid_status::text s, purchase_paid_date d from deal where deal_code='E2E1109-PAID'`))[0]).toEqual({ s: 'completed', d: null })
+})
