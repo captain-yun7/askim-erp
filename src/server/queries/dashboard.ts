@@ -3,6 +3,7 @@ import { db } from '@/lib/db/client'
 import { getCurrentEntity } from '@/server/entity'
 import { hasPurchase, hasSales } from '@/server/queries/deals'
 import { deal, dealCategory, users } from '@/lib/db/schema'
+import { countsAsPurchase, profitSum } from '@/server/queries/fixed-cost'
 
 function num(v: string | null) {
   return parseFloat(v ?? '0') || 0
@@ -19,8 +20,9 @@ export async function getDashboard() {
 
   const sums = {
     sales: sql<string>`coalesce(sum(${deal.salesAmountNet}), 0)::text`,
-    purchase: sql<string>`coalesce(sum(${deal.purchaseAmountNet}), 0)::text`,
-    profit: sql<string>`coalesce(sum(${deal.profit}), 0)::text`,
+    // 결산인데 결산일 '-' 인 고정비 건은 매입에서 빼고 손익에 되돌림 (2026-11-17)
+    purchase: sql<string>`coalesce(sum(${deal.purchaseAmountNet}) filter (where ${countsAsPurchase}), 0)::text`,
+    profit: sql<string>`${profitSum}::text`,
   }
 
   const [[monthAggr], [yearAggr], [overdueIn], [overdueOut], recent] =
