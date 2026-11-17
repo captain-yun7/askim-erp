@@ -3,6 +3,7 @@ import { db } from '@/lib/db/client'
 import { getCurrentEntity } from '@/server/entity'
 import { annualPlan, cashBalance, deal, dealCategory, salesTarget } from '@/lib/db/schema'
 import { PLAN_GROUPS, type PlanGroupCode, type Priority } from '@/lib/plan-groups'
+import { profitSum } from '@/server/queries/fixed-cost'
 
 /**
  * 매출목표 및 현금흐름 — 엑셀 '26년 plan' 시트
@@ -58,7 +59,7 @@ export async function getPlanReport({ year }: { year: number }): Promise<PlanRep
       .select({
         categoryId: deal.categoryId,
         achieved: sql<string>`coalesce(sum(${deal.salesAmountNet}), 0)::text`,
-        profit: sql<string>`coalesce(sum(${deal.profit}), 0)::text`,
+        profit: sql<string>`${profitSum}::text`, // 고정비 결산 건 매입은 손익에 되돌림 (2026-11-17)
       })
       .from(deal)
       .where(and(eq(deal.entity, entity), isNull(deal.deletedAt), eq(deal.accrualYear, year)))

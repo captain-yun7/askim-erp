@@ -2,6 +2,7 @@ import { and, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
 import { getCurrentEntity } from '@/server/entity'
 import { counterparty, deal } from '@/lib/db/schema'
+import { profitSum as fixedCostProfitSum } from '@/server/queries/fixed-cost'
 
 export type TopSort = 'sales' | 'profit'
 
@@ -30,7 +31,7 @@ export async function getTopCounterparties(
 
   // 매출은 VAT 포함(총매출금), 손익은 공급가 (2026-09-15 고객 확정)
   const salesSum = sql`coalesce(sum(coalesce(${deal.salesAmountGross}, ${deal.salesAmountNet})), 0)`
-  const profitSum = sql`coalesce(sum(${deal.profit}), 0)`
+  const profitSum = fixedCostProfitSum // 고정비 결산 건 매입은 손익에 되돌림 (2026-11-17)
   const salesExpr = sql<string>`${salesSum}::text`
   const profitExpr = sql<string>`${profitSum}::text`
 

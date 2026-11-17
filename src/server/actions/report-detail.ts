@@ -9,6 +9,7 @@ import { counterparty, deal, dealCategory, expense, expenseCategory, users } fro
 import { PLAN_GROUPS } from '@/lib/plan-groups'
 import { LEAF_BASIS, sumAmounts, type DrillDetail } from '@/lib/ledger-drill'
 import { canAccessBackoffice, getSessionUser } from '@/server/auth/guards'
+import { countsAsPurchase, fixedCostSettled } from '@/server/queries/fixed-cost'
 
 const input = z.object({
   year: z.coerce.number().int().min(2000).max(2100),
@@ -60,11 +61,12 @@ export async function getReportCellDetail(raw: unknown): Promise<DrillDetail | {
     sales_cash: { side: 'sales', where: and(eq(deal.salesPaidStatus, 'completed'), inMonths(deal.salesPaidDate)), date: sql<string | null>`${deal.salesPaidDate}::text`, dateLabel: '입금일' },
     sales_accrual: { side: 'sales', where: accrualCond, date: accrualLabel, dateLabel: '귀속월' },
     cogs_cash: { side: 'purchase', where: and(eq(deal.purchasePaidStatus, 'completed'), inMonths(deal.purchasePaidDate)), date: sql<string | null>`${deal.purchasePaidDate}::text`, dateLabel: '지급일' },
-    cogs_accrual: { side: 'purchase', where: accrualCond, date: accrualLabel, dateLabel: '귀속월' },
+    // 고정비 결산 건(결산일 '-')은 귀속월 매입·결산 예정에서 빠진다 (2026-11-17) — 리포트 숫자와 같게
+    cogs_accrual: { side: 'purchase', where: and(accrualCond, countsAsPurchase), date: accrualLabel, dateLabel: '귀속월' },
     col_sales_planned: { side: 'sales', where: inMonths(deal.salesDueDate), date: sql<string | null>`${deal.salesDueDate}::text`, dateLabel: '입금예정일' },
     col_sales_collected: { side: 'sales', where: and(eq(deal.salesPaidStatus, 'completed'), inMonths(deal.salesPaidDate)), date: sql<string | null>`${deal.salesPaidDate}::text`, dateLabel: '입금일' },
     col_sales_outstanding: { side: 'sales', where: and(sql`${deal.salesPaidStatus} <> 'completed'`, inMonths(deal.salesDueDate)), date: sql<string | null>`${deal.salesDueDate}::text`, dateLabel: '입금예정일' },
-    col_purchase_planned: { side: 'purchase', where: sql`(${settleYear} = ${year} and ${settleMonth} in ${months})`, date: settleLabel, dateLabel: '결산예정' },
+    col_purchase_planned: { side: 'purchase', where: and(sql`(${settleYear} = ${year} and ${settleMonth} in ${months})`, countsAsPurchase), date: settleLabel, dateLabel: '결산예정' },
     col_purchase_settled: { side: 'purchase', where: and(eq(deal.purchasePaidStatus, 'completed'), inMonths(deal.purchasePaidDate)), date: sql<string | null>`${deal.purchasePaidDate}::text`, dateLabel: '지급일' },
     col_purchase_outstanding: { side: 'purchase', where: and(sql`${deal.purchasePaidStatus} <> 'completed'`, sql`(${settleYear} = ${year} and ${settleMonth} in ${months})`), date: settleLabel, dateLabel: '결산예정' },
   }
@@ -137,8 +139,9 @@ async function planCellDetail(year: number, key: string): Promise<DrillDetail | 
       basisDate: dealCategory.nameKo,
       status: deal.salesPaidStatus,
       sales: deal.salesAmountNet,
-      purchase: deal.purchaseAmountNet,
-      profit: deal.profit,
+      // 사업계획 수익 = 고정비 결산 건 매입을 되돌린 손익 (2026-11-17)
+      purchase: sql<string>`case when ${fixedCostSettled} then 0 else ${deal.purchaseAmountNet} end`,
+      profit: sql<string>`${deal.profit} + case when ${fixedCostSettled} then coalesce(${deal.purchaseAmountNet}, 0) else 0 end`,
     })
     .from(deal)
     .leftJoin(users, eq(users.id, deal.ownerUserId))

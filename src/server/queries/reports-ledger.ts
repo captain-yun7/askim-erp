@@ -3,6 +3,7 @@ import { db } from '@/lib/db/client'
 import { getCurrentEntity } from '@/server/entity'
 import { deal, expense, expenseCategory } from '@/lib/db/schema'
 import type { CostGroup } from '@/lib/cost-groups'
+import { countsAsPurchase } from '@/server/queries/fixed-cost'
 
 /**
  * 매출장표 — 엑셀 '매출장표' 시트 구조 (월 가로 × 항목 세로)
@@ -58,9 +59,10 @@ export async function getSalesLedger({ year }: { year: number }): Promise<Ledger
       .select({
         month: deal.accrualMonth,
         sales: sql<string>`coalesce(sum(${salesGross}), 0)::text`,
-        purchase: sql<string>`coalesce(sum(${purchaseGross}), 0)::text`,
+        // 귀속월 기준 매입에서 고정비 결산 건(결산일 '-') 제외 (2026-11-17). 통장 기준은 결산일이 없어 원래 빠짐
+        purchase: sql<string>`coalesce(sum(${purchaseGross}) filter (where ${countsAsPurchase}), 0)::text`,
         salesNet: sql<string>`coalesce(sum(${deal.salesAmountNet}), 0)::text`,
-        purchaseNet: sql<string>`coalesce(sum(${deal.purchaseAmountNet}), 0)::text`,
+        purchaseNet: sql<string>`coalesce(sum(${deal.purchaseAmountNet}) filter (where ${countsAsPurchase}), 0)::text`,
       })
       .from(deal)
       .where(and(eq(deal.entity, entity), isNull(deal.deletedAt), eq(deal.accrualYear, year)))

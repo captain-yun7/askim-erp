@@ -2,6 +2,7 @@ import { and, eq, isNull, sql, type SQLWrapper } from 'drizzle-orm'
 import { db } from '@/lib/db/client'
 import { getCurrentEntity } from '@/server/entity'
 import { annualPlan, deal } from '@/lib/db/schema'
+import { countsAsPurchase } from '@/server/queries/fixed-cost'
 
 /**
  * 월별 수금·결산 — 엑셀 '월별 수금,결산' 시트
@@ -71,7 +72,8 @@ export async function getMonthlyCollection({ year }: { year: number }): Promise<
     db
       .select({
         month: settleMonth,
-        planned: sql<string>`coalesce(sum(${purchaseGross}), 0)::text`,
+        // 고정비 결산 건(결산일 '-')은 실제로 나가지 않으므로 결산 예정에서 제외 (2026-11-17)
+        planned: sql<string>`coalesce(sum(${purchaseGross}) filter (where ${countsAsPurchase}), 0)::text`,
         outstanding: sql<string>`coalesce(sum(${purchaseGross}) filter (where ${deal.purchasePaidStatus} <> 'completed'), 0)::text`,
       })
       .from(deal)
