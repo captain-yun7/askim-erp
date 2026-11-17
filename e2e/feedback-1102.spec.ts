@@ -107,7 +107,7 @@ test('③ 칸 제목을 누르면 그 칸으로 정렬, 한 번 더 누르면 �
   await expect(page.getByRole('combobox', { name: '정렬 기준' })).toContainText('결산연월일순')
 })
 
-test('④ 결산일을 넣으면 결산, 지우면 미결산', async ({ page }) => {
+test('④ 결산일을 넣으면 결산, 지워도 결산은 그대로 (11/17)', async ({ page }) => {
   await login(page)
   await page.goto('/deals?q=E2E1102-D02')
   await ready(page)
@@ -123,8 +123,9 @@ test('④ 결산일을 넣으면 결산, 지우면 미결산', async ({ page }) 
   await row.locator('[data-inline-field=purchasePaidDate]').click()
   await row.getByLabel('purchasePaidDate 입력').fill('')
   await row.getByLabel('purchasePaidDate 입력').press('Enter')
-  await expect(pill).toHaveText('미결산')
-  expect(JSON.parse(sqlRun(`select purchase_paid_status::text s, purchase_paid_date d from deal where deal_code='E2E1102-D02'`))[0]).toEqual({ s: 'pending', d: null })
+  await expect(row.locator('[data-inline-field=purchasePaidDate]')).toHaveText('-')
+  await expect(pill).toHaveText('결산')
+  expect(JSON.parse(sqlRun(`select purchase_paid_status::text s, purchase_paid_date d from deal where deal_code='E2E1102-D02'`))[0]).toEqual({ s: 'completed', d: null })
 })
 
 test('⑤ 매출 쪽·매입 쪽 날짜 칸 제목, 입금·결산 표시가 서로 다른 색', async ({ page }) => {

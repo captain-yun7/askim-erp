@@ -624,9 +624,8 @@ export function DealForm({
                     value={form.purchasePaidDate}
                     onChange={(v) => {
                       set('purchasePaidDate', v)
-                      // 지급일(결산일)을 넣으면 결산여부 완료, 지우면 미결산 (2026-11-02 요청)
+                      // 지급일(결산일)을 넣으면 결산여부 완료 (2026-11-02 요청). 지워도 결산은 그대로 (11-17)
                       if (v && form.purchasePaidStatus === 'pending') set('purchasePaidStatus', 'completed')
-                      if (!v && form.purchasePaidStatus === 'completed') set('purchasePaidStatus', 'pending')
                     }}
                   />
                 </div>
