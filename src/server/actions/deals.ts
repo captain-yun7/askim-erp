@@ -446,15 +446,8 @@ export async function updateDealInline(
   } else {
     // 외화 거래의 입금일을 고치면 그 날짜 환율로 다시 받는다 (2026-10-12)
     const fx = field === 'salesPaidDate' ? await autoFxRate({ currency: existing.currency, salesPaidDate: value, fxRate: existing.fxRate }, existing) : existing.fxRate
-    // 결산일을 넣으면 결산, 지우면 미결산 (2026-11-02 요청) — 입금/결산 칸 토글과 같은 규칙
-    const settle =
-      field === 'purchasePaidDate'
-        ? value && existing.purchasePaidStatus === 'pending'
-          ? { purchasePaidStatus: 'completed' as const }
-          : !value && existing.purchasePaidStatus === 'completed'
-            ? { purchasePaidStatus: 'pending' as const }
-            : {}
-        : {}
+    // 결산일을 넣으면 결산 (2026-11-02 요청). 지워도 결산은 그대로 — 결산인데 결산일 '-' 는 고정비 처리 건 (2026-11-09·17)
+    const settle = field === 'purchasePaidDate' && value && existing.purchasePaidStatus === 'pending' ? { purchasePaidStatus: 'completed' as const } : {}
     // 입금예정일을 바꾸면 귀속연월도 그 달로 (2026-11-05 요청). 지울 때는 귀속을 그대로 둔다
     const acc = field === 'salesDueDate' ? accrualForDueDate(value) : null
     const accrual = acc && (acc.year !== existing.accrualYear || acc.month !== existing.accrualMonth) ? { accrualYear: acc.year, accrualMonth: acc.month } : {}
