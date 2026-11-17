@@ -11,6 +11,7 @@ import type { DealSort } from '@/lib/deal-sort'
 import { DEFAULT_INCENTIVE_RATE, type IncentiveShare } from '@/lib/incentive'
 import { getSessionUser } from '@/server/auth/guards'
 import { resolveDealScope } from '@/server/auth/deal-scope'
+import { countsAsPurchase, profitSum } from '@/server/queries/fixed-cost'
 import {
   counterparty,
   deal,
@@ -304,9 +305,6 @@ export async function listDeals(f: DealListFilters = {}) {
 
   const where = and(...conds)
 
-  // 결산인데 결산일이 '-' 인 거래 = 고정비로 이미 비용 처리된 매입 (2026-11-09 요청)
-  // → 목록 위 합계에서만 매입을 뺀다. 인센티브 때문에 거래 금액은 그대로 둔다. 리포트는 그대로.
-  const fixedCostSettled = sql`(${deal.purchasePaidStatus} = 'completed' and ${deal.purchasePaidDate} is null)`
 
   // 전월 대비: 귀속연월(year+month)이 모두 지정됐을 때만 직전 달과 비교
   let prev: { sales: number; purchase: number } | null = null
@@ -326,7 +324,7 @@ export async function listDeals(f: DealListFilters = {}) {
     const [prevAggr] = await db
       .select({
         sales: sql<string>`coalesce(sum(${deal.salesAmountNet}), 0)::text`,
-        purchase: sql<string>`coalesce(sum(${deal.purchaseAmountNet}) filter (where not ${fixedCostSettled}), 0)::text`,
+        purchase: sql<string>`coalesce(sum(${deal.purchaseAmountNet}) filter (where ${countsAsPurchase}), 0)::text`,
       })
       .from(deal)
       .where(and(...prevConds))
@@ -346,12 +344,12 @@ export async function listDeals(f: DealListFilters = {}) {
   const [aggr] = await db
     .select({
       sales: sql<string>`coalesce(sum(${deal.salesAmountNet}), 0)::text`,
-      purchase: sql<string>`coalesce(sum(${deal.purchaseAmountNet}) filter (where not ${fixedCostSettled}), 0)::text`,
+      purchase: sql<string>`coalesce(sum(${deal.purchaseAmountNet}) filter (where ${countsAsPurchase}), 0)::text`,
       // VAT 포함 합계 (2026-10-06 요청: 카드에 미포함/포함 따로)
       salesGross: sql<string>`coalesce(sum(coalesce(${deal.salesAmountGross}, ${deal.salesAmountNet})), 0)::text`,
-      purchaseGross: sql<string>`coalesce(sum(coalesce(${deal.purchaseAmountGross}, ${deal.purchaseAmountNet})) filter (where not ${fixedCostSettled}), 0)::text`,
+      purchaseGross: sql<string>`coalesce(sum(coalesce(${deal.purchaseAmountGross}, ${deal.purchaseAmountNet})) filter (where ${countsAsPurchase}), 0)::text`,
       // 합계에서 뺀 매입만큼 손익을 되돌려 더함 (거래 한 줄의 손익·성과급은 그대로)
-      profit: sql<string>`(coalesce(sum(${deal.profit}), 0) + coalesce(sum(${deal.purchaseAmountNet}) filter (where ${fixedCostSettled}), 0))::text`,
+      profit: sql<string>`${profitSum}::text`,
       unpaidCount: sql<number>`(count(*) filter (where ${deal.salesPaidStatus} = 'pending' and ${hasSales}))::int`,
       unpaidAmount: sql<string>`coalesce(sum(${deal.salesAmountNet}) filter (where ${deal.salesPaidStatus} = 'pending' and ${hasSales}), 0)::text`,
     })

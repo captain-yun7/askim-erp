@@ -3,6 +3,7 @@ import { db } from '@/lib/db/client'
 import { getCurrentEntity } from '@/server/entity'
 import { counterparty, deal, dealCategory, users } from '@/lib/db/schema'
 import { clientTypeLabel } from '@/lib/client-type'
+import { countsAsPurchase, profitSum } from '@/server/queries/fixed-cost'
 
 /**
  * 매출분석보고서 (2026-09-28 요청) — 거래 데이터를 피벗처럼 묶어 보여 준다. 모두 귀속월 기준.
@@ -58,9 +59,9 @@ export async function getSalesAnalysis({ year, month }: { year: number; month?: 
   const entity = await getCurrentEntity()
   const period = and(eq(deal.entity, entity), isNull(deal.deletedAt), eq(deal.accrualYear, year), m ? eq(deal.accrualMonth, m) : undefined)
   const sumSales = sql<string>`coalesce(sum(${salesGross}), 0)::text`
-  const sumPurchase = sql<string>`coalesce(sum(${purchaseGross}), 0)::text`
+  const sumPurchase = sql<string>`coalesce(sum(${purchaseGross}) filter (where ${countsAsPurchase}), 0)::text` // 고정비 결산 건 제외 (2026-11-17)
   const hasSales = sql`${salesGross} is not null and ${salesGross} <> 0`
-  const hasPurchase = sql`${purchaseGross} is not null and ${purchaseGross} <> 0`
+  const hasPurchase = sql`${purchaseGross} is not null and ${purchaseGross} <> 0 and ${countsAsPurchase}`
   const n = sql<number>`count(*)::int`
 
   const [clients, categories, owners, suppliers, cumulativeRows] = await Promise.all([
@@ -93,7 +94,7 @@ export async function getSalesAnalysis({ year, month }: { year: number; month?: 
         owner: users.name,
         team: users.team,
         sales: sql<string>`coalesce(sum(${deal.salesAmountNet}), 0)::text`,
-        profit: sql<string>`coalesce(sum(${deal.profit}), 0)::text`,
+        profit: sql<string>`${profitSum}::text`,
       })
       .from(deal)
       .leftJoin(users, eq(users.id, deal.ownerUserId))
