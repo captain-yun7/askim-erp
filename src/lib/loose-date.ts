@@ -1,11 +1,12 @@
 /**
  * 느슨한 날짜 입력 해석 (2026-09-17 피드백: "260917 만 쳐도 2026-09-17").
  *   260917 · 20260917 · 26-9-17 · 2026.09.17 · 2026/9/17 → 'YYYY-MM-DD'
- * 두 자리 연도는 2000년대로 본다. 빈 문자열은 null, 해석 불가·없는 날짜는 'invalid'.
+ * 두 자리 연도는 2000년대로 본다. 빈 문자열·'-' 는 null, 해석 불가·없는 날짜는 'invalid'.
  */
 export function parseLooseDate(raw: string): string | null | 'invalid' {
   const s = raw.trim()
-  if (s === '') return null
+  // '-' 만 넣으면 날짜 지우기 (목록에 비어 있는 날짜를 '-' 로 보여 주므로, 2026-11-17)
+  if (s === '' || /^[-–—−]+$/.test(s)) return null
   let y: number, m: number, d: number
   const digits = s.replace(/\D/g, '')
   if (/^\d+$/.test(s)) {
