@@ -11,8 +11,10 @@ import { listMedia } from '@/server/queries/media'
 
 /** 매체관리 (2026-11-02 요청) — 광고매체 엑셀 + 임대인 시트 정리 기준 */
 export default async function MediaPage() {
-  const [rows, user] = await Promise.all([listMedia(), getSessionUser()])
+  const user = await getSessionUser()
   const editable = await canEditMedia(user)
+  // 매체 담당자는 편집자에게만 (2026-11-17)
+  const rows = await listMedia({ withContacts: editable })
   return (
     <div className="flex flex-col px-8 pb-8 pt-6">
       <div className="flex items-start justify-between">

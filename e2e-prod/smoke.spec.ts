@@ -178,10 +178,13 @@ test('보증금 순서(2026-10-29) — 전속계약 가나다순 다음 보증�
   await expect.poll(async () => (await read()).map((r) => r.name)).toEqual(exp(-1))
 })
 
-test('매체관리(2026-11-02) — 메뉴·목록 114건·삼연빌딩 가격 줄 (읽기만)', async ({ page }) => {
+test('매체관리(2026-11-02) — 메뉴·목록 114건 이상·삼연빌딩 가격 줄·담당자 숨김 (읽기만)', async ({ page }) => {
   await page.goto('/media')
   await expect(page.getByRole('heading', { name: '매체관리' })).toBeVisible()
-  await expect(page.locator('[data-slot=media-count]')).toContainText('114')
+  // 매체는 고객이 계속 추가 — 개수는 114 이상 (11/17 116건)
+  expect(Number((await page.locator('[data-slot=media-count]').innerText()).replace(/\D/g, ''))).toBeGreaterThanOrEqual(114)
+  // 11/17 — 매체 담당자는 편집자에게만 (점검 계정은 viewer)
+  await expect(page.getByRole('columnheader', { name: '매체 담당자' })).toHaveCount(0)
   // 11/09 — 가격 칸 3개
   const heads = await page.locator('thead th').allInnerTexts()
   expect(heads).toEqual(expect.arrayContaining(['매입가', '입금가(Net)', '판매가(Gross)']))
